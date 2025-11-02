@@ -92,13 +92,15 @@ const AfterimageScene = preload("res://afterimage.tscn")
 @export var dash_end_gravity_multiplier: float = 0.6  ## Gravity multiplier after dash ends (0.15s)
 @export var dash_end_duration: float = 0.15  ## Duration of reduced gravity after dash
 
-# DASH-THROUGH ATTACK CONFIGURATION
-@export_group("Dash-Through Attack")
-@export var attack_enabled: bool = true  ## Enable dash-through attack mechanics
-@export var attack_detection_range: float = 120.0  ## Range to detect enemies for attack
-@export var attack_dash_speed: float = 800.0  ## Speed of the attack dash
-@export var attack_dash_distance: float = 200.0  ## Distance to dash past the enemy
-@export var attack_cooldown: float = 0.1  ## Cooldown between attacks
+# KICK ATTACK CONFIGURATION
+@export_group("Kick Attack")
+@export var attack_enabled: bool = true  ## Enable kick attack mechanics
+@export var attack_detection_range: float = 80.0  ## Range to detect enemies for attack (smaller range)
+@export var attack_knockback_speed: float = 700.0  ## Speed at which player is knocked back from enemy
+@export var attack_duration: float = 0.2  ## Duration of the attack knockback (seconds)
+@export var attack_momentum_retention: float = 0.6  ## How much momentum is kept after attack (0.0-1.0)
+@export var attack_cooldown: float = 0.2  ## Cooldown between attacks
+@export var attack_enemy_knockback_force: float = 1200.0  ## Force applied to enemy when kicked
 
 # DIVE CONFIGURATION
 @export_group("Dive")
@@ -144,12 +146,12 @@ var ledge_climb_cooldown_timer: float = 0.0  # Cooldown to prevent re-triggering
 var is_attacking: bool = false  # Is player currently performing an attack
 var attack_timer: float = 0.0  # Time elapsed in current attack
 var attack_cooldown_timer: float = 0.0  # Time remaining until next attack can be performed
-var attack_target: Node2D = null  # Current enemy target for attack
-var attack_direction: Vector2 = Vector2.RIGHT  # Direction of the current attack
-var attack_start_pos: Vector2 = Vector2.ZERO  # Starting position of attack dash
-var attack_target_pos: Vector2 = Vector2.ZERO  # Target position for attack dash
+var attack_direction: Vector2 = Vector2.RIGHT  # Direction of the knockback (away from enemy)
+var attack_velocity: Vector2 = Vector2.ZERO  # Velocity during attack knockback
+var attack_target_enemy: Node2D = null  # Enemy being kicked in current attack
 var facing_direction: float = 1.0  # Direction player is facing (1 = right, -1 = left)
 var nearby_enemies: Array[Node2D] = []  # Array of enemies within detection range
+var last_targeted_enemy: Node2D = null  # Previously targeted enemy for outline management
 
 # Dash state variables
 var is_dashing: bool = false  # Is player currently in active dash phase
@@ -170,6 +172,8 @@ var dive_pre_landing_horizontal_speed: float = 0.0  # Horizontal speed stored be
 var is_stunned: bool = false  # Is player currently stunned
 var stun_timer: float = 0.0  # Time remaining in stun
 var stun_duration: float = 2.0  # Duration of stun when touching enemy
+var stun_shake_intensity: float = 3.0  # Intensity of shake during stun
+var stun_shake_offset: Vector2 = Vector2.ZERO  # Current shake offset applied to position
 
 # Afterimage state variables
 var afterimage_timer: float = 0.0  # Timer for spawning afterimages
@@ -1066,7 +1070,7 @@ func _ease_out_cubic(t: float) -> float:
 
 
 # ====================================
-# DASH-THROUGH ATTACK
+# KICK ATTACK
 # ====================================
 
 func _update_enemy_detection() -> void:
@@ -1113,9 +1117,15 @@ func _update_enemy_detection() -> void:
 
 
 func _update_attack_indicator() -> void:
-	"""Update the visual indicator showing attack path when near enemies."""
+	"""Update the visual indicator showing knockback direction when near enemies."""
+	# Clear previous targeted enemy outline if it changed
+	if last_targeted_enemy and is_instance_valid(last_targeted_enemy):
+		if last_targeted_enemy.has_method("set_targeted"):
+			last_targeted_enemy.set_targeted(false)
+	
 	if nearby_enemies.is_empty():
 		attack_visual.visible = false
+		last_targeted_enemy = null
 		return
 	
 	# Find the closest enemy (filter out destroyed enemies)
@@ -1132,32 +1142,40 @@ func _update_attack_indicator() -> void:
 			closest_enemy = enemy
 	
 	if closest_enemy:
-		# Calculate attack path
-		var direction = (closest_enemy.global_position - global_position).normalized()
-		var attack_end_pos = closest_enemy.global_position + direction * attack_dash_distance
+		# Set this enemy as targeted (shows shaking red outline)
+		if closest_enemy.has_method("set_targeted"):
+			closest_enemy.set_targeted(true)
+		last_targeted_enemy = closest_enemy
+		
+		# Calculate knockback direction (AWAY from enemy)
+		var direction_to_enemy = (closest_enemy.global_position - global_position).normalized()
+		var knockback_direction = -direction_to_enemy  # Opposite direction
+		
+		# Calculate knockback distance based on speed and duration
+		var knockback_distance = attack_knockback_speed * attack_duration
+		var knockback_end_pos = global_position + knockback_direction * knockback_distance
 		
 		# Convert global positions to local coordinates for Line2D
 		var start_pos = Vector2.ZERO  # Player position in local space
-		var enemy_pos = to_local(closest_enemy.global_position)
-		var end_pos = to_local(attack_end_pos)
+		var end_pos = to_local(knockback_end_pos)
 		
-		# Update visual indicator with local coordinates
+		# Update visual indicator with knockback line (shows where player will fly)
 		attack_indicator.points = PackedVector2Array([
 			start_pos,
-			enemy_pos,
 			end_pos
 		])
 		
-		# Position target marker
+		# Position target marker at closest enemy
 		attack_target_marker.global_position = closest_enemy.global_position
 		
 		attack_visual.visible = true
 	else:
 		attack_visual.visible = false
+		last_targeted_enemy = null
 
 
 func _handle_attack_input() -> void:
-	"""Process dash-through attack input."""
+	"""Process kick attack input."""
 	# Can only attack if not on cooldown and not already attacking
 	if is_attacking or attack_cooldown_timer > 0:
 		return
@@ -1170,7 +1188,7 @@ func _handle_attack_input() -> void:
 
 
 func _start_attack() -> void:
-	"""Initiate a dash-through attack on the closest enemy."""
+	"""Initiate a kick attack that sends player away from the closest enemy."""
 	# Find the closest enemy (filter out destroyed enemies)
 	var closest_enemy = null
 	var closest_distance = INF
@@ -1187,62 +1205,85 @@ func _start_attack() -> void:
 	if not closest_enemy:
 		return
 	
-	# Set up attack
+	# Set up attack state
 	is_attacking = true
 	attack_timer = 0.0
-	attack_target = closest_enemy
-	attack_start_pos = global_position
+	attack_target_enemy = closest_enemy
 	
-	# Calculate attack direction and target position
-	attack_direction = (closest_enemy.global_position - global_position).normalized()
-	attack_target_pos = closest_enemy.global_position + attack_direction * attack_dash_distance
+	# Calculate direction to enemy and knockback direction (AWAY from enemy)
+	var direction_to_enemy = (closest_enemy.global_position - global_position).normalized()
+	attack_direction = -direction_to_enemy  # Player flies AWAY from enemy
 	
-	# Update facing direction
-	facing_direction = sign(attack_direction.x)
+	# Update facing direction toward the enemy (for the kick animation)
+	if direction_to_enemy.x != 0:
+		facing_direction = sign(direction_to_enemy.x)
 	
-	# Set velocity for dash
-	velocity = attack_direction * attack_dash_speed
+	# Set knockback velocity (send player away from enemy)
+	attack_velocity = attack_direction * attack_knockback_speed
+	velocity = attack_velocity
+	
+	# Kick the enemy and send them flying
+	if closest_enemy.has_method("kick"):
+		# Kick enemy in direction away from player
+		var enemy_knockback_direction = direction_to_enemy  # Enemy flies away from player
+		closest_enemy.kick(enemy_knockback_direction, attack_enemy_knockback_force)
 	
 	# Hide attack indicator during attack
 	attack_visual.visible = false
 	
-	# Destroy the enemy when attacking through it
-	if closest_enemy.has_method("destroy"):
-		closest_enemy.destroy()
+	# Cancel other states
+	is_jumping = false
+	is_diving = false
+	is_dashing = false
 	
-	# Could trigger attack effects here (animation, sound, etc.)
+	print("[KICK ATTACK] Started - player knockback direction: ", attack_direction, " speed: ", attack_velocity.length())
+	
+	# Could trigger attack effects here (animation, sound, screen shake, etc.)
 
 
 func _process_attack(delta: float) -> void:
-	"""Update attack state and handle attack dash movement."""
+	"""Update attack state - maintain knockback momentum."""
 	attack_timer += delta
 	
-	# Calculate attack duration based on distance and speed
-	var attack_duration = attack_dash_distance / attack_dash_speed
-	
-	# Check if we've reached the target position or max duration
-	var distance_to_target = global_position.distance_to(attack_target_pos)
-	var progress = attack_timer / attack_duration
-	
-	if distance_to_target < 20.0 or progress >= 1.0:
+	# Check if attack duration has elapsed
+	if attack_timer >= attack_duration:
 		_end_attack()
 		return
 	
-	# Continue dashing toward target
-	velocity = attack_direction * attack_dash_speed
+	# Maintain knockback velocity (allow slight gravity to make it feel more natural)
+	# Apply reduced gravity during attack so it's not completely locked
+	if not is_on_floor():
+		velocity.y += gravity * 0.3 * delta  # 30% gravity during attack
+		velocity.y = min(velocity.y, max_fall_speed)  # Still respect terminal velocity
+	
+	# Keep horizontal momentum from attack
+	velocity.x = attack_velocity.x
+	
+	# Debug output
+	if int(attack_timer * 10) != int((attack_timer - delta) * 10):  # Every 0.1 seconds
+		print("[KICK ATTACK] Knockback - timer: %.2f/%.2f, velocity: %s" % [attack_timer, attack_duration, velocity])
 
 
 func _end_attack() -> void:
-	"""Complete the attack and start cooldown."""
+	"""Complete the attack and preserve momentum."""
 	is_attacking = false
 	attack_timer = 0.0
 	attack_cooldown_timer = attack_cooldown
-	attack_target = null
+	attack_target_enemy = null
 	
-	# Stop horizontal movement, allow gravity to take over
-	velocity.x = 0.0
+	# PRESERVE MOMENTUM: Keep knockback velocity with retention multiplier
+	# This makes the attack feel like it flows into your movement
+	velocity.x = attack_velocity.x * attack_momentum_retention
 	
-	# Could trigger attack end effects here (animation, sound, etc.)
+	# If on ground, maintain more horizontal velocity
+	# If in air, gravity will naturally take over for vertical
+	if is_on_floor():
+		# Ground attack - keep most of horizontal momentum
+		velocity.y = 0.0
+	
+	print("[KICK ATTACK] Ended - final velocity: ", velocity, " (retained ", attack_momentum_retention * 100, "% momentum)")
+	
+	# Could trigger attack end effects here (animation, sound, trail fade, etc.)
 
 
 # ====================================
@@ -1250,12 +1291,18 @@ func _end_attack() -> void:
 # ====================================
 
 func _process_stun(delta: float) -> void:
-	"""Update stun state - player falls to ground and can't move."""
+	"""Update stun state - player falls to ground and can't move, rotates horizontal and shakes."""
+	# Remove previous shake offset before physics
+	global_position -= stun_shake_offset
+	
 	# Apply gravity to make player fall
 	_apply_gravity(delta)
 	
 	# Stop horizontal movement
 	velocity.x = 0.0
+	
+	# Rotate player to horizontal (90 degrees)
+	rotation = PI / 2.0
 	
 	# Visual feedback: make player flash red
 	var flash = sin(stun_timer * 20.0) * 0.5 + 0.5
@@ -1281,8 +1328,15 @@ func _start_stun() -> void:
 
 func _end_stun() -> void:
 	"""End the stun effect."""
+	# Remove any remaining shake offset
+	global_position -= stun_shake_offset
+	stun_shake_offset = Vector2.ZERO
+	
 	is_stunned = false
 	stun_timer = 0.0
+	
+	# Reset rotation to upright
+	rotation = 0.0
 	
 	# Reset visual feedback
 	modulate = Color.WHITE
@@ -1460,6 +1514,16 @@ func _post_movement_updates() -> void:
 	if is_on_ceiling() and velocity.y < 0:
 		velocity.y = 0
 		is_jumping = false
+	
+	# Apply shake effect after physics when stunned
+	if is_stunned:
+		# Generate new shake offset
+		stun_shake_offset = Vector2(
+			randf_range(-stun_shake_intensity, stun_shake_intensity),
+			randf_range(-stun_shake_intensity, stun_shake_intensity)
+		)
+		# Apply shake to position (will be removed at start of next frame)
+		global_position += stun_shake_offset
 
 
 # ====================================

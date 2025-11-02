@@ -26,8 +26,9 @@ ground_acceleration = 1000.0
 ground_deceleration = 1500.0
 air_acceleration = 500.0
 air_deceleration = 1500.0
-jump_velocity = -850.0
-turnaround_multiplier = 2.5
+jump_velocity = -900.0
+max_fall_speed = 1500.0
+turnaround_multiplier = 3.0
 wall_jump_horizontal_velocity = 400.0
 wall_jump_vertical_velocity = -950.0
 wall_run_speed_decay = 150.0
@@ -35,13 +36,20 @@ wall_run_empowered_jump_vertical = -950.0
 dash_speed = 1200.0
 dash_air_speed_multiplier = 0.8
 dash_vertical_multiplier = 0.8
-attack_detection_range = 200.0
-attack_dash_speed = 1000.0
-attack_dash_distance = 400.0
+attack_detection_range = 150.0
+attack_duration = 0.3
+attack_momentum_retention = 0.5
+attack_cooldown = 0.1
 dive_speed = 1600.0
 
 [node name="Enemy" parent="." instance=ExtResource("2_enemy")]
 position = Vector2(127, 124)
+
+[node name="Enemy3" parent="." instance=ExtResource("2_enemy")]
+position = Vector2(1029, 683)
+
+[node name="Enemy4" parent="." instance=ExtResource("2_enemy")]
+position = Vector2(1452, 503)
 
 [node name="Enemy2" parent="." instance=ExtResource("2_enemy")]
 position = Vector2(-53, 196)
