@@ -1,0 +1,285 @@
+[gd_scene load_steps=5 format=3 uid="uid://clfclx5p38xkv"]
+
+[ext_resource type="PackedScene" uid="uid://vv3m4nx6g3jo" path="res://player.tscn" id="1_qj3g4"]
+[ext_resource type="PackedScene" uid="uid://b8x7lam2n4p5q" path="res://enemy.tscn" id="2_enemy"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_ground"]
+size = Vector2(2000, 100)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_platform"]
+size = Vector2(300, 40)
+
+[node name="Level" type="Node2D"]
+
+[node name="Background" type="ColorRect" parent="."]
+z_index = -10
+offset_left = -500.0
+offset_top = -500.0
+offset_right = 4500.0
+offset_bottom = 1500.0
+color = Color(0.529412, 0.745098, 0.878431, 1)
+
+[node name="Player" parent="." instance=ExtResource("1_qj3g4")]
+position = Vector2(200, 300)
+max_speed = 1000.0
+ground_acceleration = 1000.0
+ground_deceleration = 1500.0
+air_acceleration = 500.0
+air_deceleration = 1500.0
+jump_velocity = -850.0
+turnaround_multiplier = 2.5
+wall_jump_horizontal_velocity = 400.0
+wall_jump_vertical_velocity = -950.0
+wall_run_speed_decay = 150.0
+wall_run_empowered_jump_vertical = -950.0
+dash_speed = 1200.0
+dash_air_speed_multiplier = 0.8
+dash_vertical_multiplier = 0.8
+attack_detection_range = 200.0
+attack_dash_speed = 1000.0
+attack_dash_distance = 400.0
+dive_speed = 1600.0
+
+[node name="Enemy" parent="." instance=ExtResource("2_enemy")]
+position = Vector2(127, 124)
+
+[node name="Enemy2" parent="." instance=ExtResource("2_enemy")]
+position = Vector2(-53, 196)
+
+[node name="Platforms" type="Node2D" parent="."]
+
+[node name="Ground" type="StaticBody2D" parent="Platforms"]
+position = Vector2(576, 900)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platforms/Ground"]
+shape = SubResource("RectangleShape2D_ground")
+
+[node name="Polygon2D" type="Polygon2D" parent="Platforms/Ground"]
+color = Color(0.333333, 0.25098, 0.0941176, 1)
+polygon = PackedVector2Array(-1000, -50, 1000, -50, 1000, 50, -1000, 50)
+
+[node name="Ground2" type="StaticBody2D" parent="Platforms"]
+position = Vector2(2576, 900)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platforms/Ground2"]
+shape = SubResource("RectangleShape2D_ground")
+
+[node name="Polygon2D" type="Polygon2D" parent="Platforms/Ground2"]
+color = Color(0.333333, 0.25098, 0.0941176, 1)
+polygon = PackedVector2Array(-1000, -50, 1000, -50, 1000, 50, -1000, 50)
+
+[node name="StartPlatform" type="StaticBody2D" parent="Platforms"]
+position = Vector2(200, 400)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platforms/StartPlatform"]
+shape = SubResource("RectangleShape2D_platform")
+
+[node name="Polygon2D" type="Polygon2D" parent="Platforms/StartPlatform"]
+color = Color(0.54902, 0.431373, 0.164706, 1)
+polygon = PackedVector2Array(-150, -20, 150, -20, 150, 20, -150, 20)
+
+[node name="Platform5" type="StaticBody2D" parent="Platforms"]
+position = Vector2(1650, 420)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platforms/Platform5"]
+shape = SubResource("RectangleShape2D_platform")
+
+[node name="Polygon2D" type="Polygon2D" parent="Platforms/Platform5"]
+color = Color(0.54902, 0.431373, 0.164706, 1)
+polygon = PackedVector2Array(-150, -20, 150, -20, 150, 20, -150, 20)
+
+[node name="Platform6" type="StaticBody2D" parent="Platforms"]
+position = Vector2(1950, 360)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platforms/Platform6"]
+shape = SubResource("RectangleShape2D_platform")
+
+[node name="Polygon2D" type="Polygon2D" parent="Platforms/Platform6"]
+color = Color(0.54902, 0.431373, 0.164706, 1)
+polygon = PackedVector2Array(-150, -20, 150, -20, 150, 20, -150, 20)
+
+[node name="Platform7" type="StaticBody2D" parent="Platforms"]
+position = Vector2(2250, 300)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platforms/Platform7"]
+shape = SubResource("RectangleShape2D_platform")
+
+[node name="Polygon2D" type="Polygon2D" parent="Platforms/Platform7"]
+color = Color(0.54902, 0.431373, 0.164706, 1)
+polygon = PackedVector2Array(-150, -20, 150, -20, 150, 20, -150, 20)
+
+[node name="Platform8" type="StaticBody2D" parent="Platforms"]
+position = Vector2(2550, 250)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platforms/Platform8"]
+shape = SubResource("RectangleShape2D_platform")
+
+[node name="Polygon2D" type="Polygon2D" parent="Platforms/Platform8"]
+color = Color(0.54902, 0.431373, 0.164706, 1)
+polygon = PackedVector2Array(-150, -20, 150, -20, 150, 20, -150, 20)
+
+[node name="Platform9" type="StaticBody2D" parent="Platforms"]
+position = Vector2(2850, 200)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platforms/Platform9"]
+shape = SubResource("RectangleShape2D_platform")
+
+[node name="Polygon2D" type="Polygon2D" parent="Platforms/Platform9"]
+color = Color(0.54902, 0.431373, 0.164706, 1)
+polygon = PackedVector2Array(-150, -20, 150, -20, 150, 20, -150, 20)
+
+[node name="Platform10" type="StaticBody2D" parent="Platforms"]
+position = Vector2(3150, 150)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platforms/Platform10"]
+shape = SubResource("RectangleShape2D_platform")
+
+[node name="Polygon2D" type="Polygon2D" parent="Platforms/Platform10"]
+color = Color(0.54902, 0.431373, 0.164706, 1)
+polygon = PackedVector2Array(-150, -20, 150, -20, 150, 20, -150, 20)
+
+[node name="HighPlatform1" type="StaticBody2D" parent="Platforms"]
+position = Vector2(577, 200)
+scale = Vector2(1, 18.4)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platforms/HighPlatform1"]
+shape = SubResource("RectangleShape2D_platform")
+
+[node name="Polygon2D" type="Polygon2D" parent="Platforms/HighPlatform1"]
+color = Color(0.54902, 0.431373, 0.164706, 1)
+polygon = PackedVector2Array(-150, -20, -1.94153, -20, 150, -20, 150, 20, -150, 20)
+
+[node name="HighPlatform4" type="StaticBody2D" parent="Platforms"]
+position = Vector2(-530, 592)
+scale = Vector2(1, 18.4)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platforms/HighPlatform4"]
+shape = SubResource("RectangleShape2D_platform")
+
+[node name="Polygon2D" type="Polygon2D" parent="Platforms/HighPlatform4"]
+color = Color(0.54902, 0.431373, 0.164706, 1)
+polygon = PackedVector2Array(-150, -20, -1.94153, -20, 150, -20, 150, 20, -150, 20)
+
+[node name="HighPlatform2" type="StaticBody2D" parent="Platforms"]
+position = Vector2(900, 350)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platforms/HighPlatform2"]
+shape = SubResource("RectangleShape2D_platform")
+
+[node name="Polygon2D" type="Polygon2D" parent="Platforms/HighPlatform2"]
+color = Color(0.54902, 0.431373, 0.164706, 1)
+polygon = PackedVector2Array(-150, -20, 150, -20, 150, 20, -150, 20)
+
+[node name="HighPlatform3" type="StaticBody2D" parent="Platforms"]
+position = Vector2(1200, 250)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platforms/HighPlatform3"]
+shape = SubResource("RectangleShape2D_platform")
+
+[node name="Polygon2D" type="Polygon2D" parent="Platforms/HighPlatform3"]
+color = Color(0.54902, 0.431373, 0.164706, 1)
+polygon = PackedVector2Array(-150, -20, 150, -20, 150, 20, -150, 20)
+
+[node name="LongPlatform2" type="StaticBody2D" parent="Platforms"]
+position = Vector2(3400, 450)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platforms/LongPlatform2"]
+position = Vector2(100, 0)
+shape = SubResource("RectangleShape2D_platform")
+
+[node name="CollisionShape2D2" type="CollisionShape2D" parent="Platforms/LongPlatform2"]
+position = Vector2(-100, 0)
+shape = SubResource("RectangleShape2D_platform")
+
+[node name="CollisionShape2D3" type="CollisionShape2D" parent="Platforms/LongPlatform2"]
+position = Vector2(300, 0)
+shape = SubResource("RectangleShape2D_platform")
+
+[node name="Polygon2D" type="Polygon2D" parent="Platforms/LongPlatform2"]
+color = Color(0.54902, 0.431373, 0.164706, 1)
+polygon = PackedVector2Array(-250, -20, 450, -20, 450, 20, -250, 20)
+
+[node name="LowerSection" type="StaticBody2D" parent="Platforms"]
+position = Vector2(2200, 750)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platforms/LowerSection"]
+shape = SubResource("RectangleShape2D_platform")
+
+[node name="Polygon2D" type="Polygon2D" parent="Platforms/LowerSection"]
+color = Color(0.54902, 0.431373, 0.164706, 1)
+polygon = PackedVector2Array(-150, -20, 150, -20, 150, 20, -150, 20)
+
+[node name="LowerSection2" type="StaticBody2D" parent="Platforms"]
+position = Vector2(2600, 700)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platforms/LowerSection2"]
+shape = SubResource("RectangleShape2D_platform")
+
+[node name="Polygon2D" type="Polygon2D" parent="Platforms/LowerSection2"]
+color = Color(0.54902, 0.431373, 0.164706, 1)
+polygon = PackedVector2Array(-150, -20, 150, -20, 150, 20, -150, 20)
+
+[node name="LowerSection3" type="StaticBody2D" parent="Platforms"]
+position = Vector2(3000, 650)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platforms/LowerSection3"]
+shape = SubResource("RectangleShape2D_platform")
+
+[node name="Polygon2D" type="Polygon2D" parent="Platforms/LowerSection3"]
+color = Color(0.54902, 0.431373, 0.164706, 1)
+polygon = PackedVector2Array(-150, -20, 150, -20, 150, 20, -150, 20)
+
+[node name="VerticalChallenge1" type="StaticBody2D" parent="Platforms"]
+position = Vector2(3500, 700)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platforms/VerticalChallenge1"]
+shape = SubResource("RectangleShape2D_platform")
+
+[node name="Polygon2D" type="Polygon2D" parent="Platforms/VerticalChallenge1"]
+color = Color(0.54902, 0.431373, 0.164706, 1)
+polygon = PackedVector2Array(-150, -20, 150, -20, 150, 20, -150, 20)
+
+[node name="VerticalChallenge2" type="StaticBody2D" parent="Platforms"]
+position = Vector2(3700, 600)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platforms/VerticalChallenge2"]
+shape = SubResource("RectangleShape2D_platform")
+
+[node name="Polygon2D" type="Polygon2D" parent="Platforms/VerticalChallenge2"]
+color = Color(0.54902, 0.431373, 0.164706, 1)
+polygon = PackedVector2Array(-150, -20, 150, -20, 150, 20, -150, 20)
+
+[node name="VerticalChallenge3" type="StaticBody2D" parent="Platforms"]
+position = Vector2(3900, 500)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platforms/VerticalChallenge3"]
+shape = SubResource("RectangleShape2D_platform")
+
+[node name="Polygon2D" type="Polygon2D" parent="Platforms/VerticalChallenge3"]
+color = Color(0.54902, 0.431373, 0.164706, 1)
+polygon = PackedVector2Array(-150, -20, 150, -20, 150, 20, -150, 20)
+
+[node name="VerticalChallenge4" type="StaticBody2D" parent="Platforms"]
+position = Vector2(4100, 400)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platforms/VerticalChallenge4"]
+shape = SubResource("RectangleShape2D_platform")
+
+[node name="Polygon2D" type="Polygon2D" parent="Platforms/VerticalChallenge4"]
+color = Color(0.54902, 0.431373, 0.164706, 1)
+polygon = PackedVector2Array(-150, -20, 150, -20, 150, 20, -150, 20)
+
+[node name="TopPlatform" type="StaticBody2D" parent="Platforms"]
+position = Vector2(4100, 100)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platforms/TopPlatform"]
+position = Vector2(100, 0)
+shape = SubResource("RectangleShape2D_platform")
+
+[node name="CollisionShape2D2" type="CollisionShape2D" parent="Platforms/TopPlatform"]
+position = Vector2(-100, 0)
+shape = SubResource("RectangleShape2D_platform")
+
+[node name="Polygon2D" type="Polygon2D" parent="Platforms/TopPlatform"]
+color = Color(0.811765, 0.647059, 0.25098, 1)
+polygon = PackedVector2Array(-250, -20, 250, -20, 250, 20, -250, 20)

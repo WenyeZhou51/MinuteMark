@@ -1,0 +1,58 @@
+[gd_scene load_steps=3 format=3 uid="uid://vv3m4nx6g3jo"]
+
+[ext_resource type="Script" path="res://player.gd" id="1_2x4rk"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_w6f8y"]
+size = Vector2(32, 64)
+
+[node name="Player" type="CharacterBody2D"]
+script = ExtResource("1_2x4rk")
+max_speed = 500.0
+ground_acceleration = 1400.0
+ground_deceleration = 1000.0
+jump_velocity = -700.0
+jump_early_release_multiplier = 3.0
+max_fall_speed = 1000.0
+jump_peak_hangtime_multiplier = 0.5
+jump_peak_threshold = 10.0
+turnaround_multiplier = 3.5
+corner_correction_distance = 10.0
+ledge_climb_enabled = false
+ledge_climb_detection_height = 10.0
+ledge_climb_duration = 0.2
+wall_slide_speed = 200.0
+wall_jump_horizontal_velocity = 600.0
+wall_jump_vertical_velocity = -800.0
+wall_run_speed_decay = 400.0
+dash_speed = 1000.0
+dash_vertical_multiplier = 0.5
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_w6f8y")
+
+[node name="Visual" type="Polygon2D" parent="."]
+color = Color(0.290196, 0.639216, 1, 1)
+polygon = PackedVector2Array(-16, -32, 16, -32, 16, 32, -16, 32)
+
+[node name="CoyoteTimer" type="Timer" parent="."]
+wait_time = 0.15
+one_shot = true
+
+[node name="JumpBufferTimer" type="Timer" parent="."]
+wait_time = 0.1
+one_shot = true
+
+[node name="AttackVisual" type="Node2D" parent="."]
+visible = false
+
+[node name="AttackIndicator" type="Line2D" parent="AttackVisual"]
+width = 3.0
+default_color = Color(1, 0.2, 0.2, 0.8)
+
+[node name="AttackTarget" type="Marker2D" parent="AttackVisual"]
+
+[node name="Camera2D" type="Camera2D" parent="."]
+zoom = Vector2(2, 2)
+process_callback = 0
+position_smoothing_enabled = true
+position_smoothing_speed = 8.0
