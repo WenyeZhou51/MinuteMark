@@ -5,7 +5,7 @@
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_w6f8y"]
 size = Vector2(32, 64)
 
-[node name="Player" type="CharacterBody2D"]
+[node name="Player" type="CharacterBody2D" groups=["player"]]
 script = ExtResource("1_2x4rk")
 max_speed = 500.0
 ground_acceleration = 1400.0

@@ -1,7 +1,16 @@
-[gd_scene load_steps=5 format=3 uid="uid://clfclx5p38xkv"]
+[gd_scene load_steps=8 format=3 uid="uid://clfclx5p38xkv"]
 
 [ext_resource type="PackedScene" uid="uid://vv3m4nx6g3jo" path="res://player.tscn" id="1_qj3g4"]
 [ext_resource type="PackedScene" uid="uid://b8x7lam2n4p5q" path="res://enemy.tscn" id="2_enemy"]
+[ext_resource type="Script" path="res://background_camera_3d.gd" id="3_bg_cam"]
+[ext_resource type="PackedScene" uid="uid://5u2ss0aume2a" path="res://Models/background.glb" id="4_bg_model"]
+
+[sub_resource type="Environment" id="Environment_bg"]
+background_mode = 1
+background_color = Color(0.529412, 0.745098, 0.878431, 1)
+ambient_light_source = 2
+ambient_light_color = Color(1, 1, 1, 1)
+ambient_light_energy = 0.5
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_ground"]
 size = Vector2(2000, 100)
@@ -11,13 +20,36 @@ size = Vector2(300, 40)
 
 [node name="Level" type="Node2D"]
 
-[node name="Background" type="ColorRect" parent="."]
+[node name="Background3D" type="SubViewportContainer" parent="."]
 z_index = -10
 offset_left = -500.0
 offset_top = -500.0
 offset_right = 4500.0
 offset_bottom = 1500.0
-color = Color(0.529412, 0.745098, 0.878431, 1)
+stretch = true
+
+[node name="SubViewport" type="SubViewport" parent="Background3D"]
+handle_input_locally = false
+size = Vector2i(5000, 2000)
+render_target_update_mode = 4
+
+[node name="Camera3D" type="Camera3D" parent="Background3D/SubViewport"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 20)
+script = ExtResource("3_bg_cam")
+parallax_strength = 0.01
+vertical_parallax_strength = 0.0
+base_distance = 20.0
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="Background3D/SubViewport"]
+environment = SubResource("Environment_bg")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="Background3D/SubViewport"]
+transform = Transform3D(0.866025, -0.433013, 0.25, 0, 0.5, 0.866025, -0.5, -0.75, 0.433013, 0, 10, 8)
+light_energy = 1.2
+shadow_enabled = true
+
+[node name="BackgroundModel" parent="Background3D/SubViewport" instance=ExtResource("4_bg_model")]
+transform = Transform3D(-0.0560131, 0, -0.99843, 0, 1, 0, 0.99843, 0, -0.0560131, 5.19527, -16.2994, -10.6923)
 
 [node name="Player" parent="." instance=ExtResource("1_qj3g4")]
 position = Vector2(200, 300)
