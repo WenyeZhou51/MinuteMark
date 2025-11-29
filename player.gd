@@ -84,13 +84,19 @@ const AfterimageScene = preload("res://afterimage.tscn")
 # DASH CONFIGURATION
 @export_group("Dash")
 @export var dash_enabled: bool = true  ## Enable dash mechanics
-@export var dash_speed: float = 450.0  ## Speed during ground dash (all directions)
-@export var dash_air_speed_multiplier: float = 0.75  ## Speed multiplier for aerial dashes (75% of ground dash)
-@export var dash_vertical_multiplier: float = 0.8  ## Multiplier for vertical dash component (reduces upward/downward distance)
-@export var dash_aerial_vertical_boost: float = -150.0  ## Upward velocity boost when dashing in the air
-@export var dash_duration: float = 0.15  ## Duration of active dash phase (locked velocity)
-@export var dash_end_gravity_multiplier: float = 0.6  ## Gravity multiplier after dash ends (0.15s)
-@export var dash_end_duration: float = 0.15  ## Duration of reduced gravity after dash
+
+@export_subgroup("Ground Slide")
+@export var ground_slide_speed: float = 1500.0  ## Speed during ground slide
+@export var ground_slide_duration: float = 0.5  ## Duration of ground slide in seconds
+@export var ground_slide_height_reduction: float = 0.5  ## Height reduction during slide (0.5 = 50% height)
+@export var ground_slide_cooldown: float = 1.0  ## Cooldown between ground slides
+@export var ground_slide_end_speed: float = 1000.0  ## Speed after slide ends
+@export var ground_slide_empowered_jump_multiplier: float = 1.5  ## Jump height multiplier when jumping out of slide
+
+@export_subgroup("Air Dash")
+@export var air_dash_speed: float = 1200.0  ## Horizontal speed during air dash
+@export var air_dash_duration: float = 0.2  ## Duration of air dash in seconds
+@export var air_dash_cooldown: float = 0.35  ## Cooldown between air dashes
 
 # KICK ATTACK CONFIGURATION
 @export_group("Kick Attack")
@@ -154,13 +160,17 @@ var nearby_enemies: Array[Node2D] = []  # Array of enemies within detection rang
 var last_targeted_enemy: Node2D = null  # Previously targeted enemy for outline management
 
 # Dash state variables
-var is_dashing: bool = false  # Is player currently in active dash phase
-var dash_available: bool = true  # Can player perform a dash
-var dash_timer: float = 0.0  # Time elapsed in current dash phase
-var dash_direction: Vector2 = Vector2.ZERO  # Direction vector of dash (8-directional)
-var dash_velocity: Vector2 = Vector2.ZERO  # Stored velocity for the dash (includes aerial boost)
-var dash_end_timer: float = 0.0  # Time elapsed in dash end phase (reduced gravity)
-var is_in_dash_end: bool = false  # Is player in dash end phase
+var is_ground_sliding: bool = false  # Is player currently ground sliding
+var is_air_dashing: bool = false  # Is player currently air dashing
+var ground_slide_timer: float = 0.0  # Time elapsed in current ground slide
+var air_dash_timer: float = 0.0  # Time elapsed in current air dash
+var ground_slide_cooldown_timer: float = 0.0  # Cooldown timer for ground slide
+var air_dash_cooldown_timer: float = 0.0  # Cooldown timer for air dash
+var dash_direction: float = 1.0  # Horizontal direction of dash (1 = right, -1 = left)
+var pre_air_dash_horizontal_speed: float = 0.0  # Horizontal speed before air dash
+var original_collision_shape_height: float = 64.0  # Original height of collision shape
+var is_slide_jump_available: bool = false  # Can player perform empowered jump from slide
+var is_invulnerable: bool = false  # Is player currently invulnerable (during dashes)
 var run_input_just_pressed: bool = false  # Track if run input was just pressed this frame
 
 # Dive state variables
@@ -195,6 +205,13 @@ func _ready() -> void:
 	
 	# Connect timer signals
 	jump_buffer_timer.timeout.connect(_on_jump_buffer_timeout)
+	
+	# Store original collision shape height
+	var collision_shape = $CollisionShape2D
+	if collision_shape and collision_shape.shape:
+		var shape = collision_shape.shape as RectangleShape2D
+		if shape:
+			original_collision_shape_height = shape.size.y
 	
 	# Connect to enemy signals
 	_connect_to_enemies()
@@ -246,25 +263,31 @@ func _physics_process(delta: float) -> void:
 	# Track if run input was just pressed this frame (for dash detection)
 	run_input_just_pressed = Input.is_action_just_pressed("run")
 	
-	# Handle dash input (shift press takes priority over run)
-	if dash_enabled and run_input_just_pressed and dash_available and not is_dashing:
-		_start_dash(input_vector)
+	# Update cooldown timers
+	if ground_slide_cooldown_timer > 0:
+		ground_slide_cooldown_timer -= delta
+	if air_dash_cooldown_timer > 0:
+		air_dash_cooldown_timer -= delta
 	
-	# Update dash end phase timer
-	if is_in_dash_end:
-		dash_end_timer += delta
-		if dash_end_timer >= dash_end_duration:
-			is_in_dash_end = false
-			dash_end_timer = 0.0
+	# Handle dash input (shift press takes priority over run)
+	if dash_enabled and run_input_just_pressed and not is_ground_sliding and not is_air_dashing:
+		if is_on_floor() and ground_slide_cooldown_timer <= 0:
+			# Ground slide
+			_start_ground_slide(input_vector.x)
+		elif not is_on_floor() and air_dash_cooldown_timer <= 0:
+			# Air dash
+			_start_air_dash(input_vector.x)
 	
 	# Update run state based on speed (sprint state when speed exceeds threshold)
 	var current_speed = velocity.length()
 	is_running = current_speed > sprint_speed_threshold
 	
-	# Visual feedback: Turn player red when in sprint state, purple when diving, cyan when wall running
+	# Visual feedback: Turn player red when in sprint state, purple when diving, cyan when wall running, yellow when dashing
 	# Stun visual feedback is handled in _process_stun()
 	if not is_stunned:
-		if is_wall_running:
+		if is_ground_sliding or is_air_dashing:
+			modulate = Color(1.5, 1.5, 0.5)  # Yellow tint for dashes (invulnerable)
+		elif is_wall_running:
 			modulate = Color(0.5, 1.5, 1.5)  # Cyan tint for wall run
 		elif is_diving:
 			modulate = Color(1.0, 0.5, 1.5)  # Purple tint
@@ -274,7 +297,7 @@ func _physics_process(delta: float) -> void:
 			modulate = Color.WHITE  # Normal color
 	
 	# Update facing direction based on movement
-	if input_vector.x != 0 and not is_attacking and not is_dashing:
+	if input_vector.x != 0 and not is_attacking and not is_ground_sliding and not is_air_dashing:
 		facing_direction = sign(input_vector.x)
 	
 	# Update attack cooldown timer
@@ -306,15 +329,46 @@ func _physics_process(delta: float) -> void:
 	if wall_jump_enabled:
 		_update_wall_state(input_vector.x, space_state)
 	
-	# 4. Process Dash (if active, skip most normal movement)
-	if is_dashing:
-		_process_dash(delta)
-		# Skip normal physics when dashing
+	# 4. Process Ground Slide (if active, skip most normal movement)
+	if is_ground_sliding:
+		# Check for jump input to cancel slide with empowered jump
+		if Input.is_action_just_pressed("jump"):
+			_perform_jump()  # Will automatically use slide jump bonus
+			move_and_slide()
+			_post_movement_updates()
+			return
+		
+		_process_ground_slide(delta)
+		# Check for wall run during slide
+		if is_on_wall and wall_run_enabled:
+			_start_wall_run(abs(velocity.x))
+		# Skip normal physics when sliding
 		move_and_slide()
 		_post_movement_updates()
 		return
 	
-	# 5. Process Dive (if active, skip most normal movement)
+	# 5. Process Air Dash (if active, skip most normal movement)
+	if is_air_dashing:
+		# Check for jump input to cancel air dash with jump
+		if Input.is_action_just_pressed("jump"):
+			# End air dash
+			_end_air_dash()
+			# Perform normal jump (player still has their jump in air)
+			_perform_jump()
+			move_and_slide()
+			_post_movement_updates()
+			return
+		
+		_process_air_dash(delta)
+		# Check for wall run during air dash
+		if is_on_wall and wall_run_enabled:
+			_start_wall_run(abs(velocity.x))
+		# Skip normal physics when air dashing
+		move_and_slide()
+		_post_movement_updates()
+		return
+	
+	# 6. Process Dive (if active, skip most normal movement)
 	if is_diving:
 		_process_dive(delta)
 		# Skip normal physics when diving
@@ -322,7 +376,7 @@ func _physics_process(delta: float) -> void:
 		_post_movement_updates()
 		return
 	
-	# 6. Process Wall Run (if active, skip most normal movement)
+	# 7. Process Wall Run (if active, skip most normal movement)
 	if is_wall_running:
 		# Check for jump input BEFORE processing wall run
 		# This allows player to jump out of wall run
@@ -331,7 +385,15 @@ func _physics_process(delta: float) -> void:
 			_perform_wall_jump()
 			# After jump, is_wall_running is false, so continue with normal physics below
 		
-		# Only process wall run if still wall running (jump might have cancelled it)
+		# Check if player is pressing away from the wall (end wall run)
+		if is_wall_running:
+			# wall_normal points AWAY from the wall
+			# If player is pressing in the direction of wall_normal, they're pushing away from wall
+			if (wall_normal.x > 0 and input_vector.x > 0.1) or (wall_normal.x < 0 and input_vector.x < -0.1):
+				print("[WALL RUN] Player pushing away from wall, ending wall run")
+				_end_wall_run()
+		
+		# Only process wall run if still wall running (jump or input might have cancelled it)
 		if is_wall_running:
 			_process_wall_run(delta)
 			# Skip normal physics when wall running
@@ -339,16 +401,16 @@ func _physics_process(delta: float) -> void:
 			_post_movement_updates()
 			return
 	
-	# 7. Update Enemy Detection
+	# 8. Update Enemy Detection
 	if attack_enabled:
 		_update_enemy_detection()
 		_update_attack_indicator()
 	
-	# 8. Handle Attack Input
+	# 9. Handle Attack Input
 	if attack_enabled:
 		_handle_attack_input()
 	
-	# 9. Process Attack (if active, skip normal movement)
+	# 10. Process Attack (if active, skip normal movement)
 	if is_attacking:
 		_process_attack(delta)
 		# Skip normal physics when attacking
@@ -356,7 +418,7 @@ func _physics_process(delta: float) -> void:
 		_post_movement_updates()
 		return
 	
-	# 10. Process Stun (if stunned, skip normal movement)
+	# 11. Process Stun (if stunned, skip normal movement)
 	if is_stunned:
 		_process_stun(delta)
 		# Skip normal physics when stunned
@@ -364,38 +426,38 @@ func _physics_process(delta: float) -> void:
 		_post_movement_updates()
 		return
 	
-	# 11. QOL: Ledge Climb (if enabled and active, skip normal movement)
+	# 12. QOL: Ledge Climb (if enabled and active, skip normal movement)
 	if is_ledge_climbing:
 		_process_ledge_climb(delta)
 		move_and_slide()
 		_post_movement_updates()
 		return
 	
-	# 12. QOL: Check for Ledge Climb Opportunity (only when airborne and timer allows)
+	# 13. QOL: Check for Ledge Climb Opportunity (only when airborne and timer allows)
 	if ledge_climb_enabled and not is_on_floor() and is_on_wall and ledge_check_timer >= ledge_check_interval:
 		_check_ledge_climb(space_state)
 		ledge_check_timer = 0.0
 	
-	# 13. Apply Gravity
+	# 14. Apply Gravity
 	_apply_gravity(delta)
 	
-	# 14. Handle Jump Input
+	# 15. Handle Jump Input
 	_handle_jump_input()
 	
-	# 15. Apply Horizontal Movement
+	# 16. Apply Horizontal Movement
 	_apply_horizontal_movement(input_vector.x, delta)
 	
-	# 16. Execute Jump (if buffered or triggered)
+	# 17. Execute Jump (if buffered or triggered)
 	_execute_buffered_jump()
 	
-	# 17. Move Character
+	# 18. Move Character
 	move_and_slide()
 	
-	# 18. QOL: Corner Correction (only when moving up fast)
+	# 19. QOL: Corner Correction (only when moving up fast)
 	if corner_correction_enabled and velocity.y < 0 and abs(velocity.y) > 50:
 		_apply_corner_correction(space_state)
 	
-	# 19. Post-Movement Updates
+	# 20. Post-Movement Updates
 	_post_movement_updates()
 
 
@@ -446,8 +508,6 @@ func _on_landed() -> void:
 	is_jumping = false
 	# Reset ledge climb cooldown on landing (allows fresh ledge climb attempts)
 	ledge_climb_cooldown_timer = 0.0
-	# Refill dash on landing
-	dash_available = true
 	
 	# End wall run if landing
 	if is_wall_running:
@@ -529,16 +589,16 @@ func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceS
 	if left_hit_any:
 		is_on_wall = true
 		wall_normal = Vector2.RIGHT  # Wall is on left, so push right
-		# Refill dash when touching wall
-		dash_available = true
+		# Reset air dash cooldown when touching wall
+		air_dash_cooldown_timer = 0.0
 		# Player is wall sliding if moving down and pressing toward wall
 		if velocity.y > 0 and input_direction < 0:
 			is_wall_sliding = true
 	elif right_hit_any:
 		is_on_wall = true
 		wall_normal = Vector2.LEFT  # Wall is on right, so push left
-		# Refill dash when touching wall
-		dash_available = true
+		# Reset air dash cooldown when touching wall
+		air_dash_cooldown_timer = 0.0
 		# Player is wall sliding if moving down and pressing toward wall
 		if velocity.y > 0 and input_direction > 0:
 			is_wall_sliding = true
@@ -589,8 +649,11 @@ func _start_wall_run(horizontal_speed: float) -> void:
 	is_wall_sliding = false
 	is_diving = false
 	
-	# Refill dash during wall run
-	dash_available = true
+	# End ground slide or air dash if wall running
+	if is_ground_sliding:
+		_end_ground_slide()
+	if is_air_dashing:
+		_end_air_dash()
 	
 	# Could trigger wall run effects here (particles, sound, animation, etc.)
 
@@ -664,12 +727,9 @@ func _apply_gravity(delta: float) -> void:
 		else:
 			var gravity_multiplier := 1.0
 			
-			# DASH END: Apply reduced gravity after dash ends
-			if is_in_dash_end:
-				gravity_multiplier = dash_end_gravity_multiplier
 			# QOL FEATURE: Jump peak hangtime - reduce gravity at peak of jump
 			# Creates a more floaty, controlled feel at the apex
-			elif abs(velocity.y) < jump_peak_threshold and is_jumping:
+			if abs(velocity.y) < jump_peak_threshold and is_jumping:
 				gravity_multiplier = jump_peak_hangtime_multiplier
 			# Apply stronger gravity for variable jump height
 			# If player released jump during ascent, fall faster
@@ -780,9 +840,24 @@ func _execute_buffered_jump() -> void:
 
 
 func _perform_jump() -> void:
-	"""Execute a jump, with empowered jump if in sprint state (speed > sprint_speed_threshold)."""
+	"""Execute a jump, with empowered jump if in sprint state or jumping out of slide."""
+	# Check if jumping out of ground slide (empowered jump)
+	if is_slide_jump_available:
+		# End the slide first
+		_end_ground_slide()
+		
+		# Empowered slide jump - even better than sprint jump
+		velocity.y = jump_velocity * ground_slide_empowered_jump_multiplier
+		
+		# Add horizontal boost in current direction
+		var jump_direction = sign(velocity.x) if abs(velocity.x) > 10.0 else last_input_direction
+		if jump_direction != 0:
+			velocity.x += jump_direction * empowered_jump_horizontal_boost
+		
+		is_slide_jump_available = false
+		print("[SLIDE JUMP] Empowered jump from slide! Jump multiplier: ", ground_slide_empowered_jump_multiplier)
 	# Apply empowered jump when in sprint state
-	if is_running:
+	elif is_running:
 		# Vertical boost - jump higher
 		velocity.y = jump_velocity * empowered_jump_velocity_multiplier
 		
@@ -1234,7 +1309,10 @@ func _start_attack() -> void:
 	# Cancel other states
 	is_jumping = false
 	is_diving = false
-	is_dashing = false
+	if is_ground_sliding:
+		_end_ground_slide()
+	if is_air_dashing:
+		_end_air_dash()
 	
 	print("[KICK ATTACK] Started - player knockback direction: ", attack_direction, " speed: ", attack_velocity.length())
 	
@@ -1319,9 +1397,12 @@ func _start_stun() -> void:
 	
 	# Cancel other states
 	is_attacking = false
-	is_dashing = false
 	is_diving = false
 	is_ledge_climbing = false
+	if is_ground_sliding:
+		_end_ground_slide()
+	if is_air_dashing:
+		_end_air_dash()
 	
 	print("Player stunned for ", stun_duration, " seconds!")
 
@@ -1346,7 +1427,7 @@ func _end_stun() -> void:
 
 func _on_enemy_touched() -> void:
 	"""Called when player touches an enemy without attacking."""
-	if not is_attacking and not is_stunned:
+	if not is_attacking and not is_stunned and not is_invulnerable:
 		_start_stun()
 
 
@@ -1356,93 +1437,198 @@ func _on_enemy_destroyed() -> void:
 
 
 # ====================================
-# DASH
+# GROUND SLIDE & AIR DASH
 # ====================================
 
-func _start_dash(input_vector: Vector2) -> void:
-	"""Initiate a Celeste-style 8-directional dash."""
-	# Determine dash direction (8-way with deadzone filtering)
-	var dash_input := Vector2.ZERO
+func _start_ground_slide(input_x: float) -> void:
+	"""Initiate a ground slide with reduced height."""
+	# Determine slide direction
+	if abs(input_x) > 0.1:
+		dash_direction = sign(input_x)
+	else:
+		dash_direction = facing_direction
 	
-	# Get directional input for dash
-	if abs(input_vector.x) > 0.1:
-		dash_input.x = sign(input_vector.x)
-	if abs(input_vector.y) > 0.1:
-		dash_input.y = sign(input_vector.y)
+	# Start ground slide
+	is_ground_sliding = true
+	ground_slide_timer = 0.0
+	ground_slide_cooldown_timer = ground_slide_cooldown
+	is_slide_jump_available = true
+	is_invulnerable = true  # Player is invulnerable during slide
 	
-	# If no directional input, dash horizontally in facing direction
-	if dash_input.length_squared() == 0:
-		dash_input.x = facing_direction
+	# Set velocity to slide speed
+	velocity.x = dash_direction * ground_slide_speed
+	velocity.y = 0  # Snap to ground
 	
-	# Normalize for consistent speed in all directions
-	dash_direction = dash_input.normalized()
+	# Reduce collision shape height
+	_set_collision_height(original_collision_shape_height * ground_slide_height_reduction)
 	
-	# Start dash
-	is_dashing = true
-	dash_available = false
-	dash_timer = 0.0
+	# Update facing direction
+	facing_direction = dash_direction
 	
-	# Determine dash speed based on ground/air state
-	var current_dash_speed = dash_speed
-	if not is_on_floor():
-		current_dash_speed = dash_speed * dash_air_speed_multiplier  # Air dash is slower
-	
-	# Set velocity to dash direction at dash speed (REPLACES current velocity)
-	velocity = dash_direction * current_dash_speed
-	
-	# Apply vertical multiplier to reduce upward/downward dash distance
-	velocity.y *= dash_vertical_multiplier
-	
-	# Add upward momentum when dashing in the air
-	if not is_on_floor():
-		velocity.y += dash_aerial_vertical_boost  # Add upward boost to aerial dashes
-	
-	# Store the dash velocity to maintain throughout the dash
-	dash_velocity = velocity
-	
-	# Cancel other states during dash
+	# Cancel other states
 	is_jumping = false
 	is_wall_sliding = false
+	is_diving = false
 	
-	# End wall run if dashing
+	# End wall run if sliding
 	if is_wall_running:
 		_end_wall_run()
 	
-	# Update facing direction if dashing horizontally
-	if abs(dash_direction.x) > 0.1:
-		facing_direction = sign(dash_direction.x)
+	print("[GROUND SLIDE] Started - direction: ", dash_direction, " speed: ", ground_slide_speed)
 	
-	# Could trigger dash effects here (particles, sound, animation, screen freeze, etc.)
+	# Could trigger slide effects here (particles, sound, animation, etc.)
 
 
-func _process_dash(delta: float) -> void:
-	"""Update active dash phase - velocity is locked, no gravity."""
+func _process_ground_slide(delta: float) -> void:
+	"""Update ground slide state - maintain velocity and check for end."""
 	# Increment timer
-	dash_timer += delta
+	ground_slide_timer += delta
 	
-	# Check if dash phase should end
-	if dash_timer >= dash_duration:
-		_end_dash()
+	# Check if slide duration has elapsed
+	if ground_slide_timer >= ground_slide_duration:
+		_end_ground_slide()
 		return
 	
-	# LOCKED VELOCITY: Maintain exact dash velocity (no player control, no gravity)
-	# Use the stored dash_velocity which includes any aerial boost
-	velocity = dash_velocity
+	# Maintain slide velocity (horizontal only)
+	velocity.x = dash_direction * ground_slide_speed
+	
+	# If player leaves ground during slide, end it
+	if not is_on_floor():
+		_end_ground_slide()
+		return
+	
+	# Snap to ground
+	velocity.y = ground_snap_force
 
 
-func _end_dash() -> void:
-	"""End active dash phase and enter dash end phase (momentum preservation)."""
-	is_dashing = false
-	dash_timer = 0.0
+func _end_ground_slide() -> void:
+	"""End the ground slide and restore collision shape."""
+	if not is_ground_sliding:
+		return
 	
-	# Enter dash end phase with momentum preservation
-	is_in_dash_end = true
-	dash_end_timer = 0.0
+	is_ground_sliding = false
+	ground_slide_timer = 0.0
+	is_slide_jump_available = false
+	is_invulnerable = false  # End invulnerability
 	
-	# Velocity is PRESERVED from dash (no change)
-	# Player regains control, but gravity is reduced for dash_end_duration
+	# Restore collision shape height
+	_set_collision_height(original_collision_shape_height)
 	
-	# Could trigger dash end effects here (particles fade, etc.)
+	# Set horizontal speed to max speed
+	velocity.x = dash_direction * ground_slide_end_speed
+	
+	print("[GROUND SLIDE] Ended - final speed: ", velocity.x)
+	
+	# Could trigger slide end effects here (particles fade, etc.)
+
+
+func _start_air_dash(input_x: float) -> void:
+	"""Initiate an air dash with horizontal-only movement."""
+	# Store pre-dash horizontal speed
+	pre_air_dash_horizontal_speed = velocity.x
+	
+	# Determine dash direction
+	if abs(input_x) > 0.1:
+		dash_direction = sign(input_x)
+	else:
+		dash_direction = facing_direction
+	
+	# Start air dash
+	is_air_dashing = true
+	air_dash_timer = 0.0
+	air_dash_cooldown_timer = air_dash_cooldown
+	is_invulnerable = true  # Player is invulnerable during air dash
+	
+	# Set velocity to air dash speed (horizontal only)
+	velocity.x = dash_direction * air_dash_speed
+	velocity.y = 0  # Cancel vertical velocity
+	
+	# Update facing direction
+	facing_direction = dash_direction
+	
+	# Cancel other states
+	is_jumping = false
+	is_wall_sliding = false
+	is_diving = false
+	
+	# End wall run if air dashing
+	if is_wall_running:
+		_end_wall_run()
+	
+	print("[AIR DASH] Started - direction: ", dash_direction, " speed: ", air_dash_speed, " pre-dash speed: ", pre_air_dash_horizontal_speed)
+	
+	# Could trigger air dash effects here (particles, sound, animation, etc.)
+
+
+func _process_air_dash(delta: float) -> void:
+	"""Update air dash state - maintain horizontal velocity, no gravity."""
+	# Increment timer
+	air_dash_timer += delta
+	
+	# Check if air dash duration has elapsed
+	if air_dash_timer >= air_dash_duration:
+		_end_air_dash()
+		return
+	
+	# Maintain air dash velocity (horizontal only, no gravity)
+	velocity.x = dash_direction * air_dash_speed
+	velocity.y = 0  # No vertical movement during air dash
+
+
+func _end_air_dash() -> void:
+	"""End the air dash and set horizontal speed to fixed value."""
+	if not is_air_dashing:
+		return
+	
+	is_air_dashing = false
+	air_dash_timer = 0.0
+	is_invulnerable = false  # End invulnerability
+	
+	# Set horizontal speed to fixed 1000 in the dash direction
+	velocity.x = dash_direction * 1000.0
+	
+	# Cancel vertical velocity
+	velocity.y = 0
+	
+	print("[AIR DASH] Ended - set speed to: ", velocity.x, " vertical speed canceled")
+	
+	# Could trigger air dash end effects here (particles fade, etc.)
+
+
+func _set_collision_height(new_height: float) -> void:
+	"""Adjust the collision shape height and visual polygon."""
+	var collision_shape = $CollisionShape2D
+	if not collision_shape or not collision_shape.shape:
+		return
+	
+	var shape = collision_shape.shape as RectangleShape2D
+	if not shape:
+		return
+	
+	# Store the original width
+	var width = shape.size.x
+	
+	# Set new size
+	shape.size = Vector2(width, new_height)
+	
+	# Adjust position to keep the bottom of the collision shape at the same place
+	var height_diff = original_collision_shape_height - new_height
+	collision_shape.position.y = height_diff / 2.0
+	
+	# Update visual polygon to match collision shape
+	var visual = $Visual
+	if visual and visual is Polygon2D:
+		var half_width = width / 2.0
+		var half_height = new_height / 2.0
+		var y_offset = height_diff / 2.0
+		
+		# Update polygon points to match new height
+		visual.polygon = PackedVector2Array([
+			Vector2(-half_width, -half_height + y_offset),
+			Vector2(half_width, -half_height + y_offset),
+			Vector2(half_width, half_height + y_offset),
+			Vector2(-half_width, half_height + y_offset)
+		])
 
 
 # ====================================
@@ -1476,8 +1662,10 @@ func _start_dive(input_vector: Vector2) -> void:
 	# Cancel other states
 	is_jumping = false
 	is_wall_sliding = false
-	is_dashing = false
-	is_in_dash_end = false
+	if is_ground_sliding:
+		_end_ground_slide()
+	if is_air_dashing:
+		_end_air_dash()
 	
 	# Update facing direction
 	if horizontal_component != 0:

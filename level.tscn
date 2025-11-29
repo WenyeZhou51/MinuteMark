@@ -1,9 +1,8 @@
-[gd_scene load_steps=8 format=3 uid="uid://clfclx5p38xkv"]
+[gd_scene load_steps=7 format=3 uid="uid://clfclx5p38xkv"]
 
 [ext_resource type="PackedScene" uid="uid://vv3m4nx6g3jo" path="res://player.tscn" id="1_qj3g4"]
 [ext_resource type="PackedScene" uid="uid://b8x7lam2n4p5q" path="res://enemy.tscn" id="2_enemy"]
 [ext_resource type="Script" path="res://background_camera_3d.gd" id="3_bg_cam"]
-[ext_resource type="PackedScene" uid="uid://5u2ss0aume2a" path="res://Models/background.glb" id="4_bg_model"]
 
 [sub_resource type="Environment" id="Environment_bg"]
 background_mode = 1
@@ -48,9 +47,6 @@ transform = Transform3D(0.866025, -0.433013, 0.25, 0, 0.5, 0.866025, -0.5, -0.75
 light_energy = 1.2
 shadow_enabled = true
 
-[node name="BackgroundModel" parent="Background3D/SubViewport" instance=ExtResource("4_bg_model")]
-transform = Transform3D(-0.0560131, 0, -0.99843, 0, 1, 0, 0.99843, 0, -0.0560131, 5.19527, -16.2994, -10.6923)
-
 [node name="Player" parent="." instance=ExtResource("1_qj3g4")]
 position = Vector2(200, 300)
 max_speed = 1000.0
@@ -61,13 +57,15 @@ air_deceleration = 1500.0
 jump_velocity = -900.0
 max_fall_speed = 1500.0
 turnaround_multiplier = 3.0
+ledge_climb_enabled = true
+ledge_climb_detection_height = 20.0
+ledge_climb_duration = 0.15
 wall_jump_horizontal_velocity = 400.0
 wall_jump_vertical_velocity = -950.0
 wall_run_speed_decay = 150.0
 wall_run_empowered_jump_vertical = -950.0
-dash_speed = 1200.0
-dash_air_speed_multiplier = 0.8
-dash_vertical_multiplier = 0.8
+air_dash_speed = 1500.0
+air_dash_duration = 0.3
 attack_detection_range = 150.0
 attack_duration = 0.3
 attack_momentum_retention = 0.5

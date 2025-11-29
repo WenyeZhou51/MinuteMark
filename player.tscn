@@ -24,8 +24,6 @@ wall_slide_speed = 200.0
 wall_jump_horizontal_velocity = 600.0
 wall_jump_vertical_velocity = -800.0
 wall_run_speed_decay = 400.0
-dash_speed = 1000.0
-dash_vertical_multiplier = 0.5
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("RectangleShape2D_w6f8y")
