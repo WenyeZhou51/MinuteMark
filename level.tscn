@@ -3,7 +3,7 @@
 [ext_resource type="PackedScene" uid="uid://vv3m4nx6g3jo" path="res://player.tscn" id="1_qj3g4"]
 [ext_resource type="PackedScene" uid="uid://b8x7lam2n4p5q" path="res://enemy.tscn" id="2_enemy"]
 [ext_resource type="Script" path="res://background_camera_3d.gd" id="3_bg_cam"]
-[ext_resource type="PackedScene" path="res://kickable_object.tscn" id="4_kickable"]
+[ext_resource type="PackedScene" uid="uid://c4k3l8m5n2qar" path="res://kickable_object.tscn" id="4_kickable"]
 
 [sub_resource type="Environment" id="Environment_bg"]
 background_mode = 1
@@ -75,6 +75,8 @@ attack_momentum_retention = 0.5
 attack_cooldown = 0.1
 parry_detection_range = 200.0
 bullet_hit_grace_period = 0.2
+parry_time_scale = 0.1
+parry_time_duration = 0.05
 kick_object_detection_range = 150.0
 kick_object_cone_angle = 120.0
 dive_speed = 1500.0

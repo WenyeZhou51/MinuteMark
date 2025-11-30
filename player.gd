@@ -120,6 +120,9 @@ const AfterimageScene = preload("res://afterimage.tscn")
 @export var parry_detection_range: float = 100.0  ## Range to detect bullets for parrying
 @export var parry_angle_cone: float = 120.0  ## Cone angle in front of player for bullet detection (degrees)
 @export var bullet_hit_grace_period: float = 0.1  ## Time window to press kick after being hit by bullet to parry instead of taking hitstun (seconds)
+@export var parry_time_scale: float = 0.2  ## Time scale during parry (0.2 = 80% slower, 1.0 = normal speed)
+@export var parry_time_duration: float = 0.3  ## Duration of time slowdown effect during parry (seconds in real time)
+@export var parry_vertical_boost: float = 300.0  ## Upward velocity boost given to player on successful parry
 
 # KICK OBJECT CONFIGURATION
 @export_group("Kick Object")
@@ -194,6 +197,8 @@ var bullet_parry_indicator: Line2D = null  # Visual indicator for parryable bull
 var bullet_grace_period_active: bool = false  # Is bullet hit grace period currently active
 var bullet_grace_period_timer: float = 0.0  # Time remaining in bullet grace period
 var bullet_that_hit: Node2D = null  # Bullet that triggered grace period
+var parry_time_slowdown_active: bool = false  # Is time slowdown effect active from parry
+var parry_time_slowdown_timer: float = 0.0  # Time remaining for time slowdown effect (real time)
 
 # Dash state variables
 var is_ground_sliding: bool = false  # Is player currently ground sliding
@@ -208,6 +213,7 @@ var original_collision_shape_height: float = 64.0  # Original height of collisio
 var is_slide_jump_available: bool = false  # Can player perform empowered jump from slide
 var is_invulnerable: bool = false  # Is player currently invulnerable (during dashes)
 var run_input_just_pressed: bool = false  # Track if run input was just pressed this frame
+var air_dash_available: bool = true  # Is air dash available (resets on ground/wall/kick parry/dive)
 
 # Dive state variables
 var is_diving: bool = false  # Is player currently diving
@@ -239,6 +245,9 @@ var afterimage_enabled: bool = true  # Whether afterimages are enabled
 
 
 func _ready() -> void:
+	# Ensure time scale is normal on start
+	Engine.time_scale = 1.0
+	
 	# Configure timers
 	coyote_timer.wait_time = coyote_time
 	jump_buffer_timer.wait_time = jump_buffer_time
@@ -264,6 +273,11 @@ func _ready() -> void:
 	
 	# Connect to enemy signals
 	_connect_to_enemies()
+
+
+func _exit_tree() -> void:
+	"""Ensure time scale is reset when player is removed from scene."""
+	Engine.time_scale = 1.0
 
 
 func _connect_to_enemies() -> void:
@@ -385,8 +399,8 @@ func _physics_process(delta: float) -> void:
 		if is_on_floor() and ground_slide_cooldown_timer <= 0:
 			# Ground slide
 			_start_ground_slide(input_vector.x)
-		elif not is_on_floor() and air_dash_cooldown_timer <= 0:
-			# Air dash
+		elif not is_on_floor() and air_dash_cooldown_timer <= 0 and air_dash_available:
+			# Air dash (only if available)
 			_start_air_dash(input_vector.x)
 	
 	# Update run state based on speed (sprint state when speed exceeds threshold)
@@ -472,6 +486,14 @@ func _physics_process(delta: float) -> void:
 			if Input.is_action_just_pressed("melee_attack"):
 				# Cancel hitstun, perform parry instead!
 				_cancel_bullet_grace_period_with_parry()
+	
+	# Update parry time slowdown timer (uses unscaled delta for real-time countdown)
+	if parry_time_slowdown_active:
+		var real_delta = delta / Engine.time_scale  # Get real time delta
+		parry_time_slowdown_timer -= real_delta
+		if parry_time_slowdown_timer <= 0:
+			# Restore normal time
+			_restore_normal_time()
 	
 	# 2. Handle Ground State Changes
 	_update_ground_state()
@@ -671,6 +693,9 @@ func _on_landed() -> void:
 	# Reset ledge climb cooldown on landing (allows fresh ledge climb attempts)
 	ledge_climb_cooldown_timer = 0.0
 	
+	# Reset air dash availability on landing
+	air_dash_available = true
+	
 	# End wall run if landing
 	if is_wall_running:
 		_end_wall_run()
@@ -754,16 +779,18 @@ func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceS
 	if left_hit_any:
 		is_on_wall = true
 		wall_normal = Vector2.RIGHT  # Wall is on left, so push right
-		# Reset air dash cooldown when touching wall
+		# Reset air dash cooldown and availability when touching wall
 		air_dash_cooldown_timer = 0.0
+		air_dash_available = true
 		# Player is wall sliding if moving down and pressing toward wall
 		if velocity.y > 0 and input_direction < 0:
 			is_wall_sliding = true
 	elif right_hit_any:
 		is_on_wall = true
 		wall_normal = Vector2.LEFT  # Wall is on right, so push left
-		# Reset air dash cooldown when touching wall
+		# Reset air dash cooldown and availability when touching wall
 		air_dash_cooldown_timer = 0.0
+		air_dash_available = true
 		# Player is wall sliding if moving down and pressing toward wall
 		if velocity.y > 0 and input_direction > 0:
 			is_wall_sliding = true
@@ -1462,6 +1489,9 @@ func _start_attack() -> void:
 	if not closest_enemy:
 		return
 	
+	# Reset air dash availability (kick attack counts as a reset)
+	air_dash_available = true
+	
 	# Set up attack state
 	is_attacking = true
 	attack_timer = 0.0
@@ -1617,6 +1647,9 @@ func _cancel_grace_period_with_kick() -> void:
 	# Clear grace period state
 	grace_period_active = false
 	grace_period_timer = 0.0
+	
+	# Reset air dash availability (kick parry counts as a reset)
+	air_dash_available = true
 	
 	# Temporarily add the enemy to nearby_enemies if it's not already there
 	var enemy = grace_period_colliding_enemy
@@ -1813,6 +1846,7 @@ func _start_air_dash(input_x: float) -> void:
 	is_air_dashing = true
 	air_dash_timer = 0.0
 	air_dash_cooldown_timer = air_dash_cooldown
+	air_dash_available = false  # Consume air dash (will reset on ground/wall/kick parry/dive)
 	is_invulnerable = true  # Player is invulnerable during air dash
 	
 	# Set velocity to air dash speed (horizontal only)
@@ -2015,6 +2049,9 @@ func _perform_dive_attack(enemy: Node2D) -> void:
 		var downward_direction = Vector2.DOWN
 		enemy.kick(downward_direction, dive_attack_knockback_speed)
 	
+	# Reset air dash availability (dive attack counts as a reset)
+	air_dash_available = true
+	
 	# End dive state
 	is_diving = false
 	dive_pre_landing_horizontal_speed = 0.0
@@ -2185,28 +2222,16 @@ func _update_bullet_detection() -> void:
 	# Get all enemy projectiles
 	var bullets = get_tree().get_nodes_in_group("enemy_projectiles")
 	
-	# Calculate facing direction vector
-	var facing_vec = Vector2(facing_direction, 0)
-	
 	for bullet in bullets:
 		if bullet and is_instance_valid(bullet) and bullet.has_method("parry"):
 			# Check if bullet can be parried
 			if "can_be_parried" in bullet and not bullet.can_be_parried:
 				continue
 			
-			# Check distance
+			# Check distance (omnidirectional - no angle restriction)
 			var distance = global_position.distance_to(bullet.global_position)
 			if distance <= parry_detection_range:
-				# Check if bullet is in front of player (within cone angle)
-				var direction_to_bullet = (bullet.global_position - global_position).normalized()
-				var dot_product = facing_vec.dot(direction_to_bullet)
-				
-				# Check cone angle - dot product > cos(angle/2) means within cone
-				var half_cone_angle = deg_to_rad(parry_angle_cone / 2.0)
-				var cone_threshold = cos(half_cone_angle)
-				
-				if dot_product > cone_threshold:
-					nearby_bullets.append(bullet)
+				nearby_bullets.append(bullet)
 
 func _update_bullet_parry_indicator() -> void:
 	"""Update visual indicator for parryable bullet."""
@@ -2255,13 +2280,38 @@ func _parry_bullet(bullet: Node2D) -> void:
 	# Call bullet's parry method
 	bullet.parry(parry_direction)
 	
+	# Apply vertical boost to player
+	velocity.y = -parry_vertical_boost
+	is_jumping = true  # Set jumping state so player has air control
+	
+	# Activate time slowdown effect
+	_start_parry_time_slowdown()
+	
 	# Set cooldown
 	attack_cooldown_timer = attack_cooldown
 	
 	# Visual feedback - brief flash
 	modulate = Color(0.3, 1.5, 1.5)  # Cyan flash
-	await get_tree().create_timer(0.1).timeout
+	await get_tree().create_timer(0.1, true, false, true).timeout  # Use process_always flag for time scale
 	if not is_stunned:  # Only reset if not in another state
 		modulate = Color.WHITE
 	
-	print("[BULLET PARRY] Parried bullet! Redirecting towards enemy")
+	print("[BULLET PARRY] Parried bullet! Time slowed, vertical boost applied!")
+
+
+func _start_parry_time_slowdown() -> void:
+	"""Start the time slowdown effect after a successful parry."""
+	parry_time_slowdown_active = true
+	parry_time_slowdown_timer = parry_time_duration
+	Engine.time_scale = parry_time_scale
+	
+	print("[PARRY TIME] Time slowed to ", parry_time_scale * 100, "% for ", parry_time_duration, " seconds!")
+
+
+func _restore_normal_time() -> void:
+	"""Restore normal time scale after parry slowdown ends."""
+	parry_time_slowdown_active = false
+	parry_time_slowdown_timer = 0.0
+	Engine.time_scale = 1.0
+	
+	print("[PARRY TIME] Time restored to normal!")
