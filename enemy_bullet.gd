@@ -2,7 +2,7 @@ extends Area2D
 
 # Movement properties
 @export_group("Bullet Movement")
-@export var speed: float = 2500.0  ## Speed of the bullet
+@export var speed: float = 2000.0  ## Default speed of the bullet (pixels per second)
 @export var lifetime: float = 5.0  ## Auto-destroy after this many seconds
 
 # Internal state
@@ -54,7 +54,7 @@ func _physics_process(delta: float) -> void:
 	# Rotate to face direction of travel
 	rotation = velocity.angle()
 
-func initialize(direction: Vector2, start_speed: float = 2500.0, shooter: Node2D = null) -> void:
+func initialize(direction: Vector2, start_speed: float = 2000.0, shooter: Node2D = null) -> void:
 	"""Initialize the bullet with direction, speed, and shooter reference."""
 	speed = start_speed
 	velocity = direction.normalized() * speed
@@ -64,10 +64,14 @@ func _on_body_entered(body: Node2D) -> void:
 	"""Hit something solid (wall, platform, player, or enemy)."""
 	# Check if it's the player (CharacterBody2D in "player" group)
 	if body.is_in_group("player") and not was_parried:
-		# Trigger player hitstun
-		if body.has_method("_on_enemy_touched"):
+		# Trigger player bullet hit (with grace period for parrying)
+		if body.has_method("_on_bullet_hit"):
+			body._on_bullet_hit(self, shooter_enemy)
+			print("[BULLET] Hit player! Starting grace period for parry")
+		elif body.has_method("_on_enemy_touched"):
+			# Fallback for older version
 			body._on_enemy_touched(shooter_enemy)
-			print("[BULLET] Hit player! Triggering hitstun")
+			print("[BULLET] Hit player! Triggering hitstun (fallback)")
 		
 		# Destroy bullet
 		queue_free()
@@ -80,8 +84,8 @@ func _on_area_entered(area: Area2D) -> void:
 	"""Hit an area (including enemies)."""
 	# If parried bullet hits an enemy area, make it physics object
 	if was_parried and area.is_in_group("enemies"):
-		if area.has_method("_hit_by_parried_bullet") and area == shooter_enemy:
-			# Hit the enemy that shot this bullet
+		if area.has_method("_hit_by_parried_bullet"):
+			# Hit any enemy when parried (prioritize shooter but hit any)
 			var hit_direction = velocity.normalized()
 			area._hit_by_parried_bullet(hit_direction, speed)
 			print("[BULLET] Parried bullet hit enemy! Enemy becoming physics object")
@@ -130,6 +134,7 @@ func parry(parry_direction: Vector2) -> void:
 	# Update collision mask to hit enemies instead of player
 	collision_mask = 0  # Clear mask
 	set_collision_mask_value(1, true)  # Still detect walls/platforms
+	set_collision_mask_value(3, true)  # Layer 3 for enemy areas (4 = 2^2, but using layer index 3)
 	
 	print("[BULLET] Parried! Redirecting towards shooter at speed ", velocity.length())
 

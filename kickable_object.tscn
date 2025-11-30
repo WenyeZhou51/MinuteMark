@@ -1,0 +1,24 @@
+[gd_scene load_steps=3 format=3 uid="uid://c4k3l8m5n2p9r"]
+
+[ext_resource type="Script" path="res://kickable_object.gd" id="1_kickable"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_kickable"]
+size = Vector2(40, 40)
+
+[node name="KickableObject" type="Area2D" groups=["kickable_objects"]]
+script = ExtResource("1_kickable")
+kick_speed = 2000.0
+rotation_speed_min = -10.0
+rotation_speed_max = 10.0
+physics_duration = 0.5
+bounce_damping = 0.4
+gravity_strength = 2000.0
+object_size = Vector2(40, 40)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_kickable")
+
+[node name="Visual" type="Polygon2D" parent="."]
+color = Color(0.8, 0.6, 0.2, 1)
+polygon = PackedVector2Array(-20, -20, 20, -20, 20, 20, -20, 20)
+

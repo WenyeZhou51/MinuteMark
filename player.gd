@@ -62,6 +62,12 @@ const AfterimageScene = preload("res://afterimage.tscn")
 @export var ledge_climb_min_exit_speed: float = 100.0  ## Minimum horizontal speed when finishing climb
 @export var ledge_climb_momentum_grace_period: float = 0.15  ## Time after climb where momentum is protected from deceleration
 
+@export_subgroup("Stun & Grace Period")
+@export var stun_duration: float = 1.0  ## Duration of stun when touching enemy (seconds)
+@export var grace_period_duration: float = 0.2  ## Grace period to cancel stun with kick (seconds)
+@export var stun_invulnerability_duration: float = 0.5  ## Invulnerability after stun ends (seconds)
+@export var stun_shake_intensity: float = 3.0  ## Intensity of shake effect during stun
+
 # WALL JUMP CONFIGURATION
 @export_group("Wall Jump")
 @export var wall_jump_enabled: bool = true  ## Enable wall jump mechanics
@@ -108,12 +114,29 @@ const AfterimageScene = preload("res://afterimage.tscn")
 @export var attack_cooldown: float = 0.2  ## Cooldown between attacks
 @export var attack_enemy_knockback_force: float = 1200.0  ## Force applied to enemy when kicked
 
+# BULLET PARRY CONFIGURATION
+@export_group("Bullet Parry")
+@export var parry_enabled: bool = true  ## Enable bullet parry mechanics
+@export var parry_detection_range: float = 100.0  ## Range to detect bullets for parrying
+@export var parry_angle_cone: float = 120.0  ## Cone angle in front of player for bullet detection (degrees)
+@export var bullet_hit_grace_period: float = 0.1  ## Time window to press kick after being hit by bullet to parry instead of taking hitstun (seconds)
+
+# KICK OBJECT CONFIGURATION
+@export_group("Kick Object")
+@export var kick_object_enabled: bool = true  ## Enable kicking objects
+@export var kick_object_detection_range: float = 60.0  ## Range to detect kickable objects
+@export var kick_object_speed: float = 2500.0  ## Speed at which kicked objects fly
+@export var kick_object_cone_angle: float = 90.0  ## Cone angle in front of player for detection (degrees)
+
 # DIVE CONFIGURATION
 @export_group("Dive")
 @export var dive_enabled: bool = true  ## Enable dive mechanics
 @export var dive_speed: float = 1100.0  ## Fixed speed of the dive
 @export var dive_angle_degrees: float = 45.0  ## Angle of dive from horizontal (45 degrees)
 @export var dive_landing_speed_boost: float = 1.15  ## Speed multiplier on landing (15% boost)
+@export var dive_attack_range: float = 400.0  ## Range to detect enemies for dive attack (checked continuously during dive)
+@export var dive_attack_knockback_speed: float = 2500.0  ## Speed at which enemies are knocked downward by dive attack
+@export var dive_attack_bounce_impulse: float = 500.0  ## Upward velocity given to player when hitting enemy with dive attack
 
 # Internal state variables
 var is_jump_held: bool = false  # Is jump button currently held
@@ -159,6 +182,19 @@ var facing_direction: float = 1.0  # Direction player is facing (1 = right, -1 =
 var nearby_enemies: Array[Node2D] = []  # Array of enemies within detection range
 var last_targeted_enemy: Node2D = null  # Previously targeted enemy for outline management
 
+# Kick object state variables
+var nearby_kickable_objects: Array[Node2D] = []  # Array of kickable objects within range
+var closest_kickable_object: Node2D = null  # Closest kickable object in front of player
+var object_kick_indicator: Line2D = null  # Visual indicator for kick object direction
+
+# Bullet parry state variables
+var nearby_bullets: Array[Node2D] = []  # Array of bullets within parry range
+var closest_bullet: Node2D = null  # Closest bullet in front of player
+var bullet_parry_indicator: Line2D = null  # Visual indicator for parryable bullet
+var bullet_grace_period_active: bool = false  # Is bullet hit grace period currently active
+var bullet_grace_period_timer: float = 0.0  # Time remaining in bullet grace period
+var bullet_that_hit: Node2D = null  # Bullet that triggered grace period
+
 # Dash state variables
 var is_ground_sliding: bool = false  # Is player currently ground sliding
 var is_air_dashing: bool = false  # Is player currently air dashing
@@ -177,13 +213,17 @@ var run_input_just_pressed: bool = false  # Track if run input was just pressed 
 var is_diving: bool = false  # Is player currently diving
 var dive_velocity: Vector2 = Vector2.ZERO  # Velocity of the dive
 var dive_pre_landing_horizontal_speed: float = 0.0  # Horizontal speed stored before landing
+var dive_attack_visual: Node2D = null  # Visual indicator for dive attack range
+var dive_range_circle: Polygon2D = null  # Circle showing dive attack range
 
-# Stun state variables
+# Stun state variables (internal - durations configured in Quality of Life section)
 var is_stunned: bool = false  # Is player currently stunned
 var stun_timer: float = 0.0  # Time remaining in stun
-var stun_duration: float = 2.0  # Duration of stun when touching enemy
-var stun_shake_intensity: float = 3.0  # Intensity of shake during stun
 var stun_shake_offset: Vector2 = Vector2.ZERO  # Current shake offset applied to position
+var stun_invulnerability_timer: float = 0.0  # Time remaining for post-stun invulnerability
+var grace_period_timer: float = 0.0  # Time remaining in grace period
+var grace_period_active: bool = false  # Is grace period currently active
+var grace_period_colliding_enemy: Node2D = null  # Enemy that triggered grace period
 
 # Afterimage state variables
 var afterimage_timer: float = 0.0  # Timer for spawning afterimages
@@ -213,6 +253,15 @@ func _ready() -> void:
 		if shape:
 			original_collision_shape_height = shape.size.y
 	
+	# Create dive attack visual indicator
+	_create_dive_attack_visual()
+	
+	# Create kick object visual indicator
+	_create_kick_object_indicator()
+	
+	# Create bullet parry visual indicator
+	_create_bullet_parry_indicator()
+	
 	# Connect to enemy signals
 	_connect_to_enemies()
 
@@ -237,6 +286,68 @@ func _connect_to_enemies() -> void:
 			if not enemy.enemy_destroyed.is_connected(_on_enemy_destroyed):
 				enemy.enemy_destroyed.connect(_on_enemy_destroyed)
 			print("Connected to enemy: ", enemy.name, " - reset state")
+
+
+func _create_dive_attack_visual() -> void:
+	"""Create the visual indicator for dive attack range."""
+	# Create a container node for the dive attack visual
+	dive_attack_visual = Node2D.new()
+	dive_attack_visual.name = "DiveAttackVisual"
+	add_child(dive_attack_visual)
+	
+	# Create a circle polygon to show the attack range
+	dive_range_circle = Polygon2D.new()
+	dive_range_circle.name = "DiveRangeCircle"
+	dive_attack_visual.add_child(dive_range_circle)
+	
+	# Update the visual with current range
+	_update_dive_attack_visual()
+	
+	# Hide by default
+	dive_attack_visual.visible = false
+
+
+func _update_dive_attack_visual() -> void:
+	"""Update the dive attack visual indicator size based on current range."""
+	if not dive_range_circle:
+		return
+	
+	# Generate circle points (270-degree arc, excluding upper 90 degrees)
+	var points: PackedVector2Array = []
+	var num_segments = 64  # Number of segments for smooth circle
+	
+	# Add center point
+	points.append(Vector2.ZERO)
+	
+	# Add arc points (going clockwise through bottom 270 degrees)
+	# Start at 315 degrees (upper-right), sweep 270 degrees clockwise to 225 degrees (upper-left)
+	# This excludes the upper 90-degree cone (225 to 315)
+	var start_angle_deg = 315.0
+	var arc_degrees = 270.0
+	
+	for i in range(num_segments + 1):
+		var t = float(i) / num_segments
+		var angle_deg = start_angle_deg + t * arc_degrees
+		# Normalize angle to 0-360 range
+		if angle_deg >= 360.0:
+			angle_deg -= 360.0
+		
+		var angle_rad = deg_to_rad(angle_deg)
+		var point = Vector2(cos(angle_rad), sin(angle_rad)) * dive_attack_range
+		points.append(point)
+	
+	dive_range_circle.polygon = points
+	dive_range_circle.color = Color(1.0, 0.5, 0.0, 0.3)  # Orange with transparency
+
+
+func _create_kick_object_indicator() -> void:
+	"""Create the visual indicator for kick object direction."""
+	object_kick_indicator = Line2D.new()
+	object_kick_indicator.name = "ObjectKickIndicator"
+	object_kick_indicator.width = 3.0
+	object_kick_indicator.default_color = Color(0.2, 1.0, 0.2, 0.8)  # Green
+	object_kick_indicator.visible = false
+	add_child(object_kick_indicator)
 
 
 func _physics_process(delta: float) -> void:
@@ -270,7 +381,7 @@ func _physics_process(delta: float) -> void:
 		air_dash_cooldown_timer -= delta
 	
 	# Handle dash input (shift press takes priority over run)
-	if dash_enabled and run_input_just_pressed and not is_ground_sliding and not is_air_dashing:
+	if dash_enabled and run_input_just_pressed and not is_ground_sliding and not is_air_dashing and not is_stunned:
 		if is_on_floor() and ground_slide_cooldown_timer <= 0:
 			# Ground slide
 			_start_ground_slide(input_vector.x)
@@ -285,7 +396,19 @@ func _physics_process(delta: float) -> void:
 	# Visual feedback: Turn player red when in sprint state, purple when diving, cyan when wall running, yellow when dashing
 	# Stun visual feedback is handled in _process_stun()
 	if not is_stunned:
-		if is_ground_sliding or is_air_dashing:
+		if bullet_grace_period_active:
+			# Flash cyan/white during bullet grace period to indicate player can parry
+			var flash = sin(bullet_grace_period_timer * 50.0) * 0.5 + 0.5
+			modulate = Color(0.3 + flash * 0.7, 1.0, 1.0)  # Bright cyan flash (faster flash)
+		elif grace_period_active:
+			# Flash orange/white during grace period to indicate player can cancel stun
+			var flash = sin(grace_period_timer * 40.0) * 0.5 + 0.5
+			modulate = Color(1.0, 0.5 + flash * 0.5, 0.0)  # Orange flash
+		elif stun_invulnerability_timer > 0:
+			# Flash blue during post-stun invulnerability
+			var flash = sin(stun_invulnerability_timer * 20.0) * 0.5 + 0.5
+			modulate = Color(0.5 + flash * 0.5, 0.5 + flash * 0.5, 1.5)  # Blue flash
+		elif is_ground_sliding or is_air_dashing:
 			modulate = Color(1.5, 1.5, 0.5)  # Yellow tint for dashes (invulnerable)
 		elif is_wall_running:
 			modulate = Color(0.5, 1.5, 1.5)  # Cyan tint for wall run
@@ -322,6 +445,34 @@ func _physics_process(delta: float) -> void:
 		if stun_timer <= 0:
 			_end_stun()
 	
+	# Update stun invulnerability timer (after stun ends)
+	if stun_invulnerability_timer > 0:
+		stun_invulnerability_timer -= delta
+	
+	# Update grace period timer
+	if grace_period_active:
+		grace_period_timer -= delta
+		if grace_period_timer <= 0:
+			# Grace period expired - apply stun
+			_apply_stun_after_grace_period()
+		else:
+			# Check if kick button pressed during grace period
+			if Input.is_action_just_pressed("melee_attack") and grace_period_colliding_enemy:
+				# Cancel stun, perform kick attack instead!
+				_cancel_grace_period_with_kick()
+	
+	# Update bullet grace period timer
+	if bullet_grace_period_active:
+		bullet_grace_period_timer -= delta
+		if bullet_grace_period_timer <= 0:
+			# Bullet grace period expired - apply hitstun
+			_apply_bullet_hitstun()
+		else:
+			# Check if kick button pressed during bullet grace period
+			if Input.is_action_just_pressed("melee_attack"):
+				# Cancel hitstun, perform parry instead!
+				_cancel_bullet_grace_period_with_parry()
+	
 	# 2. Handle Ground State Changes
 	_update_ground_state()
 	
@@ -332,7 +483,7 @@ func _physics_process(delta: float) -> void:
 	# 4. Process Ground Slide (if active, skip most normal movement)
 	if is_ground_sliding:
 		# Check for jump input to cancel slide with empowered jump
-		if Input.is_action_just_pressed("jump"):
+		if Input.is_action_just_pressed("jump") and not is_stunned:
 			_perform_jump()  # Will automatically use slide jump bonus
 			move_and_slide()
 			_post_movement_updates()
@@ -349,12 +500,13 @@ func _physics_process(delta: float) -> void:
 	
 	# 5. Process Air Dash (if active, skip most normal movement)
 	if is_air_dashing:
-		# Check for jump input to cancel air dash with jump
-		if Input.is_action_just_pressed("jump"):
+		# Check for jump input to perform dive out of air dash
+		if Input.is_action_just_pressed("jump") and not is_stunned:
 			# End air dash
 			_end_air_dash()
-			# Perform normal jump (player still has their jump in air)
-			_perform_jump()
+			# Perform dive instead of jump
+			if dive_enabled:
+				_start_dive(input_vector)
 			move_and_slide()
 			_post_movement_updates()
 			return
@@ -380,7 +532,7 @@ func _physics_process(delta: float) -> void:
 	if is_wall_running:
 		# Check for jump input BEFORE processing wall run
 		# This allows player to jump out of wall run
-		if Input.is_action_just_pressed("jump"):
+		if Input.is_action_just_pressed("jump") and not is_stunned:
 			print("[WALL RUN] Jump pressed during wall run, performing empowered wall jump")
 			_perform_wall_jump()
 			# After jump, is_wall_running is false, so continue with normal physics below
@@ -406,11 +558,21 @@ func _physics_process(delta: float) -> void:
 		_update_enemy_detection()
 		_update_attack_indicator()
 	
-	# 9. Handle Attack Input
-	if attack_enabled:
-		_handle_attack_input()
+	# 9. Update Kickable Object Detection
+	if kick_object_enabled:
+		_update_kickable_object_detection()
+		_update_kick_object_indicator()
 	
-	# 10. Process Attack (if active, skip normal movement)
+	# 9.5. Update Bullet Parry Detection
+	if parry_enabled:
+		_update_bullet_detection()
+		_update_bullet_parry_indicator()
+	
+	# 10. Handle Attack/Kick Input
+	if attack_enabled or kick_object_enabled or parry_enabled:
+		_handle_kick_input()
+	
+	# 11. Process Attack (if active, skip normal movement)
 	if is_attacking:
 		_process_attack(delta)
 		# Skip normal physics when attacking
@@ -418,7 +580,7 @@ func _physics_process(delta: float) -> void:
 		_post_movement_updates()
 		return
 	
-	# 11. Process Stun (if stunned, skip normal movement)
+	# 12. Process Stun (if stunned, skip normal movement)
 	if is_stunned:
 		_process_stun(delta)
 		# Skip normal physics when stunned
@@ -426,38 +588,38 @@ func _physics_process(delta: float) -> void:
 		_post_movement_updates()
 		return
 	
-	# 12. QOL: Ledge Climb (if enabled and active, skip normal movement)
+	# 13. QOL: Ledge Climb (if enabled and active, skip normal movement)
 	if is_ledge_climbing:
 		_process_ledge_climb(delta)
 		move_and_slide()
 		_post_movement_updates()
 		return
 	
-	# 13. QOL: Check for Ledge Climb Opportunity (only when airborne and timer allows)
+	# 14. QOL: Check for Ledge Climb Opportunity (only when airborne and timer allows)
 	if ledge_climb_enabled and not is_on_floor() and is_on_wall and ledge_check_timer >= ledge_check_interval:
 		_check_ledge_climb(space_state)
 		ledge_check_timer = 0.0
 	
-	# 14. Apply Gravity
+	# 15. Apply Gravity
 	_apply_gravity(delta)
 	
-	# 15. Handle Jump Input
+	# 16. Handle Jump Input
 	_handle_jump_input()
 	
-	# 16. Apply Horizontal Movement
+	# 17. Apply Horizontal Movement
 	_apply_horizontal_movement(input_vector.x, delta)
 	
-	# 17. Execute Jump (if buffered or triggered)
+	# 18. Execute Jump (if buffered or triggered)
 	_execute_buffered_jump()
 	
-	# 18. Move Character
+	# 19. Move Character
 	move_and_slide()
 	
-	# 19. QOL: Corner Correction (only when moving up fast)
+	# 20. QOL: Corner Correction (only when moving up fast)
 	if corner_correction_enabled and velocity.y < 0 and abs(velocity.y) > 50:
 		_apply_corner_correction(space_state)
 	
-	# 20. Post-Movement Updates
+	# 21. Post-Movement Updates
 	_post_movement_updates()
 
 
@@ -515,10 +677,13 @@ func _on_landed() -> void:
 	
 	# Handle dive landing with speed boost
 	if is_diving:
-		# Preserve horizontal momentum and add 15% speed boost
+		# Preserve horizontal momentum and apply landing speed boost multiplier
 		velocity.x = dive_pre_landing_horizontal_speed * dive_landing_speed_boost
 		velocity.y = 0  # Cancel vertical velocity
 		is_diving = false
+		# Hide dive attack visual
+		if dive_attack_visual:
+			dive_attack_visual.visible = false
 		# Dive landed with speed boost
 	
 	# Could trigger landing effects here (particles, sound, etc.)
@@ -648,6 +813,9 @@ func _start_wall_run(horizontal_speed: float) -> void:
 	is_jumping = false
 	is_wall_sliding = false
 	is_diving = false
+	# Hide dive attack visual
+	if dive_attack_visual:
+		dive_attack_visual.visible = false
 	
 	# End ground slide or air dash if wall running
 	if is_ground_sliding:
@@ -803,6 +971,10 @@ func _apply_horizontal_movement(input_direction: float, delta: float) -> void:
 
 func _handle_jump_input() -> void:
 	"""Process jump input with buffering and state tracking."""
+	# Can't jump when stunned
+	if is_stunned:
+		return
+	
 	# Track jump hold state
 	is_jump_held = Input.is_action_pressed("jump")
 	
@@ -1249,16 +1421,26 @@ func _update_attack_indicator() -> void:
 		last_targeted_enemy = null
 
 
-func _handle_attack_input() -> void:
-	"""Process kick attack input."""
-	# Can only attack if not on cooldown and not already attacking
+func _handle_kick_input() -> void:
+	"""Process kick input - prioritize bullet parry > objects > enemies."""
+	# Can't kick when stunned
+	if is_stunned:
+		return
+	
+	# Can only kick if not on cooldown and not already attacking
 	if is_attacking or attack_cooldown_timer > 0:
 		return
 	
-	# Check for attack input (mapped to 'j' key)
+	# Check for kick input (mapped to 'j' key)
 	if Input.is_action_just_pressed("melee_attack"):
-		# Only attack if there are nearby enemies
-		if not nearby_enemies.is_empty():
+		# Priority 1: Parry bullet if one is available
+		if parry_enabled and closest_bullet:
+			_parry_bullet(closest_bullet)
+		# Priority 2: Kick object if one is available
+		elif kick_object_enabled and closest_kickable_object:
+			_kick_object(closest_kickable_object)
+		# Priority 3: Attack enemy if available
+		elif attack_enabled and not nearby_enemies.is_empty():
 			_start_attack()
 
 
@@ -1309,6 +1491,9 @@ func _start_attack() -> void:
 	# Cancel other states
 	is_jumping = false
 	is_diving = false
+	# Hide dive attack visual
+	if dive_attack_visual:
+		dive_attack_visual.visible = false
 	if is_ground_sliding:
 		_end_ground_slide()
 	if is_air_dashing:
@@ -1387,8 +1572,23 @@ func _process_stun(delta: float) -> void:
 	modulate = Color(1.0, flash, flash, 1.0)
 
 
-func _start_stun() -> void:
-	"""Start the stun effect when player touches enemy without attacking."""
+func _start_stun(colliding_enemy: Node2D = null) -> void:
+	"""Start the stun effect when player touches enemy without attacking - but with grace period first."""
+	# Start grace period instead of immediate stun
+	grace_period_active = true
+	grace_period_timer = grace_period_duration
+	grace_period_colliding_enemy = colliding_enemy
+	
+	print("Grace period started! Press kick within ", grace_period_duration, " seconds to cancel stun!")
+
+
+func _apply_stun_after_grace_period() -> void:
+	"""Apply stun after grace period expires without kick input."""
+	grace_period_active = false
+	grace_period_timer = 0.0
+	grace_period_colliding_enemy = null
+	
+	# Now actually stun the player
 	is_stunned = true
 	stun_timer = stun_duration
 	
@@ -1399,6 +1599,9 @@ func _start_stun() -> void:
 	is_attacking = false
 	is_diving = false
 	is_ledge_climbing = false
+	# Hide dive attack visual
+	if dive_attack_visual:
+		dive_attack_visual.visible = false
 	if is_ground_sliding:
 		_end_ground_slide()
 	if is_air_dashing:
@@ -1407,8 +1610,29 @@ func _start_stun() -> void:
 	print("Player stunned for ", stun_duration, " seconds!")
 
 
+func _cancel_grace_period_with_kick() -> void:
+	"""Cancel grace period and perform kick attack instead."""
+	print("Grace period cancelled! Performing kick attack!")
+	
+	# Clear grace period state
+	grace_period_active = false
+	grace_period_timer = 0.0
+	
+	# Temporarily add the enemy to nearby_enemies if it's not already there
+	var enemy = grace_period_colliding_enemy
+	grace_period_colliding_enemy = null
+	
+	if enemy and is_instance_valid(enemy) and not enemy.is_destroyed:
+		# Make sure the enemy is in the nearby_enemies array
+		if not nearby_enemies.has(enemy):
+			nearby_enemies.append(enemy)
+		
+		# Perform the attack
+		_start_attack()
+
+
 func _end_stun() -> void:
-	"""End the stun effect."""
+	"""End the stun effect and start invulnerability period."""
 	# Remove any remaining shake offset
 	global_position -= stun_shake_offset
 	stun_shake_offset = Vector2.ZERO
@@ -1422,18 +1646,67 @@ func _end_stun() -> void:
 	# Reset visual feedback
 	modulate = Color.WHITE
 	
-	print("Player stun ended!")
+	# Start invulnerability period
+	stun_invulnerability_timer = stun_invulnerability_duration
+	
+	print("Player stun ended! Invulnerable for ", stun_invulnerability_duration, " seconds!")
 
 
-func _on_enemy_touched() -> void:
+func _on_enemy_touched(enemy: Node2D = null) -> void:
 	"""Called when player touches an enemy without attacking."""
-	if not is_attacking and not is_stunned and not is_invulnerable:
-		_start_stun()
+	# Check for invulnerability from dashes, already stunned, grace period active, or post-stun invulnerability
+	if not is_attacking and not is_stunned and not is_invulnerable and not grace_period_active and stun_invulnerability_timer <= 0:
+		_start_stun(enemy)
 
 
 func _on_enemy_destroyed() -> void:
 	"""Called when an enemy is destroyed by attack."""
 	print("Enemy destroyed by attack!")
+
+
+func _on_bullet_hit(bullet: Node2D, shooter: Node2D = null) -> void:
+	"""Called when player is hit by a bullet - starts grace period for parry."""
+	# Check for invulnerability from dashes, already stunned, grace periods active, or post-stun invulnerability
+	if not is_attacking and not is_stunned and not is_invulnerable and not grace_period_active and not bullet_grace_period_active and stun_invulnerability_timer <= 0:
+		# Start bullet grace period
+		bullet_grace_period_active = true
+		bullet_grace_period_timer = bullet_hit_grace_period
+		bullet_that_hit = bullet
+		
+		print("[BULLET HIT] Grace period started! Press kick within ", bullet_hit_grace_period, " seconds to parry!")
+
+
+func _apply_bullet_hitstun() -> void:
+	"""Apply hitstun after bullet grace period expires without parry."""
+	bullet_grace_period_active = false
+	bullet_grace_period_timer = 0.0
+	bullet_that_hit = null
+	
+	# Apply stun effect (same as enemy touch)
+	_on_enemy_touched(null)
+	
+	print("[BULLET HIT] Grace period expired - hitstun applied!")
+
+
+func _cancel_bullet_grace_period_with_parry() -> void:
+	"""Cancel bullet grace period by parrying nearby bullets."""
+	print("[BULLET HIT] Grace period cancelled! Performing parry!")
+	
+	# Clear bullet grace period state
+	bullet_grace_period_active = false
+	bullet_grace_period_timer = 0.0
+	bullet_that_hit = null
+	
+	# Detect and parry nearby bullets
+	_update_bullet_detection()
+	
+	if closest_bullet and is_instance_valid(closest_bullet):
+		# Parry the closest bullet
+		_parry_bullet(closest_bullet)
+	else:
+		# No bullets to parry - just give brief invulnerability as reward
+		stun_invulnerability_timer = 0.3
+		print("[BULLET PARRY] No bullets to parry, but hitstun cancelled!")
 
 
 # ====================================
@@ -1469,6 +1742,9 @@ func _start_ground_slide(input_x: float) -> void:
 	is_jumping = false
 	is_wall_sliding = false
 	is_diving = false
+	# Hide dive attack visual
+	if dive_attack_visual:
+		dive_attack_visual.visible = false
 	
 	# End wall run if sliding
 	if is_wall_running:
@@ -1550,6 +1826,9 @@ func _start_air_dash(input_x: float) -> void:
 	is_jumping = false
 	is_wall_sliding = false
 	is_diving = false
+	# Hide dive attack visual
+	if dive_attack_visual:
+		dive_attack_visual.visible = false
 	
 	# End wall run if air dashing
 	if is_wall_running:
@@ -1659,6 +1938,11 @@ func _start_dive(input_vector: Vector2) -> void:
 	# Set dive state
 	is_diving = true
 	
+	# Show dive attack visual indicator
+	if dive_attack_visual:
+		_update_dive_attack_visual()  # Update visual to match current range
+		dive_attack_visual.visible = true
+	
 	# Cancel other states
 	is_jumping = false
 	is_wall_sliding = false
@@ -1676,6 +1960,32 @@ func _start_dive(input_vector: Vector2) -> void:
 
 func _process_dive(delta: float) -> void:
 	"""Update dive state - maintain dive velocity until landing."""
+	# Check for enemies within range for dive attack (anywhere except upper 90 degrees)
+	var enemies = get_tree().get_nodes_in_group("enemies")
+	
+	for enemy in enemies:
+		if enemy and is_instance_valid(enemy) and not enemy.is_destroyed:
+			var distance = global_position.distance_to(enemy.global_position)
+			if distance <= dive_attack_range:
+				# Check if enemy is NOT in the upper 90-degree cone
+				# Calculate angle from player to enemy
+				var direction_to_enemy = enemy.global_position - global_position
+				var angle_to_enemy = atan2(direction_to_enemy.y, direction_to_enemy.x)
+				
+				# Convert to degrees (0-360 range)
+				var angle_degrees = rad_to_deg(angle_to_enemy)
+				if angle_degrees < 0:
+					angle_degrees += 360
+				
+				# Upper 90 degrees is from 225 to 315 degrees (centered on 270 = straight up)
+				# Allow hit if NOT in upper 90 degree cone
+				var is_in_upper_cone = angle_degrees >= 225 and angle_degrees <= 315
+				
+				if not is_in_upper_cone:
+					# Dive attack! Hit enemy
+					_perform_dive_attack(enemy)
+					return
+	
 	# Maintain dive velocity (no gravity, no air control)
 	velocity = dive_velocity
 	
@@ -1688,8 +1998,44 @@ func _process_dive(delta: float) -> void:
 	if is_on_wall:
 		is_diving = false
 		dive_pre_landing_horizontal_speed = 0.0
+		# Hide dive attack visual
+		if dive_attack_visual:
+			dive_attack_visual.visible = false
 		# Allow normal physics to take over
 		# Dive cancelled by wall collision
+
+
+func _perform_dive_attack(enemy: Node2D) -> void:
+	"""Execute a dive attack on an enemy - bounce player upward and destroy enemy."""
+	print("[DIVE ATTACK] Hit enemy at: ", enemy.global_position)
+	
+	# Kick the enemy downwards (destroy it)
+	if enemy.has_method("kick"):
+		# Kick enemy downwards with dive attack knockback speed
+		var downward_direction = Vector2.DOWN
+		enemy.kick(downward_direction, dive_attack_knockback_speed)
+	
+	# End dive state
+	is_diving = false
+	dive_pre_landing_horizontal_speed = 0.0
+	
+	# Hide dive attack visual
+	if dive_attack_visual:
+		dive_attack_visual.visible = false
+	
+	# Retain horizontal velocity
+	var horizontal_vel = velocity.x
+	
+	# Lose all vertical velocity and gain upward impulse
+	velocity.x = horizontal_vel
+	velocity.y = -dive_attack_bounce_impulse  # Upward impulse when hitting enemy
+	
+	# Set jumping state to allow player control
+	is_jumping = true
+	
+	print("[DIVE ATTACK] Bounce! New velocity: ", velocity)
+	
+	# Could trigger dive attack effects here (particles, sound, screen shake, etc.)
 
 
 # ====================================
@@ -1715,6 +2061,87 @@ func _post_movement_updates() -> void:
 
 
 # ====================================
+# KICK OBJECT MECHANICS
+# ====================================
+
+func _update_kickable_object_detection() -> void:
+	"""Detect kickable objects in front of player within cone angle."""
+	nearby_kickable_objects.clear()
+	closest_kickable_object = null
+	
+	# Get all kickable objects
+	var objects = get_tree().get_nodes_in_group("kickable_objects")
+	
+	# Calculate facing direction vector
+	var facing_vec = Vector2(facing_direction, 0)
+	
+	for obj in objects:
+		if obj and is_instance_valid(obj) and obj.has_method("can_be_kicked") and obj.can_be_kicked():
+			# Check distance
+			var distance = global_position.distance_to(obj.global_position)
+			if distance <= kick_object_detection_range:
+				# Check if object is in front of player (not behind)
+				var direction_to_obj = (obj.global_position - global_position).normalized()
+				var dot_product = facing_vec.dot(direction_to_obj)
+				
+				# Check cone angle - dot product > cos(angle/2) means within cone
+				var half_cone_angle = deg_to_rad(kick_object_cone_angle / 2.0)
+				var cone_threshold = cos(half_cone_angle)
+				
+				if dot_product > cone_threshold:
+					nearby_kickable_objects.append(obj)
+
+
+func _update_kick_object_indicator() -> void:
+	"""Update visual indicator for kick object direction."""
+	if not object_kick_indicator:
+		return
+	
+	# Find closest kickable object in front
+	closest_kickable_object = null
+	var closest_distance = INF
+	
+	for obj in nearby_kickable_objects:
+		if obj and is_instance_valid(obj):
+			var distance = global_position.distance_to(obj.global_position)
+			if distance < closest_distance:
+				closest_distance = distance
+				closest_kickable_object = obj
+	
+	# Show indicator if object found
+	if closest_kickable_object:
+		object_kick_indicator.visible = true
+		
+		# Draw arrow from player to object
+		var start_pos = Vector2.ZERO
+		var end_pos = to_local(closest_kickable_object.global_position)
+		
+		object_kick_indicator.points = PackedVector2Array([start_pos, end_pos])
+	else:
+		object_kick_indicator.visible = false
+
+
+func _kick_object(obj: Node2D) -> void:
+	"""Kick a kickable object in the facing direction."""
+	if not obj or not is_instance_valid(obj):
+		return
+	
+	if not obj.has_method("kick"):
+		return
+	
+	# Calculate kick direction (horizontal, in facing direction)
+	var kick_direction = Vector2(facing_direction, 0)
+	
+	# Kick the object
+	obj.kick(kick_direction, kick_object_speed)
+	
+	# Set cooldown
+	attack_cooldown_timer = attack_cooldown
+	
+	print("[KICK OBJECT] Kicked object: ", obj.name, " direction: ", kick_direction, " speed: ", kick_object_speed)
+
+
+# ====================================
 # AFTERIMAGE EFFECT
 # ====================================
 
@@ -1735,3 +2162,106 @@ func _spawn_afterimage() -> void:
 	# Add the afterimage to the scene (as a sibling of the player, not a child)
 	# This prevents the afterimage from moving with the player
 	get_parent().add_child(afterimage)
+
+
+# ====================================
+# BULLET PARRY MECHANICS
+# ====================================
+
+func _create_bullet_parry_indicator() -> void:
+	"""Create the visual indicator for parryable bullets."""
+	bullet_parry_indicator = Line2D.new()
+	bullet_parry_indicator.name = "BulletParryIndicator"
+	bullet_parry_indicator.width = 4.0
+	bullet_parry_indicator.default_color = Color(0.2, 1.0, 1.0, 0.9)  # Bright cyan
+	bullet_parry_indicator.visible = false
+	add_child(bullet_parry_indicator)
+
+func _update_bullet_detection() -> void:
+	"""Detect bullets near the player that can be parried."""
+	nearby_bullets.clear()
+	closest_bullet = null
+	
+	# Get all enemy projectiles
+	var bullets = get_tree().get_nodes_in_group("enemy_projectiles")
+	
+	# Calculate facing direction vector
+	var facing_vec = Vector2(facing_direction, 0)
+	
+	for bullet in bullets:
+		if bullet and is_instance_valid(bullet) and bullet.has_method("parry"):
+			# Check if bullet can be parried
+			if "can_be_parried" in bullet and not bullet.can_be_parried:
+				continue
+			
+			# Check distance
+			var distance = global_position.distance_to(bullet.global_position)
+			if distance <= parry_detection_range:
+				# Check if bullet is in front of player (within cone angle)
+				var direction_to_bullet = (bullet.global_position - global_position).normalized()
+				var dot_product = facing_vec.dot(direction_to_bullet)
+				
+				# Check cone angle - dot product > cos(angle/2) means within cone
+				var half_cone_angle = deg_to_rad(parry_angle_cone / 2.0)
+				var cone_threshold = cos(half_cone_angle)
+				
+				if dot_product > cone_threshold:
+					nearby_bullets.append(bullet)
+
+func _update_bullet_parry_indicator() -> void:
+	"""Update visual indicator for parryable bullet."""
+	if not bullet_parry_indicator:
+		return
+	
+	# Find closest bullet in front
+	closest_bullet = null
+	var closest_distance = INF
+	
+	for bullet in nearby_bullets:
+		if bullet and is_instance_valid(bullet):
+			var distance = global_position.distance_to(bullet.global_position)
+			if distance < closest_distance:
+				closest_distance = distance
+				closest_bullet = bullet
+	
+	# Show indicator if bullet found
+	if closest_bullet:
+		bullet_parry_indicator.visible = true
+		
+		# Draw line from player to bullet with arrow-like appearance
+		var start_pos = Vector2.ZERO
+		var bullet_pos = to_local(closest_bullet.global_position)
+		
+		# Create arrow points
+		var points = PackedVector2Array()
+		points.append(start_pos)
+		points.append(bullet_pos)
+		
+		bullet_parry_indicator.points = points
+	else:
+		bullet_parry_indicator.visible = false
+
+func _parry_bullet(bullet: Node2D) -> void:
+	"""Parry a bullet - redirect it back towards the enemy that shot it."""
+	if not bullet or not is_instance_valid(bullet):
+		return
+	
+	if not bullet.has_method("parry"):
+		return
+	
+	# Calculate parry direction (towards enemy or reverse bullet direction)
+	var parry_direction = (bullet.global_position - global_position).normalized()
+	
+	# Call bullet's parry method
+	bullet.parry(parry_direction)
+	
+	# Set cooldown
+	attack_cooldown_timer = attack_cooldown
+	
+	# Visual feedback - brief flash
+	modulate = Color(0.3, 1.5, 1.5)  # Cyan flash
+	await get_tree().create_timer(0.1).timeout
+	if not is_stunned:  # Only reset if not in another state
+		modulate = Color.WHITE
+	
+	print("[BULLET PARRY] Parried bullet! Redirecting towards enemy")
