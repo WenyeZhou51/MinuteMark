@@ -1,9 +1,13 @@
-[gd_scene load_steps=8 format=3 uid="uid://clfclx5p38xkv"]
+[gd_scene load_steps=12 format=3 uid="uid://clfclx5p38xkv"]
 
 [ext_resource type="PackedScene" uid="uid://vv3m4nx6g3jo" path="res://player.tscn" id="1_qj3g4"]
 [ext_resource type="PackedScene" uid="uid://b8x7lam2n4p5q" path="res://enemy.tscn" id="2_enemy"]
+[ext_resource type="PackedScene" uid="uid://3iklf1aqf11" path="res://Models/%h1%.glb" id="2_lgm15"]
+[ext_resource type="PackedScene" uid="uid://b4x74lonf1385" path="res://Models/%t1%.glb" id="3_3lf8s"]
 [ext_resource type="Script" path="res://background_camera_3d.gd" id="3_bg_cam"]
+[ext_resource type="PackedScene" uid="uid://b25pn1r5fn6at" path="res://Models/%h2%.glb" id="4_irfdh"]
 [ext_resource type="PackedScene" uid="uid://c4k3l8m5n2qar" path="res://kickable_object.tscn" id="4_kickable"]
+[ext_resource type="PackedScene" uid="uid://b7q8n5ck2wh0e" path="res://pause_menu.tscn" id="8_b0gwe"]
 
 [sub_resource type="Environment" id="Environment_bg"]
 background_mode = 1
@@ -34,7 +38,7 @@ size = Vector2i(5000, 2000)
 render_target_update_mode = 4
 
 [node name="Camera3D" type="Camera3D" parent="Background3D/SubViewport"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 20)
+transform = Transform3D(1, 0, 0, 0, 0.99658, 0.0826343, 0, -0.0826343, 0.99658, 0, 4.03122, -11.0115)
 script = ExtResource("3_bg_cam")
 parallax_strength = 0.01
 vertical_parallax_strength = 0.0
@@ -47,6 +51,15 @@ environment = SubResource("Environment_bg")
 transform = Transform3D(0.866025, -0.433013, 0.25, 0, 0.5, 0.866025, -0.5, -0.75, 0.433013, 0, 10, 8)
 light_energy = 1.2
 shadow_enabled = true
+
+[node name="_h1_" parent="Background3D/SubViewport" instance=ExtResource("2_lgm15")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 99.1926, -71.8518, -71.1135)
+
+[node name="_t1_" parent="Background3D/SubViewport" instance=ExtResource("3_3lf8s")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 71.6492, -72.0105, -52.7915)
+
+[node name="_h2_" parent="Background3D/SubViewport" instance=ExtResource("4_irfdh")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -49.9555, -78.0906, -213.866)
 
 [node name="Player" parent="." instance=ExtResource("1_qj3g4")]
 position = Vector2(200, 300)
@@ -348,3 +361,5 @@ shape = SubResource("RectangleShape2D_platform")
 [node name="Polygon2D" type="Polygon2D" parent="Platforms/TopPlatform"]
 color = Color(0.811765, 0.647059, 0.25098, 1)
 polygon = PackedVector2Array(-250, -20, 250, -20, 250, 20, -250, 20)
+
+[node name="PauseMenu" parent="." instance=ExtResource("8_b0gwe")]

@@ -101,36 +101,36 @@ float noise(vec2 p) {
 	vec2 i = floor(p);
 	vec2 f = fract(p);
 	vec2 u = f * f * (3.0 - 2.0 * f);
-	
+
 	float a = dot(hash22(i + vec2(0.0, 0.0)) - 0.5, vec2(1.0));
 	float b = dot(hash22(i + vec2(1.0, 0.0)) - 0.5, vec2(1.0));
 	float c = dot(hash22(i + vec2(0.0, 1.0)) - 0.5, vec2(1.0));
 	float d = dot(hash22(i + vec2(1.0, 1.0)) - 0.5, vec2(1.0));
-	
+
 	return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
 }
 
 vec2 voronoi(vec2 p) {
 	vec2 n = floor(p);
 	vec2 f = fract(p);
-	
+
 	float min_dist = 1.0;
 	vec2 min_point = vec2(0.0);
-	
+
 	for (int j = -1; j <= 1; j++) {
 		for (int i = -1; i <= 1; i++) {
 			vec2 neighbor = vec2(float(i), float(j));
 			vec2 point = hash22(n + neighbor);
 			vec2 diff = neighbor + point - f;
 			float dist = length(diff);
-			
+
 			if (dist < min_dist) {
 				min_dist = dist;
 				min_point = point;
 			}
 		}
 	}
-	
+
 	return vec2(min_dist, hash22(n + min_point).x);
 }
 
@@ -174,20 +174,20 @@ vec2 rotate_2d(vec2 p, float angle) {
 float halftone_grid(vec2 p, float rotation_degrees) {
 	// Convert rotation from degrees to radians
 	float angle = rotation_degrees * 3.14159265359 / 180.0;
-	
+
 	// Apply rotation to coordinates
 	vec2 rotated_p = rotate_2d(p, angle);
-	
+
 	// Create regular grid
 	vec2 cell = floor(rotated_p);
 	vec2 fract_p = fract(rotated_p);
-	
+
 	// Grid point is at center of each cell (0.5, 0.5)
 	vec2 grid_center = vec2(0.5, 0.5);
-	
+
 	// Distance from current position to grid center
 	float dist = length(fract_p - grid_center);
-	
+
 	return dist;
 }
 
@@ -213,7 +213,7 @@ vec4 bspline_interpolate(float t, vec4 c0, vec4 c1, vec4 c2, vec4 c3, vec4 c4) {
 	int seg_index = int(floor(segment));
 	seg_index = clamp(seg_index, 0, 3);
 	float local_t = fract(segment);
-	
+
 	vec4 result;
 	if (seg_index == 0) {
 		// First segment: c0 to c1
@@ -256,7 +256,7 @@ vec4 bspline_interpolate(float t, vec4 c0, vec4 c1, vec4 c2, vec4 c3, vec4 c4) {
 		         bspline_basis(local_t, 2) * p2 +
 		         bspline_basis(local_t, 3) * p3;
 	}
-	
+
 	return result;
 }
 
@@ -265,7 +265,7 @@ vec4 apply_color_ramp(float luminosity, vec2 world_coords) {
 	if (!enable_color_ramp) {
 		return vec4(vec3(luminosity), 1.0);
 	}
-	
+
 	// Apply color ramp with 5 thresholds
 	vec4 result_color;
 	bool apply_dots = false;
@@ -274,7 +274,7 @@ vec4 apply_color_ramp(float luminosity, vec2 world_coords) {
 	float dot_softness = 0.1;
 	float dot_rotation = 0.0;
 	vec4 dot_color = vec4(0.0, 0.0, 0.0, 1.0);
-	
+
 	// Use B-spline interpolation when watercolor mode is enabled
 	if (enable_watercolor) {
 		// B-spline mode: smooth interpolation between colors
@@ -305,10 +305,10 @@ vec4 apply_color_ramp(float luminosity, vec2 world_coords) {
 			normalized_lum = (luminosity - threshold_4_position) / max(range, 0.001);
 			normalized_lum = 0.75 + normalized_lum * 0.25; // Map to [0.75, 1.0]
 		}
-		
+
 		// Apply B-spline interpolation with 5 colors
 		result_color = bspline_interpolate(normalized_lum, threshold_1_color, threshold_2_color, threshold_3_color, threshold_4_color, threshold_5_color);
-		
+
 		// Don't apply dots in B-spline mode (watercolor doesn't use halftone)
 		apply_dots = false;
 	} else {
@@ -360,22 +360,22 @@ vec4 apply_color_ramp(float luminosity, vec2 world_coords) {
 			dot_color = threshold_5_dot_color;
 		}
 	}
-	
+
 	// Apply halftone grid dot pattern if enabled for this threshold
 	if (apply_dots) {
 		// Use world coordinates for dots (they'll stick to surfaces)
 		float distance_to_center = halftone_grid(world_coords * dot_scale, dot_rotation);
-		
+
 		// Normalize distance (max distance in a cell is ~0.707 from corner to center)
 		distance_to_center = distance_to_center / 0.707;
-		
+
 		// Create circular dots with smooth edges
 		float dot_mask = 1.0 - smoothstep(dot_size, dot_size + dot_softness, distance_to_center);
-		
+
 		// Blend dot color with base color
 		result_color = mix(result_color, dot_color, dot_mask);
 	}
-	
+
 	return result_color;
 }
 
@@ -385,18 +385,18 @@ vec3 apply_kuwahara_filter(vec3 input_color, vec2 uv, vec3 normal) {
 	if (!enable_oil_painting) {
 		return input_color;
 	}
-	
+
 	int radius = kuwahara_radius;
 	float radius_f = float(radius);
-	
+
 	// We'll divide the kernel into 4 quadrants and find which has lowest variance
 	// Quadrants: top-left, top-right, bottom-left, bottom-right
-	
+
 	vec3 mean[4];
 	vec3 std_dev[4];
 	float variance[4];
 	int samples[4];
-	
+
 	// Initialize accumulators
 	for (int q = 0; q < 4; q++) {
 		mean[q] = vec3(0.0);
@@ -404,98 +404,98 @@ vec3 apply_kuwahara_filter(vec3 input_color, vec2 uv, vec3 normal) {
 		variance[q] = 0.0;
 		samples[q] = 0;
 	}
-	
+
 	// Sample the neighborhood using world-space derivative-based approach
 	// Since we're in a spatial shader without screen texture, we'll use UV-based sampling
 	// with lighting information
-	
+
 	// Calculate pixel size based on UV derivatives
 	vec2 pixel_size = vec2(
 		length(vec2(dFdx(uv.x), dFdy(uv.x))),
 		length(vec2(dFdx(uv.y), dFdy(uv.y)))
 	) * 0.5;
-	
+
 	// First pass: calculate means for each quadrant
 	for (int y = -radius; y <= radius; y++) {
 		for (int x = -radius; x <= radius; x++) {
 			vec2 offset = vec2(float(x), float(y)) * pixel_size * 5.0; // Scale for visible effect
 			vec2 sample_uv = uv + offset;
-			
+
 			// Sample lighting based on offset (approximate)
 			// In a real implementation with screen texture, we'd sample that
 			// Here we approximate based on UV and normal variation
 			float noise_sample = noise(sample_uv * 20.0) * 0.3;
 			vec3 sample_color = input_color * (1.0 + noise_sample);
 			sample_color = clamp(sample_color, 0.0, 1.0);
-			
+
 			// Determine which quadrant this sample belongs to
 			int quadrant = -1;
 			if (x <= 0 && y <= 0) quadrant = 0; // top-left
 			else if (x > 0 && y <= 0) quadrant = 1; // top-right
 			else if (x <= 0 && y > 0) quadrant = 2; // bottom-left
 			else if (x > 0 && y > 0) quadrant = 3; // bottom-right
-			
+
 			if (quadrant >= 0) {
 				mean[quadrant] += sample_color;
 				samples[quadrant]++;
 			}
 		}
 	}
-	
+
 	// Calculate actual means
 	for (int q = 0; q < 4; q++) {
 		if (samples[q] > 0) {
 			mean[q] /= float(samples[q]);
 		}
 	}
-	
+
 	// Second pass: calculate variance for each quadrant
 	for (int y = -radius; y <= radius; y++) {
 		for (int x = -radius; x <= radius; x++) {
 			vec2 offset = vec2(float(x), float(y)) * pixel_size * 5.0;
 			vec2 sample_uv = uv + offset;
-			
+
 			float noise_sample = noise(sample_uv * 20.0) * 0.3;
 			vec3 sample_color = input_color * (1.0 + noise_sample);
 			sample_color = clamp(sample_color, 0.0, 1.0);
-			
+
 			// Determine quadrant
 			int quadrant = -1;
 			if (x <= 0 && y <= 0) quadrant = 0;
 			else if (x > 0 && y <= 0) quadrant = 1;
 			else if (x <= 0 && y > 0) quadrant = 2;
 			else if (x > 0 && y > 0) quadrant = 3;
-			
+
 			if (quadrant >= 0) {
 				vec3 diff = sample_color - mean[quadrant];
 				std_dev[quadrant] += diff * diff;
 			}
 		}
 	}
-	
+
 	// Calculate final variance
 	float min_variance = 999999.0;
 	int min_quadrant = 0;
-	
+
 	for (int q = 0; q < 4; q++) {
 		if (samples[q] > 0) {
 			std_dev[q] /= float(samples[q]);
 			variance[q] = (std_dev[q].r + std_dev[q].g + std_dev[q].b) / 3.0;
-			
+
 			if (variance[q] < min_variance) {
 				min_variance = variance[q];
 				min_quadrant = q;
 			}
 		}
 	}
-	
+
 	// Return the mean color from the quadrant with lowest variance
 	// This preserves edges while creating smooth painted regions
 	vec3 result = mean[min_quadrant];
-	
+
 	// Apply sharpness control - blend between filtered and original
 	result = mix(result, input_color, 1.0 - kuwahara_sharpness);
-	
+
 	return result;
 }
 
@@ -503,35 +503,35 @@ void fragment() {
 	// FIX: Use UV coordinates instead of world position to prevent stretching
 	// This ensures dots maintain uniform circular shape regardless of object scale
 	vec2 halftone_coords = UV;
-	
+
 	// ===== MANUAL LIGHTING CALCULATION =====
 	// Calculate diffuse lighting (N dot L)
 	vec3 normalized_light_dir = normalize(light_direction);
 	vec3 normal = NORMAL;
 	float NdotL = dot(normal, -normalized_light_dir);
 	NdotL = max(NdotL, 0.0);
-	
+
 	// Apply light energy and add ambient light
 	float lighting_intensity = (NdotL * light_energy) + ambient_light;
 	lighting_intensity = clamp(lighting_intensity, 0.0, 1.0);
-	
+
 	// ===== USE LIGHTING TO DETERMINE THRESHOLD COLOR =====
 	// Now the threshold color selection is based on actual scene lighting!
 	vec4 material_color = apply_color_ramp(lighting_intensity, halftone_coords);
-	
+
 	// Apply watercolor effect if enabled
 	if (enable_watercolor) {
 		material_color.rgb = apply_watercolor(material_color.rgb, UV, lighting_intensity);
 	}
-	
+
 	// Apply oil painting / Kuwahara filter if enabled
 	if (enable_oil_painting) {
 		material_color.rgb = apply_kuwahara_filter(material_color.rgb, UV, NORMAL);
 	}
-	
+
 	// Apply light color to the final result
 	vec3 final_color = material_color.rgb * light_color;
-	
+
 	// Set final output
 	ALBEDO = final_color;
 	ALPHA = material_color.a;

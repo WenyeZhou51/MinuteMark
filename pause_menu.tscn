@@ -1,0 +1,469 @@
+[gd_scene load_steps=16 format=3 uid="uid://b7q8n5ck2wh0e"]
+
+[ext_resource type="Script" path="res://pause_menu.gd" id="1_pause"]
+[ext_resource type="Script" path="res://addons/juicy-effect/UI/Juicy_button.gd" id="2_juicy_button"]
+[ext_resource type="Texture2D" uid="uid://rte0t12en10e" path="res://Sprites/Pause bg.png" id="2_pause_bg"]
+[ext_resource type="FontFile" uid="uid://qjp835anti7g" path="res://Fonts/doctor punk.otf" id="2_t4l2a"]
+[ext_resource type="Script" path="res://addons/juicy-effect/Logic/Juicy_Player.gd" id="3_player"]
+[ext_resource type="Texture2D" uid="uid://bpr70dxba6rqr" path="res://Sprites/Bg white overlay .png" id="3_white_overlay"]
+[ext_resource type="Script" path="res://addons/juicy-effect/Effects/juicy_scale.gd" id="4_scale"]
+[ext_resource type="Script" path="res://addons/juicy-effect/Effects/juicy_set_active.gd" id="5_active"]
+[ext_resource type="Script" path="res://addons/juicy-effect/Effects/juicy_set_order.gd" id="6_order"]
+[ext_resource type="Script" path="res://addons/juicy-effect/UI/Wiggle_polygon.gd" id="7_wiggle"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_focus"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_normal"]
+
+[sub_resource type="Theme" id="Theme_buttons"]
+Button/styles/focus = SubResource("StyleBoxEmpty_focus")
+Button/styles/hover = SubResource("StyleBoxEmpty_normal")
+Button/styles/normal = SubResource("StyleBoxEmpty_normal")
+Button/styles/pressed = SubResource("StyleBoxEmpty_normal")
+
+[sub_resource type="Curve" id="Curve_focus_scale"]
+max_value = 3.0
+_data = [Vector2(0, 1.2), 0.0, 0.0, 0, 0, Vector2(1, 1.2), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="Curve" id="Curve_unfocus_scale"]
+_data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[node name="PauseMenu" type="CanvasLayer"]
+process_mode = 3
+layer = 100
+script = ExtResource("1_pause")
+pocket_watch_fps = 60.0
+
+[node name="PauseBg" type="TextureRect" parent="."]
+z_index = -5
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("2_pause_bg")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="PocketWatch" type="TextureRect" parent="."]
+visible = false
+z_index = -2
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+expand_mode = 1
+stretch_mode = 6
+
+[node name="WhiteOverlay" type="TextureRect" parent="."]
+z_index = -3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("3_white_overlay")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="Background" type="ColorRect" parent="."]
+z_index = -10
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 1)
+
+[node name="MenuContainer" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Title" type="Label" parent="MenuContainer"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -727.0
+offset_top = -613.0
+offset_right = 464.0
+offset_bottom = -404.0
+grow_horizontal = 2
+grow_vertical = 2
+rotation = -0.0348246
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 8
+theme_override_fonts/font = ExtResource("2_t4l2a")
+theme_override_font_sizes/font_size = 200
+text = "Wait A Second"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="ResumeButton" type="Button" parent="MenuContainer"]
+custom_minimum_size = Vector2(300, 80)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -420.0
+offset_top = -215.0
+offset_right = -120.0
+offset_bottom = -135.0
+grow_horizontal = 2
+grow_vertical = 2
+rotation = -0.0607904
+focus_neighbor_bottom = NodePath("../RestartButton")
+mouse_filter = 1
+theme = SubResource("Theme_buttons")
+flat = true
+script = ExtResource("2_juicy_button")
+auto_pivot_center = true
+
+[node name="SelectingIndicator" type="Node2D" parent="MenuContainer/ResumeButton"]
+process_mode = 4
+visible = false
+z_index = -1
+position = Vector2(178.482, 69.813)
+
+[node name="RedPolygon" type="Polygon2D" parent="MenuContainer/ResumeButton/SelectingIndicator"]
+position = Vector2(-150, -40)
+color = Color(1, 0, 1, 1)
+polygon = PackedVector2Array(-91.25, 45, 388.75, 105, 381.25, 45, -68.75, -15)
+script = ExtResource("7_wiggle")
+polygon_color = Color(1, 0, 1, 1)
+intensity = 10.0
+duration = 0.1
+
+[node name="CyanPolygon" type="Polygon2D" parent="MenuContainer/ResumeButton/SelectingIndicator"]
+position = Vector2(-155, -35)
+color = Color(1, 1, 0, 1)
+polygon = PackedVector2Array(-57.125, 81.25, 370.375, 61.25, 388.375, -18.75, -64.625, 15.25)
+script = ExtResource("7_wiggle")
+polygon_color = Color(1, 1, 0, 1)
+intensity = 10.0
+duration = 0.1
+
+[node name="ButtonContent" type="CenterContainer" parent="MenuContainer/ResumeButton"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 28.4815
+offset_top = 29.813
+offset_right = 28.4815
+offset_bottom = 34.813
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Label" type="Label" parent="MenuContainer/ResumeButton/ButtonContent"]
+layout_mode = 2
+theme_override_colors/font_shadow_color = Color(1, 0, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_x = 15
+theme_override_constants/outline_size = 4
+theme_override_fonts/font = ExtResource("2_t4l2a")
+theme_override_font_sizes/font_size = 120
+text = "RESUME"
+
+[node name="Focus" type="Node" parent="MenuContainer/ResumeButton"]
+script = ExtResource("3_player")
+
+[node name="ScaleButton" type="Node" parent="MenuContainer/ResumeButton/Focus" node_paths=PackedStringArray("target_node")]
+script = ExtResource("4_scale")
+target_node = NodePath("../../ButtonContent")
+target_scale = Vector3(1.2, 1.2, 1)
+curve = SubResource("Curve_focus_scale")
+revert_on_exit = false
+duration = 0.1
+
+[node name="ShowSelecting" type="Node" parent="MenuContainer/ResumeButton/Focus" node_paths=PackedStringArray("target_node")]
+script = ExtResource("5_active")
+target_node = NodePath("../../SelectingIndicator")
+initial_state = 1
+play_start_state = 1
+also_set_process = true
+duration = 0.0
+
+[node name="BringToFront" type="Node" parent="MenuContainer/ResumeButton/Focus" node_paths=PackedStringArray("target_node")]
+script = ExtResource("6_order")
+target_node = NodePath("../..")
+set_to = 1
+duration = 0.0
+
+[node name="Unfocus" type="Node" parent="MenuContainer/ResumeButton"]
+script = ExtResource("3_player")
+
+[node name="ScaleButton" type="Node" parent="MenuContainer/ResumeButton/Unfocus" node_paths=PackedStringArray("target_node")]
+script = ExtResource("4_scale")
+target_node = NodePath("../../ButtonContent")
+curve = SubResource("Curve_unfocus_scale")
+revert_on_exit = false
+duration = 0.1
+
+[node name="HideSelecting" type="Node" parent="MenuContainer/ResumeButton/Unfocus" node_paths=PackedStringArray("target_node")]
+script = ExtResource("5_active")
+target_node = NodePath("../../SelectingIndicator")
+initial_state = 1
+action = 1
+also_set_process = true
+duration = 0.0
+
+[node name="RestoreOrder" type="Node" parent="MenuContainer/ResumeButton/Unfocus" node_paths=PackedStringArray("target_node")]
+script = ExtResource("6_order")
+target_node = NodePath("../..")
+duration = 0.0
+
+[node name="Confirm" type="Node" parent="MenuContainer/ResumeButton"]
+script = ExtResource("3_player")
+
+[node name="RestartButton" type="Button" parent="MenuContainer"]
+custom_minimum_size = Vector2(300, 80)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -384.0
+offset_top = 174.0
+offset_right = -84.0
+offset_bottom = 254.0
+grow_horizontal = 2
+grow_vertical = 2
+focus_neighbor_top = NodePath("../ResumeButton")
+focus_neighbor_bottom = NodePath("../QuitButton")
+mouse_filter = 1
+theme = SubResource("Theme_buttons")
+flat = true
+script = ExtResource("2_juicy_button")
+auto_pivot_center = true
+
+[node name="SelectingIndicator" type="Node2D" parent="MenuContainer/RestartButton"]
+process_mode = 4
+visible = false
+z_index = -1
+position = Vector2(192, -72)
+
+[node name="RedPolygon" type="Polygon2D" parent="MenuContainer/RestartButton/SelectingIndicator"]
+position = Vector2(-150, -40)
+color = Color(1, 0, 1, 1)
+polygon = PackedVector2Array(-91.25, 45, 388.75, 105, 381.25, 45, -68.75, -15)
+script = ExtResource("7_wiggle")
+polygon_color = Color(0.309584, 0.63241, 1, 1)
+intensity = 10.0
+duration = 0.1
+
+[node name="CyanPolygon" type="Polygon2D" parent="MenuContainer/RestartButton/SelectingIndicator"]
+position = Vector2(-155, -35)
+color = Color(1, 0, 0, 1)
+polygon = PackedVector2Array(-57.125, 81.25, 370.375, 61.25, 388.375, -18.75, -64.625, 15.25)
+script = ExtResource("7_wiggle")
+polygon_color = Color(1, 1, 0, 1)
+intensity = 10.0
+duration = 0.1
+
+[node name="ButtonContent" type="CenterContainer" parent="MenuContainer/RestartButton"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 42.0
+offset_top = -112.0
+offset_right = 42.0
+offset_bottom = -112.0
+grow_horizontal = 2
+grow_vertical = 2
+rotation = 0.0720834
+mouse_filter = 2
+
+[node name="Label" type="Label" parent="MenuContainer/RestartButton/ButtonContent"]
+layout_mode = 2
+theme_override_colors/font_shadow_color = Color(1, 0, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_x = 15
+theme_override_constants/outline_size = 4
+theme_override_fonts/font = ExtResource("2_t4l2a")
+theme_override_font_sizes/font_size = 110
+text = "ReStart"
+
+[node name="Focus" type="Node" parent="MenuContainer/RestartButton"]
+script = ExtResource("3_player")
+
+[node name="ScaleButton" type="Node" parent="MenuContainer/RestartButton/Focus" node_paths=PackedStringArray("target_node")]
+script = ExtResource("4_scale")
+target_node = NodePath("../../ButtonContent")
+target_scale = Vector3(1.2, 1.2, 1)
+curve = SubResource("Curve_focus_scale")
+revert_on_exit = false
+duration = 0.1
+
+[node name="ShowSelecting" type="Node" parent="MenuContainer/RestartButton/Focus" node_paths=PackedStringArray("target_node")]
+script = ExtResource("5_active")
+target_node = NodePath("../../SelectingIndicator")
+initial_state = 1
+play_start_state = 1
+also_set_process = true
+duration = 0.0
+
+[node name="BringToFront" type="Node" parent="MenuContainer/RestartButton/Focus" node_paths=PackedStringArray("target_node")]
+script = ExtResource("6_order")
+target_node = NodePath("../..")
+set_to = 1
+duration = 0.0
+
+[node name="Unfocus" type="Node" parent="MenuContainer/RestartButton"]
+script = ExtResource("3_player")
+
+[node name="ScaleButton" type="Node" parent="MenuContainer/RestartButton/Unfocus" node_paths=PackedStringArray("target_node")]
+script = ExtResource("4_scale")
+target_node = NodePath("../../ButtonContent")
+curve = SubResource("Curve_unfocus_scale")
+revert_on_exit = false
+duration = 0.1
+
+[node name="HideSelecting" type="Node" parent="MenuContainer/RestartButton/Unfocus" node_paths=PackedStringArray("target_node")]
+script = ExtResource("5_active")
+target_node = NodePath("../../SelectingIndicator")
+initial_state = 1
+action = 1
+also_set_process = true
+duration = 0.0
+
+[node name="RestoreOrder" type="Node" parent="MenuContainer/RestartButton/Unfocus" node_paths=PackedStringArray("target_node")]
+script = ExtResource("6_order")
+target_node = NodePath("../..")
+duration = 0.0
+
+[node name="Confirm" type="Node" parent="MenuContainer/RestartButton"]
+script = ExtResource("3_player")
+
+[node name="QuitButton" type="Button" parent="MenuContainer"]
+custom_minimum_size = Vector2(300, 80)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -468.0
+offset_top = 295.0
+offset_right = -168.0
+offset_bottom = 375.0
+grow_horizontal = 2
+grow_vertical = 2
+focus_neighbor_top = NodePath("../RestartButton")
+mouse_filter = 1
+theme = SubResource("Theme_buttons")
+flat = true
+script = ExtResource("2_juicy_button")
+auto_pivot_center = true
+
+[node name="SelectingIndicator" type="Node2D" parent="MenuContainer/QuitButton"]
+process_mode = 4
+visible = false
+z_index = -1
+position = Vector2(150, 40)
+
+[node name="RedPolygon" type="Polygon2D" parent="MenuContainer/QuitButton/SelectingIndicator"]
+position = Vector2(-150, -40)
+color = Color(1, 0, 1, 1)
+polygon = PackedVector2Array(-91.25, 45, 388.75, 105, 381.25, 45, -68.75, -15)
+script = ExtResource("7_wiggle")
+polygon_color = Color(1, 0, 1, 1)
+intensity = 10.0
+duration = 0.1
+
+[node name="CyanPolygon" type="Polygon2D" parent="MenuContainer/QuitButton/SelectingIndicator"]
+position = Vector2(-155, -35)
+color = Color(1, 1, 0, 1)
+polygon = PackedVector2Array(-57.125, 81.25, 370.375, 61.25, 388.375, -18.75, -64.625, 15.25)
+script = ExtResource("7_wiggle")
+polygon_color = Color(1, 1, 0, 1)
+intensity = 10.0
+duration = 0.1
+
+[node name="ButtonContent" type="CenterContainer" parent="MenuContainer/QuitButton"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Label" type="Label" parent="MenuContainer/QuitButton/ButtonContent"]
+layout_mode = 2
+theme_override_colors/font_shadow_color = Color(0.917647, 0, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_x = 15
+theme_override_constants/outline_size = 5
+theme_override_fonts/font = ExtResource("2_t4l2a")
+theme_override_font_sizes/font_size = 125
+text = "QUIT"
+
+[node name="Focus" type="Node" parent="MenuContainer/QuitButton"]
+script = ExtResource("3_player")
+
+[node name="ScaleButton" type="Node" parent="MenuContainer/QuitButton/Focus" node_paths=PackedStringArray("target_node")]
+script = ExtResource("4_scale")
+target_node = NodePath("../../ButtonContent")
+target_scale = Vector3(1.2, 1.2, 1)
+curve = SubResource("Curve_focus_scale")
+revert_on_exit = false
+duration = 0.1
+
+[node name="ShowSelecting" type="Node" parent="MenuContainer/QuitButton/Focus" node_paths=PackedStringArray("target_node")]
+script = ExtResource("5_active")
+target_node = NodePath("../../SelectingIndicator")
+initial_state = 1
+play_start_state = 1
+also_set_process = true
+duration = 0.0
+
+[node name="BringToFront" type="Node" parent="MenuContainer/QuitButton/Focus" node_paths=PackedStringArray("target_node")]
+script = ExtResource("6_order")
+target_node = NodePath("../..")
+set_to = 1
+duration = 0.0
+
+[node name="Unfocus" type="Node" parent="MenuContainer/QuitButton"]
+script = ExtResource("3_player")
+
+[node name="ScaleButton" type="Node" parent="MenuContainer/QuitButton/Unfocus" node_paths=PackedStringArray("target_node")]
+script = ExtResource("4_scale")
+target_node = NodePath("../../ButtonContent")
+curve = SubResource("Curve_unfocus_scale")
+revert_on_exit = false
+duration = 0.1
+
+[node name="HideSelecting" type="Node" parent="MenuContainer/QuitButton/Unfocus" node_paths=PackedStringArray("target_node")]
+script = ExtResource("5_active")
+target_node = NodePath("../../SelectingIndicator")
+initial_state = 1
+action = 1
+also_set_process = true
+duration = 0.0
+
+[node name="RestoreOrder" type="Node" parent="MenuContainer/QuitButton/Unfocus" node_paths=PackedStringArray("target_node")]
+script = ExtResource("6_order")
+target_node = NodePath("../..")
+duration = 0.0
+
+[node name="Confirm" type="Node" parent="MenuContainer/QuitButton"]
+script = ExtResource("3_player")
+
+[connection signal="pressed" from="MenuContainer/ResumeButton" to="." method="_on_resume_pressed"]
+[connection signal="pressed" from="MenuContainer/RestartButton" to="." method="_on_restart_pressed"]
+[connection signal="pressed" from="MenuContainer/QuitButton" to="." method="_on_quit_pressed"]
