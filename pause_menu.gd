@@ -25,6 +25,14 @@ var transition_rect: TextureRect
 var is_transitioning: bool = false
 var is_animating_in: bool = false
 
+# Inner menu state
+var current_inner_menu: Control = null
+var inner_menus: Dictionary = {}
+
+# Audio
+var menu_transition_player: AudioStreamPlayer
+var menu_select_player: AudioStreamPlayer
+
 func _ready():
 	# Initialize pause menu
 	hide()
@@ -46,6 +54,20 @@ func _ready():
 		$WhiteOverlay.modulate.a = 0.0
 	if has_node("MenuContainer"):
 		$MenuContainer.visible = false
+	
+	# Setup inner menus
+	if has_node("VideoMenu"):
+		inner_menus["video"] = $VideoMenu
+	if has_node("AudioMenu"):
+		inner_menus["audio"] = $AudioMenu
+	if has_node("AssistMenu"):
+		inner_menus["assist"] = $AssistMenu
+	
+	# Setup audio players
+	setup_audio_players()
+	
+	# Connect to all buttons for hover/select sounds
+	setup_button_audio_connections()
 
 
 var pocket_watch_frames: Array[Texture2D] = []
@@ -75,6 +97,9 @@ func setup_pocket_watch_animation():
 
 func _input(event):
 	if event.is_action_pressed("ui_cancel") and not is_transitioning and not is_animating_in:  # ESC key by default
+		# Don't toggle pause if we're in an inner menu
+		if current_inner_menu != null:
+			return
 		toggle_pause()
 
 
@@ -85,8 +110,15 @@ func toggle_pause():
 	if is_paused:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 		visible = true
+		play_menu_transition_sound()  # Play transition sound when entering pause menu
 		play_pause_menu_intro()
 	else:
+		# Restore assist time scale when exiting pause
+		if get_tree().root.has_meta("assist_time_scale"):
+			Engine.time_scale = get_tree().root.get_meta("assist_time_scale")
+		else:
+			Engine.time_scale = 1.0
+		
 		# Play transition effect when exiting pause menu
 		if use_transition_effect:
 			play_exit_transition()
@@ -250,10 +282,196 @@ func _on_resume_pressed():
 	toggle_pause()
 
 
-func _on_restart_pressed():
-	get_tree().paused = false
-	get_tree().reload_current_scene()
+func _on_video_pressed():
+	show_inner_menu("video")
+
+
+func _on_audio_pressed():
+	show_inner_menu("audio")
+
+
+func _on_assist_pressed():
+	show_inner_menu("assist")
+
+
+func show_inner_menu(menu_name: String):
+	"""Show an inner menu with transition"""
+	if not inner_menus.has(menu_name):
+		print("Inner menu not found: ", menu_name)
+		return
+	
+	# Play transition sound when entering inner menu
+	play_menu_transition_sound()
+	
+	# Hide main menu elements (but keep background)
+	# The pocket watch last frame disappears when inner menu starts
+	if has_node("PocketWatch"):
+		$PocketWatch.visible = false
+	if has_node("WhiteOverlay"):
+		$WhiteOverlay.visible = false
+	if has_node("MenuContainer"):
+		$MenuContainer.visible = false
+	
+	# Show the requested inner menu
+	current_inner_menu = inner_menus[menu_name]
+	current_inner_menu.show_menu()
+
+
+func show_main_menu():
+	"""Return to main pause menu from inner menu (instant, no animation)"""
+	# Hide current inner menu if any
+	if current_inner_menu:
+		current_inner_menu.visible = false
+		current_inner_menu = null
+	
+	# Show main menu elements again
+	if has_node("PocketWatch"):
+		$PocketWatch.visible = true
+		# Already on last frame from initial animation
+	if has_node("WhiteOverlay"):
+		$WhiteOverlay.visible = true
+	if has_node("MenuContainer"):
+		$MenuContainer.visible = true
+		# Focus the first button
+		if has_node("MenuContainer/ResumeButton"):
+			$MenuContainer/ResumeButton.grab_focus()
+
+
+func show_main_menu_after_transition():
+	"""Called after inner menu reverse animation completes - show pocket watch last frame"""
+	current_inner_menu = null
+	
+	# Play transition sound when returning to pause menu
+	play_menu_transition_sound()
+	
+	# Show pocket watch last frame (appears after inner menu animation finishes)
+	if has_node("PocketWatch"):
+		$PocketWatch.visible = true
+		$PocketWatch.modulate.a = 0.0
+		
+		# Fade in the pocket watch last frame
+		var tween_watch = create_tween()
+		tween_watch.tween_property($PocketWatch, "modulate:a", 1.0, 0.2)
+		await tween_watch.finished
+	
+	# Show other main menu elements
+	if has_node("WhiteOverlay"):
+		$WhiteOverlay.visible = true
+	if has_node("MenuContainer"):
+		$MenuContainer.visible = true
+		# Focus the first button
+		if has_node("MenuContainer/ResumeButton"):
+			$MenuContainer/ResumeButton.grab_focus()
 
 
 func _on_quit_pressed():
 	get_tree().quit()
+
+
+func setup_audio_players():
+	"""Create audio players for menu sounds"""
+	# Create menu transition sound player
+	menu_transition_player = AudioStreamPlayer.new()
+	menu_transition_player.name = "MenuTransitionPlayer"
+	menu_transition_player.bus = "Master"
+	add_child(menu_transition_player)
+	
+	# Create menu select sound player
+	menu_select_player = AudioStreamPlayer.new()
+	menu_select_player.name = "MenuSelectPlayer"
+	menu_select_player.bus = "Master"
+	add_child(menu_select_player)
+	
+	# Load audio files (using your existing audio files)
+	if ResourceLoader.exists("res://audio/Menu transition.wav"):
+		menu_transition_player.stream = load("res://audio/Menu transition.wav")
+	elif ResourceLoader.exists("res://audio/menu_transition.wav"):
+		menu_transition_player.stream = load("res://audio/menu_transition.wav")
+	elif ResourceLoader.exists("res://audio/Menu transition.mp3"):
+		menu_transition_player.stream = load("res://audio/Menu transition.mp3")
+	elif ResourceLoader.exists("res://audio/menu_transition.ogg"):
+		menu_transition_player.stream = load("res://audio/menu_transition.ogg")
+	
+	if ResourceLoader.exists("res://audio/menu select.ogg"):
+		menu_select_player.stream = load("res://audio/menu select.ogg")
+	elif ResourceLoader.exists("res://audio/menu_select.wav"):
+		menu_select_player.stream = load("res://audio/menu_select.wav")
+	elif ResourceLoader.exists("res://audio/menu_select.mp3"):
+		menu_select_player.stream = load("res://audio/menu_select.mp3")
+
+
+func setup_button_audio_connections():
+	"""Connect audio to all buttons and controls"""
+	# Connect to main menu buttons
+	if has_node("MenuContainer"):
+		_connect_controls_recursive($MenuContainer)
+	
+	# Connect to inner menu buttons
+	for menu_name in inner_menus:
+		var menu = inner_menus[menu_name]
+		if menu.has_node("MenuContainer"):
+			_connect_controls_recursive(menu.get_node("MenuContainer"))
+
+
+func _connect_controls_recursive(node: Node):
+	"""Recursively connect audio to all interactive controls"""
+	for child in node.get_children():
+		# Connect buttons
+		if child is Button:
+			if not child.focus_entered.is_connected(_on_menu_item_focused):
+				child.focus_entered.connect(_on_menu_item_focused)
+			if not child.mouse_entered.is_connected(_on_menu_item_hovered):
+				child.mouse_entered.connect(_on_menu_item_hovered)
+		
+		# Connect sliders
+		elif child is HSlider:
+			if not child.focus_entered.is_connected(_on_menu_item_focused):
+				child.focus_entered.connect(_on_menu_item_focused)
+			if not child.mouse_entered.is_connected(_on_menu_item_hovered):
+				child.mouse_entered.connect(_on_menu_item_hovered)
+			if not child.value_changed.is_connected(_on_slider_value_changed):
+				child.value_changed.connect(_on_slider_value_changed)
+		
+		# Connect checkboxes/toggles
+		elif child is CheckButton or child is CheckBox:
+			if not child.focus_entered.is_connected(_on_menu_item_focused):
+				child.focus_entered.connect(_on_menu_item_focused)
+			if not child.mouse_entered.is_connected(_on_menu_item_hovered):
+				child.mouse_entered.connect(_on_menu_item_hovered)
+			if not child.toggled.is_connected(_on_toggle_changed):
+				child.toggled.connect(_on_toggle_changed)
+		
+		# Recurse into children
+		_connect_controls_recursive(child)
+
+
+func _on_menu_item_focused():
+	"""Play select sound when focusing on a menu item"""
+	play_menu_select_sound()
+
+
+func _on_menu_item_hovered():
+	"""Play select sound when hovering over a menu item"""
+	play_menu_select_sound()
+
+
+func _on_slider_value_changed(_value: float):
+	"""Play select sound when slider value changes"""
+	play_menu_select_sound()
+
+
+func _on_toggle_changed(_toggled_on: bool):
+	"""Play select sound when toggle changes"""
+	play_menu_select_sound()
+
+
+func play_menu_transition_sound():
+	"""Play the menu transition sound effect"""
+	if menu_transition_player and menu_transition_player.stream:
+		menu_transition_player.play()
+
+
+func play_menu_select_sound():
+	"""Play the menu select sound effect"""
+	if menu_select_player and menu_select_player.stream:
+		menu_select_player.play()

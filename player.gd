@@ -1009,13 +1009,16 @@ func _handle_jump_input() -> void:
 	if Input.is_action_just_pressed("jump"):
 		print("[JUMP INPUT] Jump pressed - is_on_wall: ", is_on_wall, " is_wall_running: ", is_wall_running, " is_on_floor: ", is_on_floor())
 		
+		# Check if infinite jumps is enabled (assist mode)
+		var infinite_jumps: bool = get_meta("infinite_jumps_enabled", false)
+		
 		# Check for wall jump first (highest priority)
 		# Note: Wall run jump is handled earlier in _physics_process
 		if wall_jump_enabled and is_on_wall and not is_wall_running:
 			_perform_wall_jump()
 		else:
 			# Check if we can jump immediately
-			var can_jump := is_on_floor() or not coyote_timer.is_stopped()
+			var can_jump: bool = is_on_floor() or not coyote_timer.is_stopped() or infinite_jumps
 			
 			if can_jump:
 				_perform_jump()
