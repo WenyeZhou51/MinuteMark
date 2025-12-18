@@ -456,8 +456,8 @@ func _on_menu_item_hovered():
 
 
 func _on_slider_value_changed(_value: float):
-	"""Play select sound when slider value changes"""
-	play_menu_select_sound()
+	"""Called when slider value changes - no sound to avoid spam"""
+	pass  # Don't play sound on every slider adjustment
 
 
 func _on_toggle_changed(_toggled_on: bool):

@@ -43,12 +43,11 @@ func apply_brightness(value: float):
 	"""Apply brightness setting to the game"""
 	current_brightness = value
 	
-	# Get the viewport and apply brightness via modulate
+	# Get the viewport and apply brightness via an overlay
 	var viewport = get_viewport()
 	if viewport:
-		# Brightness is applied as a modulate on the root viewport
-		# This affects everything rendered
-		var canvas_layer = get_tree().root.get_node_or_null("CanvasLayer")
+		# Find or create the brightness control canvas layer
+		var canvas_layer = get_tree().root.get_node_or_null("BrightnessControl")
 		if not canvas_layer:
 			# Create a canvas layer for brightness control if it doesn't exist
 			canvas_layer = CanvasLayer.new()
@@ -64,9 +63,25 @@ func apply_brightness(value: float):
 		
 		var color_rect = canvas_layer.get_node_or_null("BrightnessRect")
 		if color_rect:
-			# Use modulate to adjust brightness
-			# value > 1.0 = brighter, value < 1.0 = darker
-			color_rect.modulate = Color(value, value, value, 1.0)
+			# Adjust brightness using overlay technique
+			# value = 1.0 is normal (no overlay)
+			# value < 1.0 = darker (black overlay with increasing opacity)
+			# value > 1.0 = brighter (white overlay with additive blend)
+			
+			if value < 1.0:
+				# Darken: use black overlay
+				var darkness = 1.0 - value  # 0.0 to 0.7 (when value is 1.0 to 0.3)
+				color_rect.color = Color(0, 0, 0, darkness * 0.9)  # Scale to prevent complete blackout
+				color_rect.material = null  # Remove any shader material
+			elif value > 1.0:
+				# Brighten: use white overlay with reduced opacity
+				var brightness_boost = value - 1.0  # 0.0 to 1.0 (when value is 1.0 to 2.0)
+				color_rect.color = Color(1, 1, 1, brightness_boost * 0.4)  # Subtle brightening
+				color_rect.material = null
+			else:
+				# Normal brightness: make overlay invisible
+				color_rect.color = Color(0, 0, 0, 0)
+				color_rect.material = null
 	
 	save_settings()
 
