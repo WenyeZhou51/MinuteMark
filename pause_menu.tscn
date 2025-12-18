@@ -37,7 +37,15 @@ point_count = 2
 process_mode = 3
 layer = 100
 script = ExtResource("1_pause")
+use_transition_effect = null
+transition_type = null
+transition_duration = null
+pause_bg_fade_duration = null
+pocket_watch_fade_duration = null
 pocket_watch_fps = 60.0
+white_overlay_slide_distance = null
+white_overlay_slide_duration = null
+menu_fade_duration = null
 
 [node name="PauseBg" type="TextureRect" parent="."]
 z_index = -5

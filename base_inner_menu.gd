@@ -59,7 +59,8 @@ func setup_inner_menu_animation():
 			break  # No more frames
 	
 	if inner_menu_frames.size() > 0:
-		print("Loaded %d frames for inner menu animation" % inner_menu_frames.size())
+		# print("Loaded %d frames for inner menu animation" % inner_menu_frames.size())
+		pass
 	else:
 		push_warning("No inner menu frames found!")
 

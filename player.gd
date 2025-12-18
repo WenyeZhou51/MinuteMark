@@ -133,6 +133,7 @@ const AfterimageScene = preload("res://afterimage.tscn")
 @export var kick_object_detection_range: float = 60.0  ## Range to detect kickable objects
 @export var kick_object_speed: float = 2500.0  ## Speed at which kicked objects fly
 @export var kick_object_cone_angle: float = 90.0  ## Cone angle in front of player for detection (degrees)
+@export var kick_object_knockback_force: float = 100.0  ## Horizontal knockback force applied to player when kicking an object
 
 # GROUND SLAM CONFIGURATION
 @export_group("Ground Slam")
@@ -244,7 +245,7 @@ var grace_period_colliding_enemy: Node2D = null  # Enemy that triggered grace pe
 
 # Afterimage state variables
 var afterimage_timer: float = 0.0  # Timer for spawning afterimages
-var afterimage_spawn_interval: float = 0.125  # Spawn an afterimage every 0.125 seconds (8 over 1 second)
+var afterimage_spawn_interval: float = 0.3  # Spawn an afterimage every 0.3 seconds (~3 over 1 second)
 var afterimage_enabled: bool = true  # Whether afterimages are enabled
 
 # Component references
@@ -538,7 +539,7 @@ func _physics_process(delta: float) -> void:
 		
 		# Wall run activation moved to _check_wall_run_activation() which runs AFTER move_and_slide()
 		# to ensure actual collision detection instead of raycast-based detection
-		print("[DASH DEBUG] Ground slide frame - wall run check deferred to post-movement")
+		# print("[DASH DEBUG] Ground slide frame - wall run check deferred to post-movement")
 		
 		# Only process slide if not wall running (wall run takes priority)
 		if is_ground_sliding and not is_wall_running:
@@ -564,7 +565,7 @@ func _physics_process(delta: float) -> void:
 		
 		# Wall run activation moved to _check_wall_run_activation() which runs AFTER move_and_slide()
 		# to ensure actual collision detection instead of raycast-based detection
-		print("[DASH DEBUG] Air dash frame - wall run check deferred to post-movement")
+		# print("[DASH DEBUG] Air dash frame - wall run check deferred to post-movement")
 		
 		# Only process air dash if not wall running (wall run takes priority)
 		if is_air_dashing and not is_wall_running:
@@ -585,15 +586,15 @@ func _physics_process(delta: float) -> void:
 	
 	# 7. Process Wall Run (if active, skip most normal movement)
 	if is_wall_running:
-		print("╔═══════════════════════════════════════╗")
-		print("║   WALL RUN ACTIVE THIS FRAME          ║")
-		print("╚═══════════════════════════════════════╝")
-		print("[WALL RUN STATE] Timer: ", "%.2f" % wall_run_timer, "s | Speed: ", "%.1f" % wall_run_speed, " | Decay: ", "%.1f" % wall_run_speed_decay)
+		# print("╔═══════════════════════════════════════╗")
+		# print("║   WALL RUN ACTIVE THIS FRAME          ║")
+		# print("╚═══════════════════════════════════════╝")
+		# print("[WALL RUN STATE] Timer: ", "%.2f" % wall_run_timer, "s | Speed: ", "%.1f" % wall_run_speed, " | Decay: ", "%.1f" % wall_run_speed_decay)
 		
 		# Check for jump input BEFORE processing wall run
 		# This allows player to jump out of wall run
 		if Input.is_action_just_pressed("jump") and not is_stunned:
-			print("[WALL RUN DEBUG] ⚠ Jump pressed during wall run, performing empowered wall jump")
+			# print("[WALL RUN DEBUG] ⚠ Jump pressed during wall run, performing empowered wall jump")
 			_perform_wall_jump()
 			# After jump, is_wall_running is false, so continue with normal physics below
 		
@@ -602,7 +603,7 @@ func _physics_process(delta: float) -> void:
 			# wall_normal points AWAY from the wall
 			# If player is pressing in the direction of wall_normal, they're pushing away from wall
 			if (wall_normal.x > 0 and input_vector.x > 0.1) or (wall_normal.x < 0 and input_vector.x < -0.1):
-				print("[WALL RUN DEBUG] ⚠ Player pushing away from wall (input: ", "%.2f" % input_vector.x, ", wall_normal.x: ", "%.2f" % wall_normal.x, ") - ending wall run")
+				# print("[WALL RUN DEBUG] ⚠ Player pushing away from wall (input: ", "%.2f" % input_vector.x, ", wall_normal.x: ", "%.2f" % wall_normal.x, ") - ending wall run")
 				_end_wall_run()
 		
 		# Only process wall run if still wall running (jump or input might have cancelled it)
@@ -613,8 +614,8 @@ func _physics_process(delta: float) -> void:
 			move_and_slide()
 			var pos_after_frame = global_position
 			var movement_this_frame = pos_after_frame - pos_before_frame
-			print("[WALL RUN DEBUG] Position AFTER move_and_slide(): ", pos_after_frame)
-			print("[WALL RUN DEBUG] Movement this frame: ", movement_this_frame, " (distance: ", "%.2f" % movement_this_frame.length(), ")")
+			# print("[WALL RUN DEBUG] Position AFTER move_and_slide(): ", pos_after_frame)
+			# print("[WALL RUN DEBUG] Movement this frame: ", movement_this_frame, " (distance: ", "%.2f" % movement_this_frame.length(), ")")
 			_post_movement_updates()
 			return
 	
@@ -699,16 +700,16 @@ func _physics_process(delta: float) -> void:
 		
 		if position_delta.length() > 0.1 or velocity_delta.length() > 0.1:
 			var vertical_direction = "UP" if position_delta.y < 0 else "DOWN"
-			print("╔═══════════ FRAME MOVEMENT (NEAR WALL) ═══════════╗")
-			print("║ Start pos: ", frame_start_position)
-			print("║ End pos:   ", frame_end_position)
-			print("║ Delta:     ", position_delta, " (", "%.2f" % position_delta.length(), " pixels)")
-			print("║ Vertical:  ", vertical_direction, " ", "%.2f" % abs(position_delta.y), " pixels")
-			print("║ Start vel: ", frame_start_velocity)
-			print("║ End vel:   ", frame_end_velocity)
-			print("║ is_wall_running: ", is_wall_running)
-			print("║ is_on_wall: ", is_on_wall)
-			print("╚═══════════════════════════════════════════════════╝")
+			# print("╔═══════════ FRAME MOVEMENT (NEAR WALL) ═══════════╗")
+			# print("║ Start pos: ", frame_start_position)
+			# print("║ End pos:   ", frame_end_position)
+			# print("║ Delta:     ", position_delta, " (", "%.2f" % position_delta.length(), " pixels)")
+			# print("║ Vertical:  ", vertical_direction, " ", "%.2f" % abs(position_delta.y), " pixels")
+			# print("║ Start vel: ", frame_start_velocity)
+			# print("║ End vel:   ", frame_end_velocity)
+			# print("║ is_wall_running: ", is_wall_running)
+			# print("║ is_on_wall: ", is_on_wall)
+			# print("╚═══════════════════════════════════════════════════╝")
 
 
 # ====================================
@@ -805,12 +806,13 @@ func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceS
 	# DEBUG: Track dash state at start of wall detection
 	var is_dashing = is_ground_sliding or is_air_dashing
 	if is_dashing:
-		print("[WALL DETECT DEBUG] ═══════════════════════════════════════")
-		print("[WALL DETECT DEBUG] Starting wall detection DURING DASH")
-		print("[WALL DETECT DEBUG] Ground sliding: ", is_ground_sliding, " | Air dashing: ", is_air_dashing)
-		print("[WALL DETECT DEBUG] Current position: ", global_position)
-		print("[WALL DETECT DEBUG] Current velocity: ", velocity)
-		print("[WALL DETECT DEBUG] was_on_wall: ", was_on_wall)
+		pass
+		# print("[WALL DETECT DEBUG] ═══════════════════════════════════════")
+		# print("[WALL DETECT DEBUG] Starting wall detection DURING DASH")
+		# print("[WALL DETECT DEBUG] Ground sliding: ", is_ground_sliding, " | Air dashing: ", is_air_dashing)
+		# print("[WALL DETECT DEBUG] Current position: ", global_position)
+		# print("[WALL DETECT DEBUG] Current velocity: ", velocity)
+		# print("[WALL DETECT DEBUG] was_on_wall: ", was_on_wall)
 	
 	# Always reset wall state - we'll re-detect it below
 	# This ensures is_on_wall accurately reflects current wall contact
@@ -839,8 +841,8 @@ func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceS
 		var movement_per_frame = abs(velocity.x) / 60.0  # Assume 60fps
 		# Extend raycast to at least cover this distance, plus buffer
 		effective_wall_check_distance = max(wall_check_distance, movement_per_frame * 1.5)
-		print("[WALL DETECT DEBUG] Extended raycast distance: ", effective_wall_check_distance, " (was ", wall_check_distance, ")")
-		print("[WALL DETECT DEBUG] velocity.x: ", velocity.x, " | movement_per_frame: ", movement_per_frame)
+		# print("[WALL DETECT DEBUG] Extended raycast distance: ", effective_wall_check_distance, " (was ", wall_check_distance, ")")
+		# print("[WALL DETECT DEBUG] velocity.x: ", velocity.x, " | movement_per_frame: ", movement_per_frame)
 	
 	# During wall run, check at multiple heights for more accurate wall detection
 	var check_heights = [0.0]  # Default: center only
@@ -861,9 +863,10 @@ func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceS
 		
 		# DEBUG: Log raycast results during dash
 		if is_dashing and (left_hit or velocity.x < -100):
-			print("[WALL DETECT DEBUG] LEFT raycast: origin=", left_ray_origin, " end=", left_ray_end)
-			print("[WALL DETECT DEBUG] LEFT raycast distance: ", effective_wall_check_distance)
-			print("[WALL DETECT DEBUG] LEFT hit: ", left_hit.size() > 0, " | hit_any: ", left_hit_any)
+			pass
+			# print("[WALL DETECT DEBUG] LEFT raycast: origin=", left_ray_origin, " end=", left_ray_end)
+			# print("[WALL DETECT DEBUG] LEFT raycast distance: ", effective_wall_check_distance)
+			# print("[WALL DETECT DEBUG] LEFT hit: ", left_hit.size() > 0, " | hit_any: ", left_hit_any)
 		
 		# Check for wall on the right
 		var right_ray_origin = global_position + Vector2(half_width, height_offset)
@@ -876,9 +879,10 @@ func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceS
 		
 		# DEBUG: Log raycast results during dash
 		if is_dashing and (right_hit or velocity.x > 100):
-			print("[WALL DETECT DEBUG] RIGHT raycast: origin=", right_ray_origin, " end=", right_ray_end)
-			print("[WALL DETECT DEBUG] RIGHT raycast distance: ", effective_wall_check_distance)
-			print("[WALL DETECT DEBUG] RIGHT hit: ", right_hit.size() > 0, " | hit_any: ", right_hit_any)
+			pass
+			# print("[WALL DETECT DEBUG] RIGHT raycast: origin=", right_ray_origin, " end=", right_ray_end)
+			# print("[WALL DETECT DEBUG] RIGHT raycast distance: ", effective_wall_check_distance)
+			# print("[WALL DETECT DEBUG] RIGHT hit: ", right_hit.size() > 0, " | hit_any: ", right_hit_any)
 	
 	# Determine if player is on a wall
 	if left_hit_any:
@@ -886,8 +890,9 @@ func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceS
 		wall_normal = Vector2.RIGHT  # Wall is on left, so push right
 		# DEBUG: Log wall detection during dash
 		if is_dashing:
-			print("[WALL DETECT DEBUG] ✓ LEFT WALL DETECTED! Setting is_on_wall = true")
-			print("[WALL DETECT DEBUG] wall_normal: ", wall_normal)
+			pass
+			# print("[WALL DETECT DEBUG] ✓ LEFT WALL DETECTED! Setting is_on_wall = true")
+			# print("[WALL DETECT DEBUG] wall_normal: ", wall_normal)
 		# Reset air dash cooldown and availability when touching wall
 		air_dash_cooldown_timer = 0.0
 		air_dash_available = true
@@ -900,8 +905,9 @@ func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceS
 		wall_normal = Vector2.LEFT  # Wall is on right, so push left
 		# DEBUG: Log wall detection during dash
 		if is_dashing:
-			print("[WALL DETECT DEBUG] ✓ RIGHT WALL DETECTED! Setting is_on_wall = true")
-			print("[WALL DETECT DEBUG] wall_normal: ", wall_normal)
+			pass
+			# print("[WALL DETECT DEBUG] ✓ RIGHT WALL DETECTED! Setting is_on_wall = true")
+			# print("[WALL DETECT DEBUG] wall_normal: ", wall_normal)
 		# Reset air dash cooldown and availability when touching wall
 		air_dash_cooldown_timer = 0.0
 		air_dash_available = true
@@ -912,32 +918,35 @@ func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceS
 	else:
 		# DEBUG: Log when no wall detected during dash
 		if is_dashing and (abs(velocity.x) > 500):
-			print("[WALL DETECT DEBUG] ✗ NO WALL DETECTED (moving fast: ", velocity.x, ")")
-			print("[WALL DETECT DEBUG] left_hit_any: ", left_hit_any, " | right_hit_any: ", right_hit_any)
+			pass
+			# print("[WALL DETECT DEBUG] ✗ NO WALL DETECTED (moving fast: ", velocity.x, ")")
+			# print("[WALL DETECT DEBUG] left_hit_any: ", left_hit_any, " | right_hit_any: ", right_hit_any)
 	
 	# DEBUG: Summary of wall detection during dash
 	if is_dashing:
-		print("[WALL DETECT DEBUG] ═══════════════════════════════════════")
-		print("[WALL DETECT DEBUG] FINAL RESULT: is_on_wall = ", is_on_wall)
-		print("[WALL DETECT DEBUG] wall_normal: ", wall_normal)
-		print("[WALL DETECT DEBUG] is_wall_sliding: ", is_wall_sliding)
-		print("[WALL DETECT DEBUG] Dash will now proceed with is_on_wall = ", is_on_wall)
-		print("[WALL DETECT DEBUG] ═══════════════════════════════════════")
+		pass
+		# print("[WALL DETECT DEBUG] ═══════════════════════════════════════")
+		# print("[WALL DETECT DEBUG] FINAL RESULT: is_on_wall = ", is_on_wall)
+		# print("[WALL DETECT DEBUG] wall_normal: ", wall_normal)
+		# print("[WALL DETECT DEBUG] is_wall_sliding: ", is_wall_sliding)
+		# print("[WALL DETECT DEBUG] Dash will now proceed with is_on_wall = ", is_on_wall)
+		# print("[WALL DETECT DEBUG] ═══════════════════════════════════════")
 	
 	# Debug wall detection changes
 	if is_on_wall != was_on_wall:
-		print("[WALL DETECT] Wall state changed - is_on_wall: ", is_on_wall, " wall_normal: ", wall_normal, " cooldown: ", "%.3f" % wall_jump_cooldown)
-		print("[WALL DETECT] was_on_wall: ", was_on_wall, " -> is_on_wall: ", is_on_wall)
-		print("[WALL DETECT] is_wall_running: ", is_wall_running)
+		pass
+		# print("[WALL DETECT] Wall state changed - is_on_wall: ", is_on_wall, " wall_normal: ", wall_normal, " cooldown: ", "%.3f" % wall_jump_cooldown)
+		# print("[WALL DETECT] was_on_wall: ", was_on_wall, " -> is_on_wall: ", is_on_wall)
+		# print("[WALL DETECT] is_wall_running: ", is_wall_running)
 	
 	# NOTE: Wall run activation moved to _check_wall_run_activation() 
 	# which runs AFTER move_and_slide() to ensure actual collision
 	
 	# End wall run if wall ends (check using raycast detection)
 	if is_wall_running and not is_on_wall:
-		print("[WALL RUN DEBUG] ⚠ Wall contact lost (raycast) - stopping wall run")
-		print("[WALL RUN DEBUG] Position: ", global_position)
-		print("[WALL RUN DEBUG] Velocity: ", velocity)
+		# print("[WALL RUN DEBUG] ⚠ Wall contact lost (raycast) - stopping wall run")
+		# print("[WALL RUN DEBUG] Position: ", global_position)
+		# print("[WALL RUN DEBUG] Velocity: ", velocity)
 		_end_wall_run()
 
 
@@ -955,7 +964,7 @@ func _start_wall_run(horizontal_speed: float, force: bool = false) -> void:
 	if not force:
 		# Check if wall run speed is above minimum (prevents immediate termination)
 		if wall_run_speed <= wall_run_min_speed:
-			print("[WALL RUN DEBUG] ✗ Cannot start - speed at minimum threshold (", wall_run_speed, " <= ", wall_run_min_speed, ")")
+			# print("[WALL RUN DEBUG] ✗ Cannot start - speed at minimum threshold (", wall_run_speed, " <= ", wall_run_min_speed, ")")
 			return
 		
 		# CRITICAL CHECK: Prevent wall run if decay is so high it would end in first frame
@@ -963,39 +972,40 @@ func _start_wall_run(horizontal_speed: float, force: bool = false) -> void:
 		var estimated_first_frame_decay = wall_run_speed_decay * 0.017
 		var speed_after_first_frame = wall_run_speed - estimated_first_frame_decay
 		
-		print("=== WALL RUN START CHECK ===")
-		print("[WALL RUN DEBUG] Initial speed: ", "%.1f" % wall_run_speed)
-		print("[WALL RUN DEBUG] Decay rate: ", "%.1f" % wall_run_speed_decay, " per second")
-		print("[WALL RUN DEBUG] Estimated first frame decay (0.017s): ", "%.1f" % estimated_first_frame_decay)
-		print("[WALL RUN DEBUG] Speed after first frame: ", "%.1f" % speed_after_first_frame)
-		print("[WALL RUN DEBUG] Min speed threshold: ", "%.1f" % wall_run_min_speed)
+		# print("=== WALL RUN START CHECK ===")
+		# print("[WALL RUN DEBUG] Initial speed: ", "%.1f" % wall_run_speed)
+		# print("[WALL RUN DEBUG] Decay rate: ", "%.1f" % wall_run_speed_decay, " per second")
+		# print("[WALL RUN DEBUG] Estimated first frame decay (0.017s): ", "%.1f" % estimated_first_frame_decay)
+		# print("[WALL RUN DEBUG] Speed after first frame: ", "%.1f" % speed_after_first_frame)
+		# print("[WALL RUN DEBUG] Min speed threshold: ", "%.1f" % wall_run_min_speed)
 		
 		if speed_after_first_frame < wall_run_min_speed:
-			print("[WALL RUN DEBUG] ⚠ BLOCKED: Decay too high! Wall run would end in first frame")
-			print("[WALL RUN DEBUG] This would cause infinite micro-wall-runs")
-			print("[WALL RUN DEBUG] To wall run with this decay rate, you need initial speed > ", "%.1f" % (wall_run_min_speed + estimated_first_frame_decay))
+			# print("[WALL RUN DEBUG] ⚠ BLOCKED: Decay too high! Wall run would end in first frame")
+			# print("[WALL RUN DEBUG] This would cause infinite micro-wall-runs")
+			# print("[WALL RUN DEBUG] To wall run with this decay rate, you need initial speed > ", "%.1f" % (wall_run_min_speed + estimated_first_frame_decay))
 			return
 	else:
-		print("=== WALL RUN FORCED START (FROM DASH) ===")
-		print("[WALL RUN DEBUG] FORCED activation from dash - bypassing all speed checks")
-		print("[WALL RUN DEBUG] Initial speed: ", "%.1f" % wall_run_speed)
+		pass
+		# print("=== WALL RUN FORCED START (FROM DASH) ===")
+		# print("[WALL RUN DEBUG] FORCED activation from dash - bypassing all speed checks")
+		# print("[WALL RUN DEBUG] Initial speed: ", "%.1f" % wall_run_speed)
 	
 	is_wall_running = true
 	wall_run_timer = 0.0
 	wall_run_start_position = global_position
 	wall_run_frame_count = 0
 	
-	print("=== WALL RUN STARTING ===")
-	print("[WALL RUN DEBUG] Initial wall_run_speed: ", "%.2f" % wall_run_speed)
-	print("[WALL RUN DEBUG] Expected duration: ", "%.2f" % ((wall_run_speed - wall_run_min_speed) / wall_run_speed_decay), " seconds")
-	print("[WALL RUN DEBUG] Expected frames (at 60fps): ", int((wall_run_speed - wall_run_min_speed) / wall_run_speed_decay * 60))
-	print("[WALL RUN DEBUG] Max allowed duration: ", "%.2f" % wall_run_max_duration, " seconds")
-	print("[WALL RUN DEBUG] Wall normal: ", wall_normal)
-	print("[WALL RUN DEBUG] Starting position: ", wall_run_start_position)
-	print("[WALL RUN DEBUG] Is sprinting: ", is_running)
-	print("[WALL RUN DEBUG] Is dashing: ", is_ground_sliding or is_air_dashing)
-	print("[WALL RUN DEBUG] Is in air: ", not is_on_floor())
-	print("=============================")
+	# print("=== WALL RUN STARTING ===")
+	# print("[WALL RUN DEBUG] Initial wall_run_speed: ", "%.2f" % wall_run_speed)
+	# print("[WALL RUN DEBUG] Expected duration: ", "%.2f" % ((wall_run_speed - wall_run_min_speed) / wall_run_speed_decay), " seconds")
+	# print("[WALL RUN DEBUG] Expected frames (at 60fps): ", int((wall_run_speed - wall_run_min_speed) / wall_run_speed_decay * 60))
+	# print("[WALL RUN DEBUG] Max allowed duration: ", "%.2f" % wall_run_max_duration, " seconds")
+	# print("[WALL RUN DEBUG] Wall normal: ", wall_normal)
+	# print("[WALL RUN DEBUG] Starting position: ", wall_run_start_position)
+	# print("[WALL RUN DEBUG] Is sprinting: ", is_running)
+	# print("[WALL RUN DEBUG] Is dashing: ", is_ground_sliding or is_air_dashing)
+	# print("[WALL RUN DEBUG] Is in air: ", not is_on_floor())
+	# print("=============================")
 	
 	# Set upward velocity
 	velocity.y = -wall_run_speed
@@ -1013,10 +1023,10 @@ func _start_wall_run(horizontal_speed: float, force: bool = false) -> void:
 	
 	# End ground slide or air dash if wall running
 	if is_ground_sliding:
-		print("[WALL RUN DEBUG] Ended ground slide to start wall run")
+		# print("[WALL RUN DEBUG] Ended ground slide to start wall run")
 		_end_ground_slide()
 	if is_air_dashing:
-		print("[WALL RUN DEBUG] Ended air dash to start wall run")
+		# print("[WALL RUN DEBUG] Ended air dash to start wall run")
 		_end_air_dash()
 	
 	# Could trigger wall run effects here (particles, sound, animation, etc.)
@@ -1034,70 +1044,70 @@ func _process_wall_run(delta: float) -> void:
 	wall_run_timer += delta
 	
 	# EXTENSIVE DEBUG - Print every frame for detailed tracking
-	print("╔══════════════════════════════════════════════════════════════════╗")
-	print("║ WALL RUN FRAME #", wall_run_frame_count, "                                           ║")
-	print("╚══════════════════════════════════════════════════════════════════╝")
-	print("[WALL RUN DEBUG] Position BEFORE frame: ", position_before)
-	print("[WALL RUN DEBUG] Timer: ", "%.3f" % wall_run_timer, "s / ", "%.2f" % wall_run_max_duration, "s max")
-	print("[WALL RUN DEBUG] Delta time: ", "%.4f" % delta, "s")
-	print("[WALL RUN DEBUG] wall_run_speed BEFORE decay: ", "%.2f" % wall_run_speed)
-	print("[WALL RUN DEBUG] ⚠️ wall_run_speed_decay VALUE: ", "%.2f" % wall_run_speed_decay, " per second ⚠️")
-	print("[WALL RUN DEBUG] Decay amount this frame: ", "%.4f" % (wall_run_speed_decay * delta))
-	print("[WALL RUN DEBUG] VERIFY: wall_run_speed (", "%.2f" % wall_run_speed, ") - (decay ", "%.2f" % wall_run_speed_decay, " * delta ", "%.4f" % delta, ") = ", "%.2f" % (wall_run_speed - wall_run_speed_decay * delta))
-	print("[WALL RUN DEBUG] Is sprinting: ", is_running)
-	print("[WALL RUN DEBUG] Is dashing: ", is_ground_sliding or is_air_dashing)
-	print("[WALL RUN DEBUG] Is in air: ", not is_on_floor())
-	print("[WALL RUN DEBUG] On wall: ", is_on_wall)
-	print("[WALL RUN DEBUG] Wall normal: ", wall_normal)
+	# print("╔══════════════════════════════════════════════════════════════════╗")
+	# print("║ WALL RUN FRAME #", wall_run_frame_count, "                                           ║")
+	# print("╚══════════════════════════════════════════════════════════════════╝")
+	# print("[WALL RUN DEBUG] Position BEFORE frame: ", position_before)
+	# print("[WALL RUN DEBUG] Timer: ", "%.3f" % wall_run_timer, "s / ", "%.2f" % wall_run_max_duration, "s max")
+	# print("[WALL RUN DEBUG] Delta time: ", "%.4f" % delta, "s")
+	# print("[WALL RUN DEBUG] wall_run_speed BEFORE decay: ", "%.2f" % wall_run_speed)
+	# print("[WALL RUN DEBUG] ⚠️ wall_run_speed_decay VALUE: ", "%.2f" % wall_run_speed_decay, " per second ⚠️")
+	# print("[WALL RUN DEBUG] Decay amount this frame: ", "%.4f" % (wall_run_speed_decay * delta))
+	# print("[WALL RUN DEBUG] VERIFY: wall_run_speed (", "%.2f" % wall_run_speed, ") - (decay ", "%.2f" % wall_run_speed_decay, " * delta ", "%.4f" % delta, ") = ", "%.2f" % (wall_run_speed - wall_run_speed_decay * delta))
+	# print("[WALL RUN DEBUG] Is sprinting: ", is_running)
+	# print("[WALL RUN DEBUG] Is dashing: ", is_ground_sliding or is_air_dashing)
+	# print("[WALL RUN DEBUG] Is in air: ", not is_on_floor())
+	# print("[WALL RUN DEBUG] On wall: ", is_on_wall)
+	# print("[WALL RUN DEBUG] Wall normal: ", wall_normal)
 	
 	# Check if max duration reached
 	if wall_run_timer >= wall_run_max_duration:
-		print("[WALL RUN DEBUG] ⚠ Max duration reached (", wall_run_max_duration, "s) - STOPPING")
+		# print("[WALL RUN DEBUG] ⚠ Max duration reached (", wall_run_max_duration, "s) - STOPPING")
 		_end_wall_run()
 		return
 	
 	# Apply speed decay and check if it drops below minimum BEFORE clamping
 	var new_speed = wall_run_speed - wall_run_speed_decay * delta
 	
-	print("[WALL RUN DEBUG] Speed AFTER decay calculation: ", "%.2f" % new_speed)
-	print("[WALL RUN DEBUG] Min speed threshold: ", "%.2f" % wall_run_min_speed)
-	print("[WALL RUN DEBUG] Speed check: new_speed (", "%.2f" % new_speed, ") < min (", "%.2f" % wall_run_min_speed, ") = ", new_speed < wall_run_min_speed)
+	# print("[WALL RUN DEBUG] Speed AFTER decay calculation: ", "%.2f" % new_speed)
+	# print("[WALL RUN DEBUG] Min speed threshold: ", "%.2f" % wall_run_min_speed)
+	# print("[WALL RUN DEBUG] Speed check: new_speed (", "%.2f" % new_speed, ") < min (", "%.2f" % wall_run_min_speed, ") = ", new_speed < wall_run_min_speed)
 	
 	# Check if speed dropped below minimum
 	if new_speed < wall_run_min_speed:
-		print("[WALL RUN DEBUG] ⚠⚠⚠ Speed dropped below minimum - CALLING _end_wall_run() ⚠⚠⚠")
-		print("[WALL RUN DEBUG] new_speed: ", "%.2f" % new_speed, " < wall_run_min_speed: ", "%.2f" % wall_run_min_speed)
-		print("[WALL RUN DEBUG] About to call _end_wall_run() and return...")
+		# print("[WALL RUN DEBUG] ⚠⚠⚠ Speed dropped below minimum - CALLING _end_wall_run() ⚠⚠⚠")
+		# print("[WALL RUN DEBUG] new_speed: ", "%.2f" % new_speed, " < wall_run_min_speed: ", "%.2f" % wall_run_min_speed)
+		# print("[WALL RUN DEBUG] About to call _end_wall_run() and return...")
 		_end_wall_run()
-		print("[WALL RUN DEBUG] ⚠⚠⚠ THIS SHOULD NEVER PRINT - _process_wall_run should have returned! ⚠⚠⚠")
+		# print("[WALL RUN DEBUG] ⚠⚠⚠ THIS SHOULD NEVER PRINT - _process_wall_run should have returned! ⚠⚠⚠")
 		return
 	
 	# Speed is still above minimum, update it
 	wall_run_speed = new_speed
 	
-	print("[WALL RUN DEBUG] ✓ Speed updated to: ", "%.2f" % wall_run_speed)
+	# print("[WALL RUN DEBUG] ✓ Speed updated to: ", "%.2f" % wall_run_speed)
 	
 	# Set upward velocity based on current wall run speed
 	velocity.y = -wall_run_speed
 	
-	print("[WALL RUN DEBUG] Set velocity.y to: ", "%.2f" % velocity.y)
+	# print("[WALL RUN DEBUG] Set velocity.y to: ", "%.2f" % velocity.y)
 	
 	# Maintain slight horizontal velocity to stay on wall
 	# Push slightly into the wall
 	velocity.x = -wall_normal.x * 50.0
 	
-	print("[WALL RUN DEBUG] Set velocity.x to: ", "%.2f" % velocity.x)
-	print("[WALL RUN DEBUG] Final velocity: ", velocity)
+	# print("[WALL RUN DEBUG] Set velocity.x to: ", "%.2f" % velocity.x)
+	# print("[WALL RUN DEBUG] Final velocity: ", velocity)
 	
 	# Position will change after move_and_slide() is called in _physics_process
 	# Log it there for accurate tracking
-	print("----------------------")
+	# print("----------------------")
 
 
 func _end_wall_run() -> void:
 	"""End the wall run."""
 	if not is_wall_running:
-		print("[WALL RUN DEBUG] ⚠ _end_wall_run() called but not wall running - ignoring")
+		# print("[WALL RUN DEBUG] ⚠ _end_wall_run() called but not wall running - ignoring")
 		return
 	
 	var velocity_before = velocity
@@ -1108,20 +1118,20 @@ func _end_wall_run() -> void:
 	var vertical_movement = total_movement.y  # Negative = moved up, positive = moved down
 	var frames_ran = wall_run_frame_count
 	
-	print("╔═══════════════════════════════════════╗")
-	print("║       WALL RUN ENDED                  ║")
-	print("╚═══════════════════════════════════════╝")
-	print("[WALL RUN DEBUG] ⚠️ TOTAL FRAMES: ", frames_ran, " ⚠️")
-	print("[WALL RUN DEBUG] Duration: ", "%.3f" % timer_final, " seconds")
-	print("[WALL RUN DEBUG] Final wall_run_speed: ", "%.2f" % speed_final)
-	print("[WALL RUN DEBUG] Velocity before: ", velocity_before)
-	print("[WALL RUN DEBUG] Start position: ", wall_run_start_position)
-	print("[WALL RUN DEBUG] Final position: ", final_position)
-	print("[WALL RUN DEBUG] Total movement: ", total_movement)
-	print("[WALL RUN DEBUG] ⚠️ Vertical distance: ", "%.2f" % abs(vertical_movement), " pixels ", "UP" if vertical_movement < 0 else "DOWN", " ⚠️")
-	print("[WALL RUN DEBUG] Sprint state: ", is_running)
-	print("[WALL RUN DEBUG] Dashing: ", is_ground_sliding or is_air_dashing)
-	print("[WALL RUN DEBUG] In air: ", not is_on_floor())
+	# print("╔═══════════════════════════════════════╗")
+	# print("║       WALL RUN ENDED                  ║")
+	# print("╚═══════════════════════════════════════╝")
+	# print("[WALL RUN DEBUG] ⚠️ TOTAL FRAMES: ", frames_ran, " ⚠️")
+	# print("[WALL RUN DEBUG] Duration: ", "%.3f" % timer_final, " seconds")
+	# print("[WALL RUN DEBUG] Final wall_run_speed: ", "%.2f" % speed_final)
+	# print("[WALL RUN DEBUG] Velocity before: ", velocity_before)
+	# print("[WALL RUN DEBUG] Start position: ", wall_run_start_position)
+	# print("[WALL RUN DEBUG] Final position: ", final_position)
+	# print("[WALL RUN DEBUG] Total movement: ", total_movement)
+	# print("[WALL RUN DEBUG] ⚠️ Vertical distance: ", "%.2f" % abs(vertical_movement), " pixels ", "UP" if vertical_movement < 0 else "DOWN", " ⚠️")
+	# print("[WALL RUN DEBUG] Sprint state: ", is_running)
+	# print("[WALL RUN DEBUG] Dashing: ", is_ground_sliding or is_air_dashing)
+	# print("[WALL RUN DEBUG] In air: ", not is_on_floor())
 		
 	is_wall_running = false
 	wall_run_timer = 0.0
@@ -1140,10 +1150,10 @@ func _end_wall_run() -> void:
 	# Allow gravity to take over
 	# Velocity is maintained but wall run state is cleared
 	
-	print("[WALL RUN DEBUG] Velocity after: ", velocity)
-	print("[WALL RUN DEBUG] Set wall run cooldown to prevent immediate restart: ", "%.3f" % wall_run_cooldown, "s")
-	print("[WALL RUN DEBUG] Cleared wall state to prevent slide")
-	print("====================")
+	# print("[WALL RUN DEBUG] Velocity after: ", velocity)
+	# print("[WALL RUN DEBUG] Set wall run cooldown to prevent immediate restart: ", "%.3f" % wall_run_cooldown, "s")
+	# print("[WALL RUN DEBUG] Cleared wall state to prevent slide")
+	# print("====================")
 	
 	# Could trigger wall run end effects here (particles fade, etc.)
 
@@ -1155,9 +1165,9 @@ func _check_wall_run_activation() -> void:
 	if is_wall_running:
 		# During wall run, use raycast detection to check if still on wall
 		if not is_on_wall:
-			print("[WALL RUN COLLISION] ⚠ Lost wall contact (raycast) - ending wall run")
-			print("[WALL RUN COLLISION] Position: ", global_position)
-			print("[WALL RUN COLLISION] Velocity: ", velocity)
+			# print("[WALL RUN COLLISION] ⚠ Lost wall contact (raycast) - ending wall run")
+			# print("[WALL RUN COLLISION] Position: ", global_position)
+			# print("[WALL RUN COLLISION] Velocity: ", velocity)
 			_end_wall_run()
 		return  # Don't check for activation if already running
 	
@@ -1193,37 +1203,37 @@ func _check_wall_run_activation() -> void:
 	var has_wall_collision = raycast_detects_wall and (velocity_reduced or has_slide_collision)
 	
 	if not has_wall_collision:
-		print("[WALL RUN COLLISION] No wall collision detected")
-		print("[WALL RUN COLLISION] - raycast:", raycast_detects_wall, " | velocity_reduced:", velocity_reduced, " | slides:", has_slide_collision)
-		print("[WALL RUN COLLISION] - speed_before:", "%.1f" % speed_before_collision, " | speed_after:", "%.1f" % abs(velocity.x))
+		# print("[WALL RUN COLLISION] No wall collision detected")
+		# print("[WALL RUN COLLISION] - raycast:", raycast_detects_wall, " | velocity_reduced:", velocity_reduced, " | slides:", has_slide_collision)
+		# print("[WALL RUN COLLISION] - speed_before:", "%.1f" % speed_before_collision, " | speed_after:", "%.1f" % abs(velocity.x))
 		return
 	
-	print("[WALL RUN CHECK] ═══════════════════════════════════════")
-	print("[WALL RUN CHECK] ✓ WALL COLLISION DETECTED!")
-	print("[WALL RUN CHECK] Detection: raycast=", raycast_detects_wall, " velocity_reduced=", velocity_reduced, " slides=", has_slide_collision)
-	print("[WALL RUN CHECK] POSITION: ", global_position)
-	print("[WALL RUN CHECK] Velocity before collision: ", velocity_before_move_and_slide)
-	print("[WALL RUN CHECK] Velocity after collision: ", velocity)
-	print("[WALL RUN CHECK] Speed reduction: ", "%.1f" % speed_before_collision, " -> ", "%.1f" % abs(velocity.x))
-	print("[WALL RUN CHECK] Wall normal: ", wall_normal)
-	print("[WALL RUN CHECK] Attempting to start wall run:")
-	print("[WALL RUN CHECK] - Speed before collision: ", "%.2f" % speed_before_collision)
-	print("[WALL RUN CHECK] - Wall run speed (fixed): 1000.00")
-	print("[WALL RUN CHECK] - Required speed: ", "%.2f" % wall_run_min_velocity)
-	print("[WALL RUN CHECK] - Sprint state: ", is_running)
-	print("[WALL RUN CHECK] - Dashing: ", is_ground_sliding or is_air_dashing)
-	print("[WALL RUN CHECK] - In air: ", not is_on_floor())
-	print("[WALL RUN CHECK] - Wall jump cooldown: ", "%.3f" % wall_jump_cooldown, "s")
-	print("[WALL RUN CHECK] - Wall run cooldown: ", "%.3f" % wall_run_cooldown, "s")
-	print("[WALL RUN CHECK] ✓ Conditions met - calling _start_wall_run() with speed=1000")
+	# print("[WALL RUN CHECK] ═══════════════════════════════════════")
+	# print("[WALL RUN CHECK] ✓ WALL COLLISION DETECTED!")
+	# print("[WALL RUN CHECK] Detection: raycast=", raycast_detects_wall, " velocity_reduced=", velocity_reduced, " slides=", has_slide_collision)
+	# print("[WALL RUN CHECK] POSITION: ", global_position)
+	# print("[WALL RUN CHECK] Velocity before collision: ", velocity_before_move_and_slide)
+	# print("[WALL RUN CHECK] Velocity after collision: ", velocity)
+	# print("[WALL RUN CHECK] Speed reduction: ", "%.1f" % speed_before_collision, " -> ", "%.1f" % abs(velocity.x))
+	# print("[WALL RUN CHECK] Wall normal: ", wall_normal)
+	# print("[WALL RUN CHECK] Attempting to start wall run:")
+	# print("[WALL RUN CHECK] - Speed before collision: ", "%.2f" % speed_before_collision)
+	# print("[WALL RUN CHECK] - Wall run speed (fixed): 1000.00")
+	# print("[WALL RUN CHECK] - Required speed: ", "%.2f" % wall_run_min_velocity)
+	# print("[WALL RUN CHECK] - Sprint state: ", is_running)
+	# print("[WALL RUN CHECK] - Dashing: ", is_ground_sliding or is_air_dashing)
+	# print("[WALL RUN CHECK] - In air: ", not is_on_floor())
+	# print("[WALL RUN CHECK] - Wall jump cooldown: ", "%.3f" % wall_jump_cooldown, "s")
+	# print("[WALL RUN CHECK] - Wall run cooldown: ", "%.3f" % wall_run_cooldown, "s")
+	# print("[WALL RUN CHECK] ✓ Conditions met - calling _start_wall_run() with speed=1000")
 	
 	# Start wall run with fixed speed of 1000 for consistent wall run behavior
 	_start_wall_run(1000.0, true)
 	
-	print("[WALL RUN CHECK] AFTER _start_wall_run() - is_wall_running: ", is_wall_running)
-	print("[WALL RUN CHECK] VELOCITY AFTER: ", velocity)
-	print("[WALL RUN CHECK] POSITION AFTER: ", global_position)
-	print("[WALL RUN CHECK] ═══════════════════════════════════════")
+	# print("[WALL RUN CHECK] AFTER _start_wall_run() - is_wall_running: ", is_wall_running)
+	# print("[WALL RUN CHECK] VELOCITY AFTER: ", velocity)
+	# print("[WALL RUN CHECK] POSITION AFTER: ", global_position)
+	# print("[WALL RUN CHECK] ═══════════════════════════════════════")
 
 
 # ====================================
@@ -1235,14 +1245,14 @@ func _apply_gravity(delta: float) -> void:
 	if not is_on_floor():
 		# WALL RUNNING: No gravity during wall run (handled in _process_wall_run)
 		if is_wall_running:
-			print("[GRAVITY DEBUG] Skipping gravity - wall running active")
+			# print("[GRAVITY DEBUG] Skipping gravity - wall running active")
 			return
 		# WALL SLIDING: Apply gravity but cap at wall slide speed
 		elif is_wall_sliding:
 			var vel_before_slide = velocity.y
 			velocity.y += gravity * delta
 			velocity.y = min(velocity.y, wall_slide_speed)
-			print("[WALL SLIDE] Applied - vel before: ", "%.2f" % vel_before_slide, " | after: ", "%.2f" % velocity.y, " | gravity added: ", "%.2f" % (gravity * delta), " | capped at: ", "%.2f" % wall_slide_speed)
+			# print("[WALL SLIDE] Applied - vel before: ", "%.2f" % vel_before_slide, " | after: ", "%.2f" % velocity.y, " | gravity added: ", "%.2f" % (gravity * delta), " | capped at: ", "%.2f" % wall_slide_speed)
 		else:
 			var gravity_multiplier := 1.0
 			
@@ -1331,7 +1341,7 @@ func _handle_jump_input() -> void:
 	
 	# Check for jump button press this frame
 	if Input.is_action_just_pressed("jump"):
-		print("[JUMP DEBUG] Jump pressed - is_on_wall: ", is_on_wall, " is_wall_running: ", is_wall_running, " is_on_floor: ", is_on_floor())
+		# print("[JUMP DEBUG] Jump pressed - is_on_wall: ", is_on_wall, " is_wall_running: ", is_wall_running, " is_on_floor: ", is_on_floor())
 		
 		# Check if infinite jumps is enabled (assist mode)
 		var infinite_jumps: bool = get_meta("infinite_jumps_enabled", false)
@@ -1419,9 +1429,9 @@ func _perform_wall_jump() -> void:
 			jump_wall_normal = Vector2.RIGHT  # Was on left wall
 		else:
 			jump_wall_normal = Vector2.LEFT  # Was on right wall
-		print("[WALL JUMP DEBUG] Wall normal was zero, inferred: ", jump_wall_normal, " from velocity.x: ", velocity.x)
+		# print("[WALL JUMP DEBUG] Wall normal was zero, inferred: ", jump_wall_normal, " from velocity.x: ", velocity.x)
 	
-	print("[WALL JUMP DEBUG] Starting wall jump - is_wall_running: ", is_wall_running, " wall_normal: ", jump_wall_normal)
+	# print("[WALL JUMP DEBUG] Starting wall jump - is_wall_running: ", is_wall_running, " wall_normal: ", jump_wall_normal)
 	
 	# Check if jumping from a wall run (empowered wall jump)
 	if is_wall_running:
@@ -1429,7 +1439,7 @@ func _perform_wall_jump() -> void:
 		velocity.y = wall_run_empowered_jump_vertical
 		velocity.x = jump_wall_normal.x * wall_run_empowered_jump_horizontal
 		
-		print("[WALL JUMP DEBUG] ⚡ EMPOWERED from wall run ⚡")
+		# print("[WALL JUMP DEBUG] ⚡ EMPOWERED from wall run ⚡")
 		
 		# End wall run
 		_end_wall_run()
@@ -1438,7 +1448,7 @@ func _perform_wall_jump() -> void:
 		velocity.y = wall_jump_vertical_velocity
 		velocity.x = jump_wall_normal.x * wall_jump_horizontal_velocity
 		
-		print("[WALL JUMP DEBUG] Normal wall jump")
+		# print("[WALL JUMP DEBUG] Normal wall jump")
 	
 	# Set jump state
 	is_jumping = true
@@ -1450,7 +1460,7 @@ func _perform_wall_jump() -> void:
 	is_on_wall = false
 	is_wall_sliding = false
 	
-	print("[WALL JUMP DEBUG] ✓ Complete - Final velocity: ", velocity, " | Cooldown: ", "%.3f" % wall_jump_cooldown, "s")
+	# print("[WALL JUMP DEBUG] ✓ Complete - Final velocity: ", velocity, " | Cooldown: ", "%.3f" % wall_jump_cooldown, "s")
 	
 	# Could trigger wall jump effects here (particles, sound, animation, etc.)
 
@@ -2480,6 +2490,9 @@ func _kick_object(obj: Node2D) -> void:
 	
 	# Kick the object
 	obj.kick(kick_direction, kick_object_speed)
+	
+	# Apply knockback to player in opposite direction
+	velocity.x -= facing_direction * kick_object_knockback_force
 	
 	# Set cooldown
 	attack_cooldown_timer = attack_cooldown
