@@ -100,12 +100,9 @@ const AfterimageScene = preload("res://afterimage.tscn")
 @export var ground_slide_empowered_jump_multiplier: float = 1.5  ## Jump height multiplier when jumping out of slide
 
 @export_subgroup("Air Dash")
-@export var air_dash_horizontal_impulse: float = 500.0  ## Horizontal impulse force applied at start of air dash
-@export var air_dash_vertical_impulse: float = 100.0  ## Vertical impulse force applied at start of air dash
+@export var air_dash_speed: float = 1200.0  ## Horizontal speed during air dash
 @export var air_dash_duration: float = 0.2  ## Duration of air dash in seconds
 @export var air_dash_cooldown: float = 0.35  ## Cooldown between air dashes
-@export var air_dash_end_horizontal_velocity: float = 1000.0  ## Horizontal velocity when air dash ends (in dash direction)
-@export var air_dash_end_vertical_velocity: float = 0.0  ## Vertical velocity when air dash ends
 
 # KICK ATTACK CONFIGURATION
 @export_group("Kick Attack")
@@ -133,19 +130,16 @@ const AfterimageScene = preload("res://afterimage.tscn")
 @export var kick_object_detection_range: float = 60.0  ## Range to detect kickable objects
 @export var kick_object_speed: float = 2500.0  ## Speed at which kicked objects fly
 @export var kick_object_cone_angle: float = 90.0  ## Cone angle in front of player for detection (degrees)
-@export var kick_object_knockback_force: float = 100.0  ## Horizontal knockback force applied to player when kicking an object
 
-# GROUND SLAM CONFIGURATION
-@export_group("Ground Slam")
-@export var slam_enabled: bool = true  ## Enable ground slam mechanics
-@export var slam_speed: float = 3000.0  ## Vertical downward speed during slam (adjustable)
-@export var slam_kill_radius: float = 500.0  ## Radius to kill enemies while slamming down (5m = ~500 pixels)
-@export var slam_landing_aoe_width: float = 1000.0  ## Width of AOE damage on landing (10m = ~1000 pixels)
-@export var slam_landing_aoe_height: float = 500.0  ## Height of AOE damage on landing (5m = ~500 pixels)
-@export var slam_freeze_duration: float = 0.1  ## Duration player is frozen after slam landing (seconds)
-@export var slam_landing_speed_boost: float = 1.15  ## Speed multiplier on landing (15% boost)
-@export var slam_attack_knockback_speed: float = 2500.0  ## Speed at which enemies are knocked downward during slam
-@export var slam_attack_bounce_impulse: float = 500.0  ## Upward velocity given to player when hitting enemy during slam
+# DIVE CONFIGURATION
+@export_group("Dive")
+@export var dive_enabled: bool = true  ## Enable dive mechanics
+@export var dive_speed: float = 1100.0  ## Fixed speed of the dive
+@export var dive_angle_degrees: float = 45.0  ## Angle of dive from horizontal (45 degrees)
+@export var dive_landing_speed_boost: float = 1.15  ## Speed multiplier on landing (15% boost)
+@export var dive_attack_range: float = 400.0  ## Range to detect enemies for dive attack (checked continuously during dive)
+@export var dive_attack_knockback_speed: float = 2500.0  ## Speed at which enemies are knocked downward by dive attack
+@export var dive_attack_bounce_impulse: float = 500.0  ## Upward velocity given to player when hitting enemy with dive attack
 
 # Internal state variables
 var is_jump_held: bool = false  # Is jump button currently held
@@ -170,9 +164,6 @@ var is_wall_running: bool = false  # Is player currently wall running
 var wall_run_timer: float = 0.0  # Time elapsed in current wall run
 var wall_run_speed: float = 0.0  # Current upward speed during wall run
 var wall_jump_cooldown: float = 0.0  # Cooldown after wall jump to prevent re-attachment
-var wall_run_cooldown: float = 0.0  # Cooldown after wall run ends to prevent immediate restart
-var wall_run_start_position: Vector2 = Vector2.ZERO  # Position when wall run started (for tracking total movement)
-var wall_run_frame_count: int = 0  # Number of frames wall run has been active
 
 # Ledge climb state variables
 var is_ledge_climbing: bool = false  # Is player currently climbing a ledge
@@ -218,21 +209,18 @@ var ground_slide_cooldown_timer: float = 0.0  # Cooldown timer for ground slide
 var air_dash_cooldown_timer: float = 0.0  # Cooldown timer for air dash
 var dash_direction: float = 1.0  # Horizontal direction of dash (1 = right, -1 = left)
 var pre_air_dash_horizontal_speed: float = 0.0  # Horizontal speed before air dash
-var velocity_before_move_and_slide: Vector2 = Vector2.ZERO  # Velocity before move_and_slide() for collision detection
 var original_collision_shape_height: float = 64.0  # Original height of collision shape
 var is_slide_jump_available: bool = false  # Can player perform empowered jump from slide
 var is_invulnerable: bool = false  # Is player currently invulnerable (during dashes)
 var run_input_just_pressed: bool = false  # Track if run input was just pressed this frame
-var air_dash_available: bool = true  # Is air dash available (resets on ground/wall/kick parry/slam)
+var air_dash_available: bool = true  # Is air dash available (resets on ground/wall/kick parry/dive)
 
-# Ground Slam state variables
-var is_slamming: bool = false  # Is player currently ground slamming
-var slam_velocity: Vector2 = Vector2.ZERO  # Velocity of the slam
-var slam_pre_landing_horizontal_speed: float = 0.0  # Horizontal speed stored before landing
-var slam_attack_visual: Node2D = null  # Visual indicator for slam attack range
-var slam_range_circle: Polygon2D = null  # Circle showing slam kill radius
-var is_slam_frozen: bool = false  # Is player frozen after slam landing
-var slam_freeze_timer: float = 0.0  # Timer for slam freeze duration
+# Dive state variables
+var is_diving: bool = false  # Is player currently diving
+var dive_velocity: Vector2 = Vector2.ZERO  # Velocity of the dive
+var dive_pre_landing_horizontal_speed: float = 0.0  # Horizontal speed stored before landing
+var dive_attack_visual: Node2D = null  # Visual indicator for dive attack range
+var dive_range_circle: Polygon2D = null  # Circle showing dive attack range
 
 # Stun state variables (internal - durations configured in Quality of Life section)
 var is_stunned: bool = false  # Is player currently stunned
@@ -245,7 +233,7 @@ var grace_period_colliding_enemy: Node2D = null  # Enemy that triggered grace pe
 
 # Afterimage state variables
 var afterimage_timer: float = 0.0  # Timer for spawning afterimages
-var afterimage_spawn_interval: float = 0.3  # Spawn an afterimage every 0.3 seconds (~3 over 1 second)
+var afterimage_spawn_interval: float = 0.125  # Spawn an afterimage every 0.125 seconds (8 over 1 second)
 var afterimage_enabled: bool = true  # Whether afterimages are enabled
 
 # Component references
@@ -274,8 +262,8 @@ func _ready() -> void:
 		if shape:
 			original_collision_shape_height = shape.size.y
 	
-	# Create ground slam attack visual indicator
-	_create_slam_attack_visual()
+	# Create dive attack visual indicator
+	_create_dive_attack_visual()
 	
 	# Create kick object visual indicator
 	_create_kick_object_indicator()
@@ -311,48 +299,59 @@ func _connect_to_enemies() -> void:
 				enemy.enemy_touched_by_player.connect(_on_enemy_touched)
 			if not enemy.enemy_destroyed.is_connected(_on_enemy_destroyed):
 				enemy.enemy_destroyed.connect(_on_enemy_destroyed)
+			print("Connected to enemy: ", enemy.name, " - reset state")
 
 
-func _create_slam_attack_visual() -> void:
-	"""Create the visual indicator for ground slam attack range."""
-	# Create a container node for the slam attack visual
-	slam_attack_visual = Node2D.new()
-	slam_attack_visual.name = "SlamAttackVisual"
-	add_child(slam_attack_visual)
+func _create_dive_attack_visual() -> void:
+	"""Create the visual indicator for dive attack range."""
+	# Create a container node for the dive attack visual
+	dive_attack_visual = Node2D.new()
+	dive_attack_visual.name = "DiveAttackVisual"
+	add_child(dive_attack_visual)
 	
-	# Create a circle polygon to show the kill radius while falling
-	slam_range_circle = Polygon2D.new()
-	slam_range_circle.name = "SlamRangeCircle"
-	slam_attack_visual.add_child(slam_range_circle)
+	# Create a circle polygon to show the attack range
+	dive_range_circle = Polygon2D.new()
+	dive_range_circle.name = "DiveRangeCircle"
+	dive_attack_visual.add_child(dive_range_circle)
 	
 	# Update the visual with current range
-	_update_slam_attack_visual()
+	_update_dive_attack_visual()
 	
 	# Hide by default
-	slam_attack_visual.visible = false
+	dive_attack_visual.visible = false
 
 
-func _update_slam_attack_visual() -> void:
-	"""Update the ground slam attack visual indicator size based on current range."""
-	if not slam_range_circle:
+func _update_dive_attack_visual() -> void:
+	"""Update the dive attack visual indicator size based on current range."""
+	if not dive_range_circle:
 		return
 	
-	# Generate full circle points for kill radius
+	# Generate circle points (270-degree arc, excluding upper 90 degrees)
 	var points: PackedVector2Array = []
 	var num_segments = 64  # Number of segments for smooth circle
 	
 	# Add center point
 	points.append(Vector2.ZERO)
 	
-	# Add full circle points
+	# Add arc points (going clockwise through bottom 270 degrees)
+	# Start at 315 degrees (upper-right), sweep 270 degrees clockwise to 225 degrees (upper-left)
+	# This excludes the upper 90-degree cone (225 to 315)
+	var start_angle_deg = 315.0
+	var arc_degrees = 270.0
+	
 	for i in range(num_segments + 1):
 		var t = float(i) / num_segments
-		var angle_rad = t * TAU  # Full circle (2*PI)
-		var point = Vector2(cos(angle_rad), sin(angle_rad)) * slam_kill_radius
+		var angle_deg = start_angle_deg + t * arc_degrees
+		# Normalize angle to 0-360 range
+		if angle_deg >= 360.0:
+			angle_deg -= 360.0
+		
+		var angle_rad = deg_to_rad(angle_deg)
+		var point = Vector2(cos(angle_rad), sin(angle_rad)) * dive_attack_range
 		points.append(point)
 	
-	slam_range_circle.polygon = points
-	slam_range_circle.color = Color(1.0, 0.2, 0.2, 0.4)  # Red with transparency (ground slam)
+	dive_range_circle.polygon = points
+	dive_range_circle.color = Color(1.0, 0.5, 0.0, 0.3)  # Orange with transparency
 
 
 func _create_kick_object_indicator() -> void:
@@ -366,9 +365,9 @@ func _create_kick_object_indicator() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	# Track position at start of frame
-	var frame_start_position = global_position
-	var frame_start_velocity = velocity
+	# Debug: Check if physics process is running
+	if Engine.get_process_frames() % 300 == 0:  # Print every 300 frames (5 seconds at 60fps)
+		print("Physics process running - attack_enabled: ", attack_enabled)
 	
 	# Update afterimage timer and spawn afterimages
 	if afterimage_enabled:
@@ -383,21 +382,8 @@ func _physics_process(delta: float) -> void:
 	# Update performance timers
 	ledge_check_timer += delta
 	
-	# Update slam freeze timer
-	if is_slam_frozen:
-		slam_freeze_timer -= delta
-		if slam_freeze_timer <= 0:
-			_end_slam_freeze()
-	
 	# 1. Process Input
 	var input_vector := _get_input_vector()
-	
-	# Skip all input processing if slam frozen
-	if is_slam_frozen:
-		velocity = Vector2.ZERO  # No movement during freeze
-		move_and_slide()
-		_post_movement_updates()
-		return
 	
 	# Track if run input was just pressed this frame (for dash detection)
 	run_input_just_pressed = Input.is_action_just_pressed("run")
@@ -421,13 +407,10 @@ func _physics_process(delta: float) -> void:
 	var current_speed = velocity.length()
 	is_running = current_speed > sprint_speed_threshold
 	
-	# Visual feedback: Turn player red when in sprint state, dark red when slamming, cyan when wall running, yellow when dashing
+	# Visual feedback: Turn player red when in sprint state, purple when diving, cyan when wall running, yellow when dashing
 	# Stun visual feedback is handled in _process_stun()
 	if not is_stunned:
-		if is_slam_frozen:
-			# Bright white flash when frozen after slam
-			modulate = Color(2.0, 2.0, 2.0)  # Bright white (frozen state)
-		elif bullet_grace_period_active:
+		if bullet_grace_period_active:
 			# Flash cyan/white during bullet grace period to indicate player can parry
 			var flash = sin(bullet_grace_period_timer * 50.0) * 0.5 + 0.5
 			modulate = Color(0.3 + flash * 0.7, 1.0, 1.0)  # Bright cyan flash (faster flash)
@@ -443,15 +426,10 @@ func _physics_process(delta: float) -> void:
 			modulate = Color(1.5, 1.5, 0.5)  # Yellow tint for dashes (invulnerable)
 		elif is_wall_running:
 			modulate = Color(0.5, 1.5, 1.5)  # Cyan tint for wall run
-		elif is_wall_sliding:
-			modulate = Color(0.7, 0.7, 1.2)  # Light blue tint for wall slide
-		elif is_slamming:
-			modulate = Color(1.5, 0.2, 0.2)  # Dark red tint for ground slam
+		elif is_diving:
+			modulate = Color(1.0, 0.5, 1.5)  # Purple tint
 		elif is_running:
 			modulate = Color(1.5, 0.5, 0.5)  # Red tint
-		elif abs(velocity.x) >= wall_run_min_velocity:
-			# Player is moving fast enough to wall run - show green tint
-			modulate = Color(0.7, 1.5, 0.7)  # Green tint - ready for wall run!
 		else:
 			modulate = Color.WHITE  # Normal color
 	
@@ -474,10 +452,6 @@ func _physics_process(delta: float) -> void:
 	# Update wall jump cooldown timer
 	if wall_jump_cooldown > 0:
 		wall_jump_cooldown -= delta
-	
-	# Update wall run cooldown timer
-	if wall_run_cooldown > 0:
-		wall_run_cooldown -= delta
 	
 	# Update stun timer
 	if is_stunned:
@@ -537,64 +511,51 @@ func _physics_process(delta: float) -> void:
 			_post_movement_updates()
 			return
 		
-		# Wall run activation moved to _check_wall_run_activation() which runs AFTER move_and_slide()
-		# to ensure actual collision detection instead of raycast-based detection
-		# print("[DASH DEBUG] Ground slide frame - wall run check deferred to post-movement")
-		
-		# Only process slide if not wall running (wall run takes priority)
-		if is_ground_sliding and not is_wall_running:
-			_process_ground_slide(delta)
-			# Skip normal physics when sliding
-			velocity_before_move_and_slide = velocity  # Store for wall collision detection
-			move_and_slide()
-			_post_movement_updates()
-			return
+		_process_ground_slide(delta)
+		# Check for wall run during slide
+		if is_on_wall and wall_run_enabled:
+			_start_wall_run(abs(velocity.x))
+		# Skip normal physics when sliding
+		move_and_slide()
+		_post_movement_updates()
+		return
 	
 	# 5. Process Air Dash (if active, skip most normal movement)
 	if is_air_dashing:
-		# Check for down input to perform ground slam out of air dash
-		if Input.is_action_just_pressed("move_down") and not is_stunned:
+		# Check for jump input to perform dive out of air dash
+		if Input.is_action_just_pressed("jump") and not is_stunned:
 			# End air dash
 			_end_air_dash()
-			# Perform ground slam
-			if slam_enabled:
-				_start_slam(input_vector)
+			# Perform dive instead of jump
+			if dive_enabled:
+				_start_dive(input_vector)
 			move_and_slide()
 			_post_movement_updates()
 			return
 		
-		# Wall run activation moved to _check_wall_run_activation() which runs AFTER move_and_slide()
-		# to ensure actual collision detection instead of raycast-based detection
-		# print("[DASH DEBUG] Air dash frame - wall run check deferred to post-movement")
-		
-		# Only process air dash if not wall running (wall run takes priority)
-		if is_air_dashing and not is_wall_running:
-			_process_air_dash(delta)
-			# Skip normal physics when air dashing
-			velocity_before_move_and_slide = velocity  # Store for wall collision detection
-			move_and_slide()
-			_post_movement_updates()
-			return
+		_process_air_dash(delta)
+		# Check for wall run during air dash
+		if is_on_wall and wall_run_enabled:
+			_start_wall_run(abs(velocity.x))
+		# Skip normal physics when air dashing
+		move_and_slide()
+		_post_movement_updates()
+		return
 	
-	# 6. Process Ground Slam (if active, skip most normal movement)
-	if is_slamming:
-		_process_slam(delta)
-		# Skip normal physics when slamming
+	# 6. Process Dive (if active, skip most normal movement)
+	if is_diving:
+		_process_dive(delta)
+		# Skip normal physics when diving
 		move_and_slide()
 		_post_movement_updates()
 		return
 	
 	# 7. Process Wall Run (if active, skip most normal movement)
 	if is_wall_running:
-		# print("╔═══════════════════════════════════════╗")
-		# print("║   WALL RUN ACTIVE THIS FRAME          ║")
-		# print("╚═══════════════════════════════════════╝")
-		# print("[WALL RUN STATE] Timer: ", "%.2f" % wall_run_timer, "s | Speed: ", "%.1f" % wall_run_speed, " | Decay: ", "%.1f" % wall_run_speed_decay)
-		
 		# Check for jump input BEFORE processing wall run
 		# This allows player to jump out of wall run
 		if Input.is_action_just_pressed("jump") and not is_stunned:
-			# print("[WALL RUN DEBUG] ⚠ Jump pressed during wall run, performing empowered wall jump")
+			print("[WALL RUN] Jump pressed during wall run, performing empowered wall jump")
 			_perform_wall_jump()
 			# After jump, is_wall_running is false, so continue with normal physics below
 		
@@ -603,19 +564,14 @@ func _physics_process(delta: float) -> void:
 			# wall_normal points AWAY from the wall
 			# If player is pressing in the direction of wall_normal, they're pushing away from wall
 			if (wall_normal.x > 0 and input_vector.x > 0.1) or (wall_normal.x < 0 and input_vector.x < -0.1):
-				# print("[WALL RUN DEBUG] ⚠ Player pushing away from wall (input: ", "%.2f" % input_vector.x, ", wall_normal.x: ", "%.2f" % wall_normal.x, ") - ending wall run")
+				print("[WALL RUN] Player pushing away from wall, ending wall run")
 				_end_wall_run()
 		
 		# Only process wall run if still wall running (jump or input might have cancelled it)
 		if is_wall_running:
-			var pos_before_frame = global_position
 			_process_wall_run(delta)
 			# Skip normal physics when wall running
 			move_and_slide()
-			var pos_after_frame = global_position
-			var movement_this_frame = pos_after_frame - pos_before_frame
-			# print("[WALL RUN DEBUG] Position AFTER move_and_slide(): ", pos_after_frame)
-			# print("[WALL RUN DEBUG] Movement this frame: ", movement_this_frame, " (distance: ", "%.2f" % movement_this_frame.length(), ")")
 			_post_movement_updates()
 			return
 	
@@ -672,44 +628,21 @@ func _physics_process(delta: float) -> void:
 	# 16. Handle Jump Input
 	_handle_jump_input()
 	
-	# 17. Handle Ground Slam Input
-	_handle_ground_slam_input()
-	
-	# 18. Apply Horizontal Movement
+	# 17. Apply Horizontal Movement
 	_apply_horizontal_movement(input_vector.x, delta)
 	
-	# 19. Execute Jump (if buffered or triggered)
+	# 18. Execute Jump (if buffered or triggered)
 	_execute_buffered_jump()
 	
-	# 20. Move Character
+	# 19. Move Character
 	move_and_slide()
 	
-	# 21. QOL: Corner Correction (only when moving up fast)
+	# 20. QOL: Corner Correction (only when moving up fast)
 	if corner_correction_enabled and velocity.y < 0 and abs(velocity.y) > 50:
 		_apply_corner_correction(space_state)
 	
-	# 22. Post-Movement Updates
+	# 21. Post-Movement Updates
 	_post_movement_updates()
-	
-	# 23. Track position changes when near walls (for debugging)
-	if is_on_wall:
-		var frame_end_position = global_position
-		var frame_end_velocity = velocity
-		var position_delta = frame_end_position - frame_start_position
-		var velocity_delta = frame_end_velocity - frame_start_velocity
-		
-		if position_delta.length() > 0.1 or velocity_delta.length() > 0.1:
-			var vertical_direction = "UP" if position_delta.y < 0 else "DOWN"
-			# print("╔═══════════ FRAME MOVEMENT (NEAR WALL) ═══════════╗")
-			# print("║ Start pos: ", frame_start_position)
-			# print("║ End pos:   ", frame_end_position)
-			# print("║ Delta:     ", position_delta, " (", "%.2f" % position_delta.length(), " pixels)")
-			# print("║ Vertical:  ", vertical_direction, " ", "%.2f" % abs(position_delta.y), " pixels")
-			# print("║ Start vel: ", frame_start_velocity)
-			# print("║ End vel:   ", frame_end_velocity)
-			# print("║ is_wall_running: ", is_wall_running)
-			# print("║ is_on_wall: ", is_on_wall)
-			# print("╚═══════════════════════════════════════════════════╝")
 
 
 # ====================================
@@ -767,21 +700,16 @@ func _on_landed() -> void:
 	if is_wall_running:
 		_end_wall_run()
 	
-	# Handle ground slam landing with AOE damage
-	if is_slamming:
-		# Perform AOE damage on landing
-		_perform_slam_landing_aoe()
-		
+	# Handle dive landing with speed boost
+	if is_diving:
 		# Preserve horizontal momentum and apply landing speed boost multiplier
-		velocity.x = slam_pre_landing_horizontal_speed * slam_landing_speed_boost
+		velocity.x = dive_pre_landing_horizontal_speed * dive_landing_speed_boost
 		velocity.y = 0  # Cancel vertical velocity
-		is_slamming = false
-		# Hide slam attack visual
-		if slam_attack_visual:
-			slam_attack_visual.visible = false
-		
-		# Start slam freeze period
-		_start_slam_freeze()
+		is_diving = false
+		# Hide dive attack visual
+		if dive_attack_visual:
+			dive_attack_visual.visible = false
+		# Dive landed with speed boost
 	
 	# Could trigger landing effects here (particles, sound, etc.)
 
@@ -803,17 +731,6 @@ func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceS
 	var was_on_wall = is_on_wall
 	var was_wall_normal = wall_normal
 	
-	# DEBUG: Track dash state at start of wall detection
-	var is_dashing = is_ground_sliding or is_air_dashing
-	if is_dashing:
-		pass
-		# print("[WALL DETECT DEBUG] ═══════════════════════════════════════")
-		# print("[WALL DETECT DEBUG] Starting wall detection DURING DASH")
-		# print("[WALL DETECT DEBUG] Ground sliding: ", is_ground_sliding, " | Air dashing: ", is_air_dashing)
-		# print("[WALL DETECT DEBUG] Current position: ", global_position)
-		# print("[WALL DETECT DEBUG] Current velocity: ", velocity)
-		# print("[WALL DETECT DEBUG] was_on_wall: ", was_on_wall)
-	
 	# Always reset wall state - we'll re-detect it below
 	# This ensures is_on_wall accurately reflects current wall contact
 	is_on_wall = false
@@ -832,18 +749,6 @@ func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceS
 	var half_width = shape.size.x / 2.0
 	var half_height = shape.size.y / 2.0
 	
-	# CRITICAL FIX: Extend raycast distance during dashes to prevent skipping walls
-	# During high-speed movement, player can move 20-30 pixels per frame,
-	# but default wall_check_distance is only 8 pixels!
-	var effective_wall_check_distance = wall_check_distance
-	if is_dashing:
-		# Calculate how far player will move this frame
-		var movement_per_frame = abs(velocity.x) / 60.0  # Assume 60fps
-		# Extend raycast to at least cover this distance, plus buffer
-		effective_wall_check_distance = max(wall_check_distance, movement_per_frame * 1.5)
-		# print("[WALL DETECT DEBUG] Extended raycast distance: ", effective_wall_check_distance, " (was ", wall_check_distance, ")")
-		# print("[WALL DETECT DEBUG] velocity.x: ", velocity.x, " | movement_per_frame: ", movement_per_frame)
-	
 	# During wall run, check at multiple heights for more accurate wall detection
 	var check_heights = [0.0]  # Default: center only
 	
@@ -854,99 +759,59 @@ func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceS
 	for height_offset in check_heights:
 		# Check for wall on the left
 		var left_ray_origin = global_position + Vector2(-half_width, height_offset)
-		var left_ray_end = left_ray_origin + Vector2(-effective_wall_check_distance, 0)
+		var left_ray_end = left_ray_origin + Vector2(-wall_check_distance, 0)
 		var query_left = PhysicsRayQueryParameters2D.create(left_ray_origin, left_ray_end)
 		query_left.exclude = [self]
 		var left_hit = space_state.intersect_ray(query_left)
 		if left_hit:
 			left_hit_any = true
 		
-		# DEBUG: Log raycast results during dash
-		if is_dashing and (left_hit or velocity.x < -100):
-			pass
-			# print("[WALL DETECT DEBUG] LEFT raycast: origin=", left_ray_origin, " end=", left_ray_end)
-			# print("[WALL DETECT DEBUG] LEFT raycast distance: ", effective_wall_check_distance)
-			# print("[WALL DETECT DEBUG] LEFT hit: ", left_hit.size() > 0, " | hit_any: ", left_hit_any)
-		
 		# Check for wall on the right
 		var right_ray_origin = global_position + Vector2(half_width, height_offset)
-		var right_ray_end = right_ray_origin + Vector2(effective_wall_check_distance, 0)
+		var right_ray_end = right_ray_origin + Vector2(wall_check_distance, 0)
 		var query_right = PhysicsRayQueryParameters2D.create(right_ray_origin, right_ray_end)
 		query_right.exclude = [self]
 		var right_hit = space_state.intersect_ray(query_right)
 		if right_hit:
 			right_hit_any = true
-		
-		# DEBUG: Log raycast results during dash
-		if is_dashing and (right_hit or velocity.x > 100):
-			pass
-			# print("[WALL DETECT DEBUG] RIGHT raycast: origin=", right_ray_origin, " end=", right_ray_end)
-			# print("[WALL DETECT DEBUG] RIGHT raycast distance: ", effective_wall_check_distance)
-			# print("[WALL DETECT DEBUG] RIGHT hit: ", right_hit.size() > 0, " | hit_any: ", right_hit_any)
 	
 	# Determine if player is on a wall
 	if left_hit_any:
 		is_on_wall = true
 		wall_normal = Vector2.RIGHT  # Wall is on left, so push right
-		# DEBUG: Log wall detection during dash
-		if is_dashing:
-			pass
-			# print("[WALL DETECT DEBUG] ✓ LEFT WALL DETECTED! Setting is_on_wall = true")
-			# print("[WALL DETECT DEBUG] wall_normal: ", wall_normal)
 		# Reset air dash cooldown and availability when touching wall
 		air_dash_cooldown_timer = 0.0
 		air_dash_available = true
 		# Player is wall sliding if moving down and pressing toward wall
-		# BUT: Don't activate wall sliding during dashes (they should trigger wall run instead)
-		if velocity.y > 0 and input_direction < 0 and not is_ground_sliding and not is_air_dashing:
+		if velocity.y > 0 and input_direction < 0:
 			is_wall_sliding = true
 	elif right_hit_any:
 		is_on_wall = true
 		wall_normal = Vector2.LEFT  # Wall is on right, so push left
-		# DEBUG: Log wall detection during dash
-		if is_dashing:
-			pass
-			# print("[WALL DETECT DEBUG] ✓ RIGHT WALL DETECTED! Setting is_on_wall = true")
-			# print("[WALL DETECT DEBUG] wall_normal: ", wall_normal)
 		# Reset air dash cooldown and availability when touching wall
 		air_dash_cooldown_timer = 0.0
 		air_dash_available = true
 		# Player is wall sliding if moving down and pressing toward wall
-		# BUT: Don't activate wall sliding during dashes (they should trigger wall run instead)
-		if velocity.y > 0 and input_direction > 0 and not is_ground_sliding and not is_air_dashing:
+		if velocity.y > 0 and input_direction > 0:
 			is_wall_sliding = true
-	else:
-		# DEBUG: Log when no wall detected during dash
-		if is_dashing and (abs(velocity.x) > 500):
-			pass
-			# print("[WALL DETECT DEBUG] ✗ NO WALL DETECTED (moving fast: ", velocity.x, ")")
-			# print("[WALL DETECT DEBUG] left_hit_any: ", left_hit_any, " | right_hit_any: ", right_hit_any)
-	
-	# DEBUG: Summary of wall detection during dash
-	if is_dashing:
-		pass
-		# print("[WALL DETECT DEBUG] ═══════════════════════════════════════")
-		# print("[WALL DETECT DEBUG] FINAL RESULT: is_on_wall = ", is_on_wall)
-		# print("[WALL DETECT DEBUG] wall_normal: ", wall_normal)
-		# print("[WALL DETECT DEBUG] is_wall_sliding: ", is_wall_sliding)
-		# print("[WALL DETECT DEBUG] Dash will now proceed with is_on_wall = ", is_on_wall)
-		# print("[WALL DETECT DEBUG] ═══════════════════════════════════════")
 	
 	# Debug wall detection changes
 	if is_on_wall != was_on_wall:
-		pass
-		# print("[WALL DETECT] Wall state changed - is_on_wall: ", is_on_wall, " wall_normal: ", wall_normal, " cooldown: ", "%.3f" % wall_jump_cooldown)
-		# print("[WALL DETECT] was_on_wall: ", was_on_wall, " -> is_on_wall: ", is_on_wall)
-		# print("[WALL DETECT] is_wall_running: ", is_wall_running)
+		print("[WALL DETECT] Wall state changed - is_on_wall: ", is_on_wall, " wall_normal: ", wall_normal, " cooldown: ", wall_jump_cooldown)
 	
-	# NOTE: Wall run activation moved to _check_wall_run_activation() 
-	# which runs AFTER move_and_slide() to ensure actual collision
+	# Check for wall run activation (only if not on cooldown from wall jump)
+	if wall_run_enabled and is_on_wall and not was_on_wall and not is_wall_running and wall_jump_cooldown <= 0:
+		# Check if horizontal velocity is high enough to start a wall run
+		var horizontal_speed = abs(velocity.x)
+		if horizontal_speed >= wall_run_min_velocity:
+			print("[WALL RUN] Activating wall run - horizontal_speed: ", horizontal_speed, " wall_normal: ", wall_normal)
+			_start_wall_run(horizontal_speed)
+	elif wall_run_enabled and is_on_wall and not was_on_wall and not is_wall_running and wall_jump_cooldown > 0:
+		print("[WALL RUN] Wall run blocked by cooldown: ", "%.2f" % wall_jump_cooldown, "s remaining")
 	
-	# End wall run if wall ends (check using raycast detection)
+	# End wall run if wall ends
 	if is_wall_running and not is_on_wall:
-		# print("[WALL RUN DEBUG] ⚠ Wall contact lost (raycast) - stopping wall run")
-		# print("[WALL RUN DEBUG] Position: ", global_position)
-		# print("[WALL RUN DEBUG] Velocity: ", velocity)
+		print("[WALL RUN] Wall ended, stopping wall run")
 		_end_wall_run()
 
 
@@ -954,58 +819,16 @@ func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceS
 # WALL RUN
 # ====================================
 
-func _start_wall_run(horizontal_speed: float, force: bool = false) -> void:
-	"""Initiate a wall run up the wall. If force is true, bypasses speed checks."""
+func _start_wall_run(horizontal_speed: float) -> void:
+	"""Initiate a wall run up the wall."""
+	is_wall_running = true
+	wall_run_timer = 0.0
+	
 	# Calculate wall run speed proportional to horizontal velocity
 	# Clamp between min and max wall run speed
 	wall_run_speed = clamp(horizontal_speed, wall_run_min_speed, wall_run_max_speed)
 	
-	# If not forced, perform speed validation checks
-	if not force:
-		# Check if wall run speed is above minimum (prevents immediate termination)
-		if wall_run_speed <= wall_run_min_speed:
-			# print("[WALL RUN DEBUG] ✗ Cannot start - speed at minimum threshold (", wall_run_speed, " <= ", wall_run_min_speed, ")")
-			return
-		
-		# CRITICAL CHECK: Prevent wall run if decay is so high it would end in first frame
-		# Calculate how much decay would occur in a typical frame (assuming 60fps = 0.0167s)
-		var estimated_first_frame_decay = wall_run_speed_decay * 0.017
-		var speed_after_first_frame = wall_run_speed - estimated_first_frame_decay
-		
-		# print("=== WALL RUN START CHECK ===")
-		# print("[WALL RUN DEBUG] Initial speed: ", "%.1f" % wall_run_speed)
-		# print("[WALL RUN DEBUG] Decay rate: ", "%.1f" % wall_run_speed_decay, " per second")
-		# print("[WALL RUN DEBUG] Estimated first frame decay (0.017s): ", "%.1f" % estimated_first_frame_decay)
-		# print("[WALL RUN DEBUG] Speed after first frame: ", "%.1f" % speed_after_first_frame)
-		# print("[WALL RUN DEBUG] Min speed threshold: ", "%.1f" % wall_run_min_speed)
-		
-		if speed_after_first_frame < wall_run_min_speed:
-			# print("[WALL RUN DEBUG] ⚠ BLOCKED: Decay too high! Wall run would end in first frame")
-			# print("[WALL RUN DEBUG] This would cause infinite micro-wall-runs")
-			# print("[WALL RUN DEBUG] To wall run with this decay rate, you need initial speed > ", "%.1f" % (wall_run_min_speed + estimated_first_frame_decay))
-			return
-	else:
-		pass
-		# print("=== WALL RUN FORCED START (FROM DASH) ===")
-		# print("[WALL RUN DEBUG] FORCED activation from dash - bypassing all speed checks")
-		# print("[WALL RUN DEBUG] Initial speed: ", "%.1f" % wall_run_speed)
-	
-	is_wall_running = true
-	wall_run_timer = 0.0
-	wall_run_start_position = global_position
-	wall_run_frame_count = 0
-	
-	# print("=== WALL RUN STARTING ===")
-	# print("[WALL RUN DEBUG] Initial wall_run_speed: ", "%.2f" % wall_run_speed)
-	# print("[WALL RUN DEBUG] Expected duration: ", "%.2f" % ((wall_run_speed - wall_run_min_speed) / wall_run_speed_decay), " seconds")
-	# print("[WALL RUN DEBUG] Expected frames (at 60fps): ", int((wall_run_speed - wall_run_min_speed) / wall_run_speed_decay * 60))
-	# print("[WALL RUN DEBUG] Max allowed duration: ", "%.2f" % wall_run_max_duration, " seconds")
-	# print("[WALL RUN DEBUG] Wall normal: ", wall_normal)
-	# print("[WALL RUN DEBUG] Starting position: ", wall_run_start_position)
-	# print("[WALL RUN DEBUG] Is sprinting: ", is_running)
-	# print("[WALL RUN DEBUG] Is dashing: ", is_ground_sliding or is_air_dashing)
-	# print("[WALL RUN DEBUG] Is in air: ", not is_on_floor())
-	# print("=============================")
+	print("[WALL RUN] Started - Speed: ", wall_run_speed, " Wall normal: ", wall_normal, " Position: ", global_position)
 	
 	# Set upward velocity
 	velocity.y = -wall_run_speed
@@ -1016,17 +839,15 @@ func _start_wall_run(horizontal_speed: float, force: bool = false) -> void:
 	# Cancel other states
 	is_jumping = false
 	is_wall_sliding = false
-	is_slamming = false
-	# Hide slam attack visual
-	if slam_attack_visual:
-		slam_attack_visual.visible = false
+	is_diving = false
+	# Hide dive attack visual
+	if dive_attack_visual:
+		dive_attack_visual.visible = false
 	
 	# End ground slide or air dash if wall running
 	if is_ground_sliding:
-		# print("[WALL RUN DEBUG] Ended ground slide to start wall run")
 		_end_ground_slide()
 	if is_air_dashing:
-		# print("[WALL RUN DEBUG] Ended air dash to start wall run")
 		_end_air_dash()
 	
 	# Could trigger wall run effects here (particles, sound, animation, etc.)
@@ -1034,206 +855,54 @@ func _start_wall_run(horizontal_speed: float, force: bool = false) -> void:
 
 func _process_wall_run(delta: float) -> void:
 	"""Update wall run state - move upward with decaying speed."""
-	# Increment frame counter
-	wall_run_frame_count += 1
-	
-	# Store position before any changes
-	var position_before = global_position
-	
 	# Increment timer
 	wall_run_timer += delta
 	
-	# EXTENSIVE DEBUG - Print every frame for detailed tracking
-	# print("╔══════════════════════════════════════════════════════════════════╗")
-	# print("║ WALL RUN FRAME #", wall_run_frame_count, "                                           ║")
-	# print("╚══════════════════════════════════════════════════════════════════╝")
-	# print("[WALL RUN DEBUG] Position BEFORE frame: ", position_before)
-	# print("[WALL RUN DEBUG] Timer: ", "%.3f" % wall_run_timer, "s / ", "%.2f" % wall_run_max_duration, "s max")
-	# print("[WALL RUN DEBUG] Delta time: ", "%.4f" % delta, "s")
-	# print("[WALL RUN DEBUG] wall_run_speed BEFORE decay: ", "%.2f" % wall_run_speed)
-	# print("[WALL RUN DEBUG] ⚠️ wall_run_speed_decay VALUE: ", "%.2f" % wall_run_speed_decay, " per second ⚠️")
-	# print("[WALL RUN DEBUG] Decay amount this frame: ", "%.4f" % (wall_run_speed_decay * delta))
-	# print("[WALL RUN DEBUG] VERIFY: wall_run_speed (", "%.2f" % wall_run_speed, ") - (decay ", "%.2f" % wall_run_speed_decay, " * delta ", "%.4f" % delta, ") = ", "%.2f" % (wall_run_speed - wall_run_speed_decay * delta))
-	# print("[WALL RUN DEBUG] Is sprinting: ", is_running)
-	# print("[WALL RUN DEBUG] Is dashing: ", is_ground_sliding or is_air_dashing)
-	# print("[WALL RUN DEBUG] Is in air: ", not is_on_floor())
-	# print("[WALL RUN DEBUG] On wall: ", is_on_wall)
-	# print("[WALL RUN DEBUG] Wall normal: ", wall_normal)
-	
 	# Check if max duration reached
 	if wall_run_timer >= wall_run_max_duration:
-		# print("[WALL RUN DEBUG] ⚠ Max duration reached (", wall_run_max_duration, "s) - STOPPING")
+		print("[WALL RUN] Max duration reached (", wall_run_max_duration, "s)")
 		_end_wall_run()
 		return
 	
-	# Apply speed decay and check if it drops below minimum BEFORE clamping
-	var new_speed = wall_run_speed - wall_run_speed_decay * delta
-	
-	# print("[WALL RUN DEBUG] Speed AFTER decay calculation: ", "%.2f" % new_speed)
-	# print("[WALL RUN DEBUG] Min speed threshold: ", "%.2f" % wall_run_min_speed)
-	# print("[WALL RUN DEBUG] Speed check: new_speed (", "%.2f" % new_speed, ") < min (", "%.2f" % wall_run_min_speed, ") = ", new_speed < wall_run_min_speed)
+	# Apply speed decay
+	wall_run_speed -= wall_run_speed_decay * delta
 	
 	# Check if speed dropped below minimum
-	if new_speed < wall_run_min_speed:
-		# print("[WALL RUN DEBUG] ⚠⚠⚠ Speed dropped below minimum - CALLING _end_wall_run() ⚠⚠⚠")
-		# print("[WALL RUN DEBUG] new_speed: ", "%.2f" % new_speed, " < wall_run_min_speed: ", "%.2f" % wall_run_min_speed)
-		# print("[WALL RUN DEBUG] About to call _end_wall_run() and return...")
+	if wall_run_speed < wall_run_min_speed:
+		print("[WALL RUN] Speed dropped below minimum (", wall_run_speed, " < ", wall_run_min_speed, ")")
 		_end_wall_run()
-		# print("[WALL RUN DEBUG] ⚠⚠⚠ THIS SHOULD NEVER PRINT - _process_wall_run should have returned! ⚠⚠⚠")
 		return
-	
-	# Speed is still above minimum, update it
-	wall_run_speed = new_speed
-	
-	# print("[WALL RUN DEBUG] ✓ Speed updated to: ", "%.2f" % wall_run_speed)
 	
 	# Set upward velocity based on current wall run speed
 	velocity.y = -wall_run_speed
-	
-	# print("[WALL RUN DEBUG] Set velocity.y to: ", "%.2f" % velocity.y)
 	
 	# Maintain slight horizontal velocity to stay on wall
 	# Push slightly into the wall
 	velocity.x = -wall_normal.x * 50.0
 	
-	# print("[WALL RUN DEBUG] Set velocity.x to: ", "%.2f" % velocity.x)
-	# print("[WALL RUN DEBUG] Final velocity: ", velocity)
-	
-	# Position will change after move_and_slide() is called in _physics_process
-	# Log it there for accurate tracking
-	# print("----------------------")
+	# Debug output every 0.5 seconds
+	if int(wall_run_timer * 2) != int((wall_run_timer - delta) * 2):
+		print("[WALL RUN] Running - timer: ", "%.2f" % wall_run_timer, "s, speed: ", "%.1f" % wall_run_speed, ", velocity: ", velocity)
 
 
 func _end_wall_run() -> void:
 	"""End the wall run."""
 	if not is_wall_running:
-		# print("[WALL RUN DEBUG] ⚠ _end_wall_run() called but not wall running - ignoring")
 		return
 	
 	var velocity_before = velocity
-	var timer_final = wall_run_timer
-	var speed_final = wall_run_speed
-	var final_position = global_position
-	var total_movement = final_position - wall_run_start_position
-	var vertical_movement = total_movement.y  # Negative = moved up, positive = moved down
-	var frames_ran = wall_run_frame_count
-	
-	# print("╔═══════════════════════════════════════╗")
-	# print("║       WALL RUN ENDED                  ║")
-	# print("╚═══════════════════════════════════════╝")
-	# print("[WALL RUN DEBUG] ⚠️ TOTAL FRAMES: ", frames_ran, " ⚠️")
-	# print("[WALL RUN DEBUG] Duration: ", "%.3f" % timer_final, " seconds")
-	# print("[WALL RUN DEBUG] Final wall_run_speed: ", "%.2f" % speed_final)
-	# print("[WALL RUN DEBUG] Velocity before: ", velocity_before)
-	# print("[WALL RUN DEBUG] Start position: ", wall_run_start_position)
-	# print("[WALL RUN DEBUG] Final position: ", final_position)
-	# print("[WALL RUN DEBUG] Total movement: ", total_movement)
-	# print("[WALL RUN DEBUG] ⚠️ Vertical distance: ", "%.2f" % abs(vertical_movement), " pixels ", "UP" if vertical_movement < 0 else "DOWN", " ⚠️")
-	# print("[WALL RUN DEBUG] Sprint state: ", is_running)
-	# print("[WALL RUN DEBUG] Dashing: ", is_ground_sliding or is_air_dashing)
-	# print("[WALL RUN DEBUG] In air: ", not is_on_floor())
+	print("[WALL RUN] Ending - Velocity before: ", velocity_before, " | Position: ", global_position)
 		
 	is_wall_running = false
 	wall_run_timer = 0.0
 	wall_run_speed = 0.0
-	wall_run_frame_count = 0
-	
-	# Set cooldown to prevent immediate restart
-	# This is the FIX for the bug where wall run restarts infinitely!
-	wall_run_cooldown = 0.3  # 0.3 second cooldown
-	
-	# Prevent wall slide from activating immediately after wall run ends
-	# This ensures player falls off the wall instead of transitioning to slide
-	is_on_wall = false
-	wall_normal = Vector2.ZERO
 	
 	# Allow gravity to take over
 	# Velocity is maintained but wall run state is cleared
 	
-	# print("[WALL RUN DEBUG] Velocity after: ", velocity)
-	# print("[WALL RUN DEBUG] Set wall run cooldown to prevent immediate restart: ", "%.3f" % wall_run_cooldown, "s")
-	# print("[WALL RUN DEBUG] Cleared wall state to prevent slide")
-	# print("====================")
+	print("[WALL RUN] Ended - Velocity after: ", velocity, " | Changed: ", velocity != velocity_before)
 	
 	# Could trigger wall run end effects here (particles fade, etc.)
-
-
-func _check_wall_run_activation() -> void:
-	"""Check for wall run activation/continuation AFTER move_and_slide() using actual collision detection."""
-	
-	# Check if wall run should END (lost wall contact during wall run)
-	if is_wall_running:
-		# During wall run, use raycast detection to check if still on wall
-		if not is_on_wall:
-			# print("[WALL RUN COLLISION] ⚠ Lost wall contact (raycast) - ending wall run")
-			# print("[WALL RUN COLLISION] Position: ", global_position)
-			# print("[WALL RUN COLLISION] Velocity: ", velocity)
-			_end_wall_run()
-		return  # Don't check for activation if already running
-	
-	# Check if wall run should START (hit wall during dash)
-	# Must be either ground sliding or air dashing to activate wall run
-	if not is_ground_sliding and not is_air_dashing:
-		return  # Only activate during dashes
-	
-	if not wall_run_enabled:
-		return
-	
-	# Check cooldowns
-	if wall_jump_cooldown > 0 or wall_run_cooldown > 0:
-		return
-	
-	# Get the speed we were moving at before move_and_slide()
-	var speed_before_collision = abs(velocity_before_move_and_slide.x)
-	
-	# Must have been moving fast enough before collision
-	if speed_before_collision < wall_run_min_velocity:
-		return
-	
-	# CRITICAL: Detect wall collision by checking if:
-	# 1. Raycast detects wall (is_on_wall = true from _update_wall_state)
-	# 2. Horizontal velocity was significantly reduced by collision
-	var velocity_reduced = abs(velocity.x) < speed_before_collision * 0.5  # Velocity reduced by 50%+
-	var has_slide_collision = get_slide_collision_count() > 0
-	var raycast_detects_wall = is_on_wall  # From _update_wall_state raycast detection
-	
-	# Wall collision is confirmed if raycast detects wall AND either:
-	# - Velocity was significantly reduced (head-on or angled collision), OR
-	# - We have slide collisions (glancing collision)
-	var has_wall_collision = raycast_detects_wall and (velocity_reduced or has_slide_collision)
-	
-	if not has_wall_collision:
-		# print("[WALL RUN COLLISION] No wall collision detected")
-		# print("[WALL RUN COLLISION] - raycast:", raycast_detects_wall, " | velocity_reduced:", velocity_reduced, " | slides:", has_slide_collision)
-		# print("[WALL RUN COLLISION] - speed_before:", "%.1f" % speed_before_collision, " | speed_after:", "%.1f" % abs(velocity.x))
-		return
-	
-	# print("[WALL RUN CHECK] ═══════════════════════════════════════")
-	# print("[WALL RUN CHECK] ✓ WALL COLLISION DETECTED!")
-	# print("[WALL RUN CHECK] Detection: raycast=", raycast_detects_wall, " velocity_reduced=", velocity_reduced, " slides=", has_slide_collision)
-	# print("[WALL RUN CHECK] POSITION: ", global_position)
-	# print("[WALL RUN CHECK] Velocity before collision: ", velocity_before_move_and_slide)
-	# print("[WALL RUN CHECK] Velocity after collision: ", velocity)
-	# print("[WALL RUN CHECK] Speed reduction: ", "%.1f" % speed_before_collision, " -> ", "%.1f" % abs(velocity.x))
-	# print("[WALL RUN CHECK] Wall normal: ", wall_normal)
-	# print("[WALL RUN CHECK] Attempting to start wall run:")
-	# print("[WALL RUN CHECK] - Speed before collision: ", "%.2f" % speed_before_collision)
-	# print("[WALL RUN CHECK] - Wall run speed (fixed): 1000.00")
-	# print("[WALL RUN CHECK] - Required speed: ", "%.2f" % wall_run_min_velocity)
-	# print("[WALL RUN CHECK] - Sprint state: ", is_running)
-	# print("[WALL RUN CHECK] - Dashing: ", is_ground_sliding or is_air_dashing)
-	# print("[WALL RUN CHECK] - In air: ", not is_on_floor())
-	# print("[WALL RUN CHECK] - Wall jump cooldown: ", "%.3f" % wall_jump_cooldown, "s")
-	# print("[WALL RUN CHECK] - Wall run cooldown: ", "%.3f" % wall_run_cooldown, "s")
-	# print("[WALL RUN CHECK] ✓ Conditions met - calling _start_wall_run() with speed=1000")
-	
-	# Start wall run with fixed speed of 1000 for consistent wall run behavior
-	_start_wall_run(1000.0, true)
-	
-	# print("[WALL RUN CHECK] AFTER _start_wall_run() - is_wall_running: ", is_wall_running)
-	# print("[WALL RUN CHECK] VELOCITY AFTER: ", velocity)
-	# print("[WALL RUN CHECK] POSITION AFTER: ", global_position)
-	# print("[WALL RUN CHECK] ═══════════════════════════════════════")
 
 
 # ====================================
@@ -1245,14 +914,11 @@ func _apply_gravity(delta: float) -> void:
 	if not is_on_floor():
 		# WALL RUNNING: No gravity during wall run (handled in _process_wall_run)
 		if is_wall_running:
-			# print("[GRAVITY DEBUG] Skipping gravity - wall running active")
 			return
 		# WALL SLIDING: Apply gravity but cap at wall slide speed
 		elif is_wall_sliding:
-			var vel_before_slide = velocity.y
 			velocity.y += gravity * delta
 			velocity.y = min(velocity.y, wall_slide_speed)
-			# print("[WALL SLIDE] Applied - vel before: ", "%.2f" % vel_before_slide, " | after: ", "%.2f" % velocity.y, " | gravity added: ", "%.2f" % (gravity * delta), " | capped at: ", "%.2f" % wall_slide_speed)
 		else:
 			var gravity_multiplier := 1.0
 			
@@ -1341,7 +1007,7 @@ func _handle_jump_input() -> void:
 	
 	# Check for jump button press this frame
 	if Input.is_action_just_pressed("jump"):
-		# print("[JUMP DEBUG] Jump pressed - is_on_wall: ", is_on_wall, " is_wall_running: ", is_wall_running, " is_on_floor: ", is_on_floor())
+		print("[JUMP INPUT] Jump pressed - is_on_wall: ", is_on_wall, " is_wall_running: ", is_wall_running, " is_on_floor: ", is_on_floor())
 		
 		# Check if infinite jumps is enabled (assist mode)
 		var infinite_jumps: bool = get_meta("infinite_jumps_enabled", false)
@@ -1357,9 +1023,14 @@ func _handle_jump_input() -> void:
 			if can_jump:
 				_perform_jump()
 			else:
-				# Buffer the jump input for when we land
-				jump_buffered = true
-				jump_buffer_timer.start()
+				# If in air, check if we can dive instead
+				if dive_enabled and not is_diving and is_running:
+					var input_vector = _get_input_vector()
+					_start_dive(input_vector)
+				else:
+					# Buffer the jump input for when we land
+					jump_buffered = true
+					jump_buffer_timer.start()
 
 
 func _execute_buffered_jump() -> void:
@@ -1368,20 +1039,6 @@ func _execute_buffered_jump() -> void:
 		_perform_jump()
 		jump_buffered = false
 		jump_buffer_timer.stop()
-
-
-func _handle_ground_slam_input() -> void:
-	"""Process ground slam input - trigger slam when pressing down while in air."""
-	# Can't ground slam when stunned or already slamming
-	if is_stunned or is_slamming:
-		return
-	
-	# Check for down input press this frame
-	if Input.is_action_just_pressed("move_down"):
-		# Only allow ground slam when in air and slam is enabled
-		if slam_enabled and not is_on_floor():
-			var input_vector = _get_input_vector()
-			_start_slam(input_vector)
 
 
 func _perform_jump() -> void:
@@ -1400,6 +1057,7 @@ func _perform_jump() -> void:
 			velocity.x += jump_direction * empowered_jump_horizontal_boost
 		
 		is_slide_jump_available = false
+		print("[SLIDE JUMP] Empowered jump from slide! Jump multiplier: ", ground_slide_empowered_jump_multiplier)
 	# Apply empowered jump when in sprint state
 	elif is_running:
 		# Vertical boost - jump higher
@@ -1429,9 +1087,9 @@ func _perform_wall_jump() -> void:
 			jump_wall_normal = Vector2.RIGHT  # Was on left wall
 		else:
 			jump_wall_normal = Vector2.LEFT  # Was on right wall
-		# print("[WALL JUMP DEBUG] Wall normal was zero, inferred: ", jump_wall_normal, " from velocity.x: ", velocity.x)
+		print("[WALL JUMP] Wall normal was zero, inferred: ", jump_wall_normal, " from velocity.x: ", velocity.x)
 	
-	# print("[WALL JUMP DEBUG] Starting wall jump - is_wall_running: ", is_wall_running, " wall_normal: ", jump_wall_normal)
+	print("[WALL JUMP] Starting wall jump - is_wall_running: ", is_wall_running, " wall_normal: ", jump_wall_normal, " position: ", global_position)
 	
 	# Check if jumping from a wall run (empowered wall jump)
 	if is_wall_running:
@@ -1439,7 +1097,7 @@ func _perform_wall_jump() -> void:
 		velocity.y = wall_run_empowered_jump_vertical
 		velocity.x = jump_wall_normal.x * wall_run_empowered_jump_horizontal
 		
-		# print("[WALL JUMP DEBUG] ⚡ EMPOWERED from wall run ⚡")
+		print("[WALL JUMP] ⚡ EMPOWERED ⚡ - velocity: ", velocity, " | horizontal: ", velocity.x, " | vertical: ", velocity.y)
 		
 		# End wall run
 		_end_wall_run()
@@ -1448,7 +1106,7 @@ func _perform_wall_jump() -> void:
 		velocity.y = wall_jump_vertical_velocity
 		velocity.x = jump_wall_normal.x * wall_jump_horizontal_velocity
 		
-		# print("[WALL JUMP DEBUG] Normal wall jump")
+		print("[WALL JUMP] Normal - velocity: ", velocity, " | horizontal: ", velocity.x, " | vertical: ", velocity.y)
 	
 	# Set jump state
 	is_jumping = true
@@ -1460,7 +1118,7 @@ func _perform_wall_jump() -> void:
 	is_on_wall = false
 	is_wall_sliding = false
 	
-	# print("[WALL JUMP DEBUG] ✓ Complete - Final velocity: ", velocity, " | Cooldown: ", "%.3f" % wall_jump_cooldown, "s")
+	print("[WALL JUMP] ✓ Complete - Final velocity: ", velocity, " | Cooldown: ", wall_jump_cooldown, "s")
 	
 	# Could trigger wall jump effects here (particles, sound, animation, etc.)
 
@@ -1865,14 +1523,16 @@ func _start_attack() -> void:
 	
 	# Cancel other states
 	is_jumping = false
-	is_slamming = false
-	# Hide slam attack visual
-	if slam_attack_visual:
-		slam_attack_visual.visible = false
+	is_diving = false
+	# Hide dive attack visual
+	if dive_attack_visual:
+		dive_attack_visual.visible = false
 	if is_ground_sliding:
 		_end_ground_slide()
 	if is_air_dashing:
 		_end_air_dash()
+	
+	print("[KICK ATTACK] Started - player knockback direction: ", attack_direction, " speed: ", attack_velocity.length())
 	
 	# Could trigger attack effects here (animation, sound, screen shake, etc.)
 
@@ -1895,7 +1555,9 @@ func _process_attack(delta: float) -> void:
 	# Keep horizontal momentum from attack
 	velocity.x = attack_velocity.x
 	
-	# Maintain attack knockback
+	# Debug output
+	if int(attack_timer * 10) != int((attack_timer - delta) * 10):  # Every 0.1 seconds
+		print("[KICK ATTACK] Knockback - timer: %.2f/%.2f, velocity: %s" % [attack_timer, attack_duration, velocity])
 
 
 func _end_attack() -> void:
@@ -1914,6 +1576,8 @@ func _end_attack() -> void:
 	if is_on_floor():
 		# Ground attack - keep most of horizontal momentum
 		velocity.y = 0.0
+	
+	print("[KICK ATTACK] Ended - final velocity: ", velocity, " (retained ", attack_momentum_retention * 100, "% momentum)")
 	
 	# Could trigger attack end effects here (animation, sound, trail fade, etc.)
 
@@ -1947,6 +1611,8 @@ func _start_stun(colliding_enemy: Node2D = null) -> void:
 	grace_period_active = true
 	grace_period_timer = grace_period_duration
 	grace_period_colliding_enemy = colliding_enemy
+	
+	print("Grace period started! Press kick within ", grace_period_duration, " seconds to cancel stun!")
 
 
 func _apply_stun_after_grace_period() -> void:
@@ -1964,19 +1630,23 @@ func _apply_stun_after_grace_period() -> void:
 	
 	# Cancel other states
 	is_attacking = false
-	is_slamming = false
+	is_diving = false
 	is_ledge_climbing = false
-	# Hide slam attack visual
-	if slam_attack_visual:
-		slam_attack_visual.visible = false
+	# Hide dive attack visual
+	if dive_attack_visual:
+		dive_attack_visual.visible = false
 	if is_ground_sliding:
 		_end_ground_slide()
 	if is_air_dashing:
 		_end_air_dash()
+	
+	print("Player stunned for ", stun_duration, " seconds!")
 
 
 func _cancel_grace_period_with_kick() -> void:
 	"""Cancel grace period and perform kick attack instead."""
+	print("Grace period cancelled! Performing kick attack!")
+	
 	# Clear grace period state
 	grace_period_active = false
 	grace_period_timer = 0.0
@@ -2014,6 +1684,8 @@ func _end_stun() -> void:
 	
 	# Start invulnerability period
 	stun_invulnerability_timer = stun_invulnerability_duration
+	
+	print("Player stun ended! Invulnerable for ", stun_invulnerability_duration, " seconds!")
 
 
 func _on_enemy_touched(enemy: Node2D = null) -> void:
@@ -2025,7 +1697,7 @@ func _on_enemy_touched(enemy: Node2D = null) -> void:
 
 func _on_enemy_destroyed() -> void:
 	"""Called when an enemy is destroyed by attack."""
-	pass
+	print("Enemy destroyed by attack!")
 
 
 func _on_bullet_hit(bullet: Node2D, shooter: Node2D = null) -> void:
@@ -2036,6 +1708,8 @@ func _on_bullet_hit(bullet: Node2D, shooter: Node2D = null) -> void:
 		bullet_grace_period_active = true
 		bullet_grace_period_timer = bullet_hit_grace_period
 		bullet_that_hit = bullet
+		
+		print("[BULLET HIT] Grace period started! Press kick within ", bullet_hit_grace_period, " seconds to parry!")
 
 
 func _apply_bullet_hitstun() -> void:
@@ -2046,10 +1720,14 @@ func _apply_bullet_hitstun() -> void:
 	
 	# Apply stun effect (same as enemy touch)
 	_on_enemy_touched(null)
+	
+	print("[BULLET HIT] Grace period expired - hitstun applied!")
 
 
 func _cancel_bullet_grace_period_with_parry() -> void:
 	"""Cancel bullet grace period by parrying nearby bullets."""
+	print("[BULLET HIT] Grace period cancelled! Performing parry!")
+	
 	# Clear bullet grace period state
 	bullet_grace_period_active = false
 	bullet_grace_period_timer = 0.0
@@ -2064,6 +1742,7 @@ func _cancel_bullet_grace_period_with_parry() -> void:
 	else:
 		# No bullets to parry - just give brief invulnerability as reward
 		stun_invulnerability_timer = 0.3
+		print("[BULLET PARRY] No bullets to parry, but hitstun cancelled!")
 
 
 # ====================================
@@ -2098,14 +1777,16 @@ func _start_ground_slide(input_x: float) -> void:
 	# Cancel other states
 	is_jumping = false
 	is_wall_sliding = false
-	is_slamming = false
-	# Hide slam attack visual
-	if slam_attack_visual:
-		slam_attack_visual.visible = false
+	is_diving = false
+	# Hide dive attack visual
+	if dive_attack_visual:
+		dive_attack_visual.visible = false
 	
 	# End wall run if sliding
 	if is_wall_running:
 		_end_wall_run()
+	
+	print("[GROUND SLIDE] Started - direction: ", dash_direction, " speed: ", ground_slide_speed)
 	
 	# Could trigger slide effects here (particles, sound, animation, etc.)
 
@@ -2148,11 +1829,13 @@ func _end_ground_slide() -> void:
 	# Set horizontal speed to max speed
 	velocity.x = dash_direction * ground_slide_end_speed
 	
+	print("[GROUND SLIDE] Ended - final speed: ", velocity.x)
+	
 	# Could trigger slide end effects here (particles fade, etc.)
 
 
 func _start_air_dash(input_x: float) -> void:
-	"""Initiate an air dash with force-based impulse."""
+	"""Initiate an air dash with horizontal-only movement."""
 	# Store pre-dash horizontal speed
 	pre_air_dash_horizontal_speed = velocity.x
 	
@@ -2166,16 +1849,12 @@ func _start_air_dash(input_x: float) -> void:
 	is_air_dashing = true
 	air_dash_timer = 0.0
 	air_dash_cooldown_timer = air_dash_cooldown
-	air_dash_available = false  # Consume air dash (will reset on ground/wall/kick parry/slam)
+	air_dash_available = false  # Consume air dash (will reset on ground/wall/kick parry/dive)
 	is_invulnerable = true  # Player is invulnerable during air dash
 	
-	# Reset velocity before applying impulse forces for consistent behavior
-	velocity.x = 0.0
-	velocity.y = 0.0
-	
-	# Apply impulse forces
-	velocity.x += dash_direction * air_dash_horizontal_impulse
-	velocity.y += air_dash_vertical_impulse
+	# Set velocity to air dash speed (horizontal only)
+	velocity.x = dash_direction * air_dash_speed
+	velocity.y = 0  # Cancel vertical velocity
 	
 	# Update facing direction
 	facing_direction = dash_direction
@@ -2183,20 +1862,22 @@ func _start_air_dash(input_x: float) -> void:
 	# Cancel other states
 	is_jumping = false
 	is_wall_sliding = false
-	is_slamming = false
-	# Hide slam attack visual
-	if slam_attack_visual:
-		slam_attack_visual.visible = false
+	is_diving = false
+	# Hide dive attack visual
+	if dive_attack_visual:
+		dive_attack_visual.visible = false
 	
 	# End wall run if air dashing
 	if is_wall_running:
 		_end_wall_run()
 	
+	print("[AIR DASH] Started - direction: ", dash_direction, " speed: ", air_dash_speed, " pre-dash speed: ", pre_air_dash_horizontal_speed)
+	
 	# Could trigger air dash effects here (particles, sound, animation, etc.)
 
 
 func _process_air_dash(delta: float) -> void:
-	"""Update air dash state - force-based, allows physics to take over after initial impulse."""
+	"""Update air dash state - maintain horizontal velocity, no gravity."""
 	# Increment timer
 	air_dash_timer += delta
 	
@@ -2205,12 +1886,13 @@ func _process_air_dash(delta: float) -> void:
 		_end_air_dash()
 		return
 	
-	# Force-based air dash - let physics handle velocity naturally after initial impulse
-	# No need to override velocity here
+	# Maintain air dash velocity (horizontal only, no gravity)
+	velocity.x = dash_direction * air_dash_speed
+	velocity.y = 0  # No vertical movement during air dash
 
 
 func _end_air_dash() -> void:
-	"""End the air dash and set velocity to configured end values."""
+	"""End the air dash and set horizontal speed to fixed value."""
 	if not is_air_dashing:
 		return
 	
@@ -2218,9 +1900,13 @@ func _end_air_dash() -> void:
 	air_dash_timer = 0.0
 	is_invulnerable = false  # End invulnerability
 	
-	# Set velocity to configured end values
-	velocity.x = dash_direction * air_dash_end_horizontal_velocity
-	velocity.y = air_dash_end_vertical_velocity
+	# Set horizontal speed to fixed 1000 in the dash direction
+	velocity.x = dash_direction * 1000.0
+	
+	# Cancel vertical velocity
+	velocity.y = 0
+	
+	print("[AIR DASH] Ended - set speed to: ", velocity.x, " vertical speed canceled")
 	
 	# Could trigger air dash end effects here (particles fade, etc.)
 
@@ -2262,25 +1948,37 @@ func _set_collision_height(new_height: float) -> void:
 
 
 # ====================================
-# GROUND SLAM
+# DIVE
 # ====================================
 
-func _start_slam(input_vector: Vector2) -> void:
-	"""Initiate a ground slam - straight downward at high speed."""
-	# Store current horizontal velocity for landing boost
-	slam_pre_landing_horizontal_speed = velocity.x
+func _start_dive(input_vector: Vector2) -> void:
+	"""Initiate a dive at configured angle with fixed speed."""
+	# Determine dive direction based on current movement or facing direction
+	var dive_direction: float = 0.0
+	if abs(velocity.x) > 10.0:
+		dive_direction = sign(velocity.x)
+	else:
+		dive_direction = facing_direction
 	
-	# Set slam velocity - STRAIGHT DOWN at slam speed
-	slam_velocity = Vector2(0, slam_speed)  # No horizontal component, only downward
-	velocity = slam_velocity
+	# Calculate fixed dive speed components based on angle
+	var angle_rad = deg_to_rad(dive_angle_degrees)
+	var horizontal_component = dive_speed * cos(angle_rad) * dive_direction
+	var vertical_component = dive_speed * sin(angle_rad)
 	
-	# Set slam state
-	is_slamming = true
+	# Set dive velocity
+	dive_velocity = Vector2(horizontal_component, vertical_component)
+	velocity = dive_velocity
 	
-	# Show slam attack visual indicator
-	if slam_attack_visual:
-		_update_slam_attack_visual()  # Update visual to match current range
-		slam_attack_visual.visible = true
+	# Store horizontal velocity (with direction) for landing boost
+	dive_pre_landing_horizontal_speed = horizontal_component
+	
+	# Set dive state
+	is_diving = true
+	
+	# Show dive attack visual indicator
+	if dive_attack_visual:
+		_update_dive_attack_visual()  # Update visual to match current range
+		dive_attack_visual.visible = true
 	
 	# Cancel other states
 	is_jumping = false
@@ -2290,105 +1988,94 @@ func _start_slam(input_vector: Vector2) -> void:
 	if is_air_dashing:
 		_end_air_dash()
 	
-	# Could trigger slam effects here (particles, sound, animation, etc.)
+	# Update facing direction
+	if horizontal_component != 0:
+		facing_direction = sign(horizontal_component)
+	
+	# Could trigger dive effects here (particles, sound, animation, etc.)
 
 
-func _process_slam(delta: float) -> void:
-	"""Update ground slam state - maintain straight downward velocity and kill enemies in radius."""
-	# Check for enemies within kill radius (5m = ~500 pixels)
+func _process_dive(delta: float) -> void:
+	"""Update dive state - maintain dive velocity until landing."""
+	# Check for enemies within range for dive attack (anywhere except upper 90 degrees)
 	var enemies = get_tree().get_nodes_in_group("enemies")
 	
 	for enemy in enemies:
 		if enemy and is_instance_valid(enemy) and not enemy.is_destroyed:
 			var distance = global_position.distance_to(enemy.global_position)
-			if distance <= slam_kill_radius:
-				# Enemy is in kill zone! Destroy them
-				_perform_slam_kill(enemy)
+			if distance <= dive_attack_range:
+				# Check if enemy is NOT in the upper 90-degree cone
+				# Calculate angle from player to enemy
+				var direction_to_enemy = enemy.global_position - global_position
+				var angle_to_enemy = atan2(direction_to_enemy.y, direction_to_enemy.x)
+				
+				# Convert to degrees (0-360 range)
+				var angle_degrees = rad_to_deg(angle_to_enemy)
+				if angle_degrees < 0:
+					angle_degrees += 360
+				
+				# Upper 90 degrees is from 225 to 315 degrees (centered on 270 = straight up)
+				# Allow hit if NOT in upper 90 degree cone
+				var is_in_upper_cone = angle_degrees >= 225 and angle_degrees <= 315
+				
+				if not is_in_upper_cone:
+					# Dive attack! Hit enemy
+					_perform_dive_attack(enemy)
+					return
 	
-	# Maintain slam velocity - STRAIGHT DOWN (no gravity, no air control)
-	velocity = slam_velocity
+	# Maintain dive velocity (no gravity, no air control)
+	velocity = dive_velocity
 	
 	# Check if we hit the ground
 	if is_on_floor():
 		# Landing is handled in _on_landed()
 		return
 	
-	# Check if we hit a wall (cancel slam)
+	# Check if we hit a wall (cancel dive)
 	if is_on_wall:
-		is_slamming = false
-		slam_pre_landing_horizontal_speed = 0.0
-		# Hide slam attack visual
-		if slam_attack_visual:
-			slam_attack_visual.visible = false
+		is_diving = false
+		dive_pre_landing_horizontal_speed = 0.0
+		# Hide dive attack visual
+		if dive_attack_visual:
+			dive_attack_visual.visible = false
 		# Allow normal physics to take over
-		# Slam cancelled by wall collision
+		# Dive cancelled by wall collision
 
 
-func _perform_slam_kill(enemy: Node2D) -> void:
-	"""Kill an enemy during ground slam - enemy is in kill radius."""
+func _perform_dive_attack(enemy: Node2D) -> void:
+	"""Execute a dive attack on an enemy - bounce player upward and destroy enemy."""
+	print("[DIVE ATTACK] Hit enemy at: ", enemy.global_position)
+	
 	# Kick the enemy downwards (destroy it)
 	if enemy.has_method("kick"):
-		# Kick enemy downwards with slam attack knockback speed
+		# Kick enemy downwards with dive attack knockback speed
 		var downward_direction = Vector2.DOWN
-		enemy.kick(downward_direction, slam_attack_knockback_speed)
+		enemy.kick(downward_direction, dive_attack_knockback_speed)
 	
-	# Note: We don't bounce or interrupt the slam when killing enemies
-	# Player continues slamming down through all enemies
-	
-	# Could trigger slam kill effects here (particles, sound, etc.)
-
-
-func _perform_slam_landing_aoe() -> void:
-	"""Perform AOE damage on slam landing - damage all enemies in landing AOE."""
-	# AOE is centered on player landing position
-	# 10m length (width) x 5m height = 1000 pixels x 500 pixels
-	var aoe_half_width = slam_landing_aoe_width / 2.0
-	var aoe_half_height = slam_landing_aoe_height / 2.0
-	
-	# Get all enemies
-	var enemies = get_tree().get_nodes_in_group("enemies")
-	
-	for enemy in enemies:
-		if enemy and is_instance_valid(enemy) and not enemy.is_destroyed:
-			# Check if enemy is within rectangular AOE
-			var offset = enemy.global_position - global_position
-			
-			# Check if within horizontal range
-			if abs(offset.x) <= aoe_half_width:
-				# Check if within vertical range (only below and slightly above player)
-				if offset.y >= -aoe_half_height and offset.y <= aoe_half_height:
-					# Enemy is in landing AOE! Destroy them
-					if enemy.has_method("kick"):
-						# Kick enemy away from player horizontally
-						var knock_direction = Vector2(sign(offset.x) if offset.x != 0 else 1.0, 0.5).normalized()
-						enemy.kick(knock_direction, slam_attack_knockback_speed)
-	
-	# Reset air dash availability (slam landing counts as a reset)
+	# Reset air dash availability (dive attack counts as a reset)
 	air_dash_available = true
 	
-	# Could trigger slam landing AOE effects here (particles, screen shake, shockwave, etc.)
-
-
-func _start_slam_freeze() -> void:
-	"""Start the slam freeze period - player can't be controlled, moved, or damaged."""
-	is_slam_frozen = true
-	slam_freeze_timer = slam_freeze_duration
+	# End dive state
+	is_diving = false
+	dive_pre_landing_horizontal_speed = 0.0
 	
-	# Player is invulnerable during freeze
-	is_invulnerable = true
+	# Hide dive attack visual
+	if dive_attack_visual:
+		dive_attack_visual.visible = false
 	
-	# Could trigger freeze effects here (animation, sound, etc.)
-
-
-func _end_slam_freeze() -> void:
-	"""End the slam freeze period - restore player control."""
-	is_slam_frozen = false
-	slam_freeze_timer = 0.0
+	# Retain horizontal velocity
+	var horizontal_vel = velocity.x
 	
-	# End invulnerability
-	is_invulnerable = false
+	# Lose all vertical velocity and gain upward impulse
+	velocity.x = horizontal_vel
+	velocity.y = -dive_attack_bounce_impulse  # Upward impulse when hitting enemy
 	
-	# Could trigger unfreeze effects here (animation, sound, etc.)
+	# Set jumping state to allow player control
+	is_jumping = true
+	
+	print("[DIVE ATTACK] Bounce! New velocity: ", velocity)
+	
+	# Could trigger dive attack effects here (particles, sound, screen shake, etc.)
 
 
 # ====================================
@@ -2397,9 +2084,6 @@ func _end_slam_freeze() -> void:
 
 func _post_movement_updates() -> void:
 	"""Handle any post-movement state updates."""
-	# Check for wall run activation AFTER move_and_slide() to ensure actual collision
-	_check_wall_run_activation()
-	
 	# Handle ceiling collision (stop upward movement)
 	if is_on_ceiling() and velocity.y < 0:
 		velocity.y = 0
@@ -2491,11 +2175,10 @@ func _kick_object(obj: Node2D) -> void:
 	# Kick the object
 	obj.kick(kick_direction, kick_object_speed)
 	
-	# Apply knockback to player in opposite direction
-	velocity.x -= facing_direction * kick_object_knockback_force
-	
 	# Set cooldown
 	attack_cooldown_timer = attack_cooldown
+	
+	print("[KICK OBJECT] Kicked object: ", obj.name, " direction: ", kick_direction, " speed: ", kick_object_speed)
 
 
 # ====================================
@@ -2615,6 +2298,8 @@ func _parry_bullet(bullet: Node2D) -> void:
 	await get_tree().create_timer(0.1, true, false, true).timeout  # Use process_always flag for time scale
 	if not is_stunned:  # Only reset if not in another state
 		modulate = Color.WHITE
+	
+	print("[BULLET PARRY] Parried bullet! Time slowed, vertical boost applied!")
 
 
 func _start_parry_time_slowdown() -> void:
@@ -2622,6 +2307,8 @@ func _start_parry_time_slowdown() -> void:
 	parry_time_slowdown_active = true
 	parry_time_slowdown_timer = parry_time_duration
 	Engine.time_scale = parry_time_scale
+	
+	print("[PARRY TIME] Time slowed to ", parry_time_scale * 100, "% for ", parry_time_duration, " seconds!")
 
 
 func _restore_normal_time() -> void:
@@ -2629,3 +2316,5 @@ func _restore_normal_time() -> void:
 	parry_time_slowdown_active = false
 	parry_time_slowdown_timer = 0.0
 	Engine.time_scale = 1.0
+	
+	print("[PARRY TIME] Time restored to normal!")

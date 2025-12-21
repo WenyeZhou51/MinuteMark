@@ -23,7 +23,6 @@ ledge_climb_duration = 0.2
 wall_slide_speed = 200.0
 wall_jump_horizontal_velocity = 600.0
 wall_jump_vertical_velocity = -800.0
-wall_run_speed_decay = 400.0
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("RectangleShape2D_w6f8y")

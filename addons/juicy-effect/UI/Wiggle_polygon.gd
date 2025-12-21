@@ -10,21 +10,21 @@ var curtime : float
 var target_offset : Array[Vector2]
 # Called when the node enters the scene tree for the first time.
 func _ready():
-	print("[WIGGLE_POLYGON DEBUG] ===== INITIALIZING: ", name, " in ", get_parent().name, " =====")
-	print("[WIGGLE_POLYGON DEBUG] BEFORE changes:")
-	print("  - self_modulate: ", self_modulate)
-	print("  - color: ", color)
-	print("  - polygon_color (export): ", polygon_color)
+	# print("[WIGGLE_POLYGON DEBUG] ===== INITIALIZING: ", name, " in ", get_parent().name, " =====")
+	# print("[WIGGLE_POLYGON DEBUG] BEFORE changes:")
+	# print("  - self_modulate: ", self_modulate)
+	# print("  - color: ", color)
+	# print("  - polygon_color (export): ", polygon_color)
 	
 	# USE the polygon_color export variable - this is what you set in the inspector!
 	color = polygon_color
 	self_modulate = Color(1, 1, 1, 1)  # Keep modulation white so color is pure
 	
-	print("[WIGGLE_POLYGON DEBUG] AFTER changes:")
-	print("  - self_modulate: ", self_modulate)
-	print("  - color: ", color)
-	print("  - FINAL VISUAL COLOR should be: ", color * self_modulate)
-	print("[WIGGLE_POLYGON DEBUG] =====================================")
+	# print("[WIGGLE_POLYGON DEBUG] AFTER changes:")
+	# print("  - self_modulate: ", self_modulate)
+	# print("  - color: ", color)
+	# print("  - FINAL VISUAL COLOR should be: ", color * self_modulate)
+	# print("[WIGGLE_POLYGON DEBUG] =====================================")
 	
 	origin_polygons = polygon
 	
@@ -43,7 +43,7 @@ var debug_frame_count = 0
 func _physics_process(delta):
 	# Debug first few frames
 	if debug_frame_count < 5:
-		print("[WIGGLE_POLYGON DEBUG] Frame ", debug_frame_count, " - ", name, ": self_modulate=", self_modulate, ", color=", color)
+		# print("[WIGGLE_POLYGON DEBUG] Frame ", debug_frame_count, " - ", name, ": self_modulate=", self_modulate, ", color=", color)
 		debug_frame_count += 1
 	
 	#target_offset = add_vector2array_offset(prepos , random_vector2array_offset(intensity))

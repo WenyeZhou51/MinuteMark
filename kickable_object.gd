@@ -133,7 +133,7 @@ func kick(direction: Vector2, speed: float = 0.0) -> void:
 	# Visual feedback - tint red
 	modulate = Color(1.5, 0.5, 0.5)
 	
-	print("[KICKABLE] Kicked with speed: ", final_speed, " direction: ", direction)
+	# print("[KICKABLE] Kicked with speed: ", final_speed, " direction: ", direction)
 
 
 func _handle_collision(collider: Node) -> void:
@@ -141,7 +141,7 @@ func _handle_collision(collider: Node) -> void:
 	if has_collided:
 		return  # Already collided
 	
-	print("[KICKABLE] Collision detected with: ", collider.name if collider else "null")
+	# print("[KICKABLE] Collision detected with: ", collider.name if collider else "null")
 	
 	# Check if collider is an enemy
 	if collider and (collider.is_in_group("enemies") or collider.is_in_group("enemy")):
@@ -153,7 +153,7 @@ func _handle_collision(collider: Node) -> void:
 
 func _collide_with_enemy(enemy: Node) -> void:
 	"""Both object and enemy become physics objects for 0.5s then disappear."""
-	print("[KICKABLE] Hit enemy! Both becoming physics objects")
+	# print("[KICKABLE] Hit enemy! Both becoming physics objects")
 	
 	# Make enemy also become physics object
 	if enemy.has_method("become_physics_object"):
@@ -168,7 +168,7 @@ func _collide_with_enemy(enemy: Node) -> void:
 
 func _collide_with_wall() -> void:
 	"""Hit a wall - become physics object for 0.5s then disappear."""
-	print("[KICKABLE] Hit wall! Becoming physics object")
+		# print("[KICKABLE] Hit wall! Becoming physics object")
 	_become_physics_object()
 
 
