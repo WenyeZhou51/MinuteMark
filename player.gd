@@ -385,13 +385,15 @@ func _physics_process(delta: float) -> void:
 	var frame_start_position = global_position
 	var frame_start_velocity = velocity
 	
-	# Update game time for rewind system
-	game_time += delta
-	
-	# Record state snapshot for rewind system
-	if rewind_enabled:
-		_record_state_snapshot()
-		_cleanup_old_history()
+	# Update game time for rewind system (only when not paused)
+	# When paused, _physics_process doesn't run, so time doesn't advance
+	if not get_tree().paused:
+		game_time += delta
+		
+		# Record state snapshot for rewind system
+		if rewind_enabled:
+			_record_state_snapshot()
+			_cleanup_old_history()
 	
 	# Update rewind cooldown timer
 	if rewind_cooldown_timer > 0:
@@ -2613,7 +2615,7 @@ func _find_state_at_time(target_time: float) -> Dictionary:
 
 
 func _perform_rewind() -> void:
-	"""Perform the rewind action - restore player state and spawn shadow."""
+	"""Perform the rewind action - restore player state and spawn animated shadow."""
 	if not rewind_enabled:
 		return
 	
@@ -2628,8 +2630,11 @@ func _perform_rewind() -> void:
 		# No valid state found
 		return
 	
-	# Store the current position for shadow spawning
-	var shadow_position = global_position
+	# Store current position BEFORE restoring (needed for path end point)
+	var current_position_before_rewind = global_position
+	
+	# Extract path from state history (from target_time to current game_time)
+	var path_points = _extract_path_from_history(target_time, game_time, current_position_before_rewind)
 	
 	# Restore player state
 	global_position = target_state["position"]
@@ -2659,17 +2664,63 @@ func _perform_rewind() -> void:
 		is_slam_frozen = false
 		slam_freeze_timer = 0.0
 	
-	# Spawn shadow at the rewind position
-	_spawn_shadow(shadow_position)
+	# Spawn shadow with path animation
+	_spawn_shadow_with_path(path_points)
 	
 	# Set cooldown
 	rewind_cooldown_timer = rewind_cooldown
 
 
-func _spawn_shadow(position: Vector2) -> void:
-	"""Spawn a shadow entity at the specified position."""
+func _extract_path_from_history(start_time: float, end_time: float, end_position: Vector2) -> Array[Dictionary]:
+	"""Extract all state snapshots from the given time range and return as path points."""
+	var path_points: Array[Dictionary] = []
+	
+	# Filter and sort snapshots in the time range
+	for snapshot in state_history:
+		var timestamp = snapshot["timestamp"]
+		if timestamp >= start_time and timestamp <= end_time:
+			path_points.append({
+				"position": snapshot["position"],
+				"timestamp": timestamp
+			})
+	
+	# Sort by timestamp to ensure correct order
+	path_points.sort_custom(func(a, b): return a["timestamp"] < b["timestamp"])
+	
+	# If we have no points, create at least one from the start_time state
+	if path_points.is_empty():
+		var start_state = _find_state_at_time(start_time)
+		if not start_state.is_empty():
+			path_points.append({
+				"position": start_state["position"],
+				"timestamp": start_time
+			})
+	
+	# Always ensure we have the end position (current position before rewind)
+	# This might not be in history yet, so add it explicitly
+	var end_point_exists = false
+	for point in path_points:
+		if abs(point["timestamp"] - end_time) < 0.001:
+			end_point_exists = true
+			break
+	
+	if not end_point_exists:
+		# Add current position as final point
+		path_points.append({
+			"position": end_position,  # Position before rewind
+			"timestamp": end_time
+		})
+	
+	return path_points
+
+
+func _spawn_shadow_with_path(path_points: Array[Dictionary]) -> void:
+	"""Spawn a shadow entity that will animate through the given path."""
 	var shadow = ShadowScene.instantiate()
-	shadow.global_position = position
+	
+	# Set the path for the shadow to animate through
+	shadow.set_path(path_points, rewind_time)
+	
 	# Add shadow to the scene (as a sibling of the player, not a child)
 	get_parent().add_child(shadow)
 
