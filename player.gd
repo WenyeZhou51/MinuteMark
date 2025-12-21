@@ -12,6 +12,9 @@ extends CharacterBody2D
 # AFTERIMAGE EFFECT
 const AfterimageScene = preload("res://afterimage.tscn")
 
+# REWIND SHADOW
+const ShadowScene = preload("res://shadow.tscn")
+
 # MOVEMENT CONFIGURATION
 @export_group("Horizontal Movement")
 @export var max_speed: float = 300.0  ## Maximum horizontal movement speed
@@ -147,6 +150,13 @@ const AfterimageScene = preload("res://afterimage.tscn")
 @export var slam_attack_knockback_speed: float = 2500.0  ## Speed at which enemies are knocked downward during slam
 @export var slam_attack_bounce_impulse: float = 500.0  ## Upward velocity given to player when hitting enemy during slam
 
+# REWIND CONFIGURATION
+@export_group("Rewind")
+@export var rewind_enabled: bool = true  ## Enable rewind mechanics
+@export var rewind_time: float = 2.0  ## Seconds to rewind back in time
+@export var rewind_cooldown: float = 3.0  ## Cooldown between rewinds (seconds)
+@export var rewind_history_duration: float = 3.0  ## How long to keep state history (seconds)
+
 # Internal state variables
 var is_jump_held: bool = false  # Is jump button currently held
 var is_jumping: bool = false  # Is player currently in jump state
@@ -247,6 +257,11 @@ var grace_period_colliding_enemy: Node2D = null  # Enemy that triggered grace pe
 var afterimage_timer: float = 0.0  # Timer for spawning afterimages
 var afterimage_spawn_interval: float = 0.3  # Spawn an afterimage every 0.3 seconds (~3 over 1 second)
 var afterimage_enabled: bool = true  # Whether afterimages are enabled
+
+# Rewind state variables
+var rewind_cooldown_timer: float = 0.0  # Cooldown timer for rewind ability
+var state_history: Array[Dictionary] = []  # Stores state snapshots with timestamps
+var game_time: float = 0.0  # Total game time elapsed (for timestamping)
 
 # Component references
 @onready var coyote_timer: Timer = $CoyoteTimer
@@ -370,6 +385,18 @@ func _physics_process(delta: float) -> void:
 	var frame_start_position = global_position
 	var frame_start_velocity = velocity
 	
+	# Update game time for rewind system
+	game_time += delta
+	
+	# Record state snapshot for rewind system
+	if rewind_enabled:
+		_record_state_snapshot()
+		_cleanup_old_history()
+	
+	# Update rewind cooldown timer
+	if rewind_cooldown_timer > 0:
+		rewind_cooldown_timer -= delta
+	
 	# Update afterimage timer and spawn afterimages
 	if afterimage_enabled:
 		afterimage_timer += delta
@@ -416,6 +443,12 @@ func _physics_process(delta: float) -> void:
 		elif not is_on_floor() and air_dash_cooldown_timer <= 0 and air_dash_available:
 			# Air dash (only if available)
 			_start_air_dash(input_vector.x)
+	
+	# Handle rewind input
+	if rewind_enabled and Input.is_action_just_pressed("rewind") and rewind_cooldown_timer <= 0:
+		# Don't allow rewind during certain states
+		if not is_stunned and not is_slam_frozen:
+			_perform_rewind()
 	
 	# Update run state based on speed (sprint state when speed exceeds threshold)
 	var current_speed = velocity.length()
@@ -2519,6 +2552,126 @@ func _spawn_afterimage() -> void:
 	# Add the afterimage to the scene (as a sibling of the player, not a child)
 	# This prevents the afterimage from moving with the player
 	get_parent().add_child(afterimage)
+
+
+# ====================================
+# REWIND MECHANICS
+# ====================================
+
+func _record_state_snapshot() -> void:
+	"""Record current player state to history."""
+	if not rewind_enabled:
+		return
+	
+	var snapshot = {
+		"timestamp": game_time,
+		"position": global_position,
+		"velocity": velocity,
+		"is_on_floor": is_on_floor(),
+		"facing_direction": facing_direction,
+		"is_jumping": is_jumping,
+		"is_wall_sliding": is_wall_sliding,
+		"is_ground_sliding": is_ground_sliding,
+		"is_air_dashing": is_air_dashing,
+		"is_wall_running": is_wall_running,
+		"is_attacking": is_attacking,
+		"is_stunned": is_stunned,
+		"is_slamming": is_slamming,
+		"is_slam_frozen": is_slam_frozen
+	}
+	
+	state_history.append(snapshot)
+
+
+func _cleanup_old_history() -> void:
+	"""Remove state history entries older than rewind_history_duration."""
+	if not rewind_enabled:
+		return
+	
+	var cutoff_time = game_time - rewind_history_duration
+	state_history = state_history.filter(func(snapshot: Dictionary) -> bool:
+		return snapshot["timestamp"] >= cutoff_time
+	)
+
+
+func _find_state_at_time(target_time: float) -> Dictionary:
+	"""Find the state snapshot closest to the target time."""
+	if state_history.is_empty():
+		return {}
+	
+	# Find the closest snapshot to target_time
+	var closest_snapshot: Dictionary = {}
+	var closest_diff: float = INF
+	
+	for snapshot in state_history:
+		var diff = abs(snapshot["timestamp"] - target_time)
+		if diff < closest_diff:
+			closest_diff = diff
+			closest_snapshot = snapshot
+	
+	return closest_snapshot
+
+
+func _perform_rewind() -> void:
+	"""Perform the rewind action - restore player state and spawn shadow."""
+	if not rewind_enabled:
+		return
+	
+	# Check if we have enough history
+	var target_time = game_time - rewind_time
+	if target_time < 0:
+		# Not enough history available
+		return
+	
+	var target_state = _find_state_at_time(target_time)
+	if target_state.is_empty():
+		# No valid state found
+		return
+	
+	# Store the current position for shadow spawning
+	var shadow_position = global_position
+	
+	# Restore player state
+	global_position = target_state["position"]
+	velocity = target_state["velocity"]
+	facing_direction = target_state["facing_direction"]
+	
+	# Note: We don't restore all state flags (is_jumping, is_wall_sliding, etc.)
+	# as they will be recalculated naturally by the physics system
+	# However, we should cancel any active abilities that might conflict
+	
+	# Cancel conflicting states
+	if is_attacking:
+		is_attacking = false
+		attack_timer = 0.0
+	if is_ground_sliding:
+		is_ground_sliding = false
+		ground_slide_timer = 0.0
+	if is_air_dashing:
+		is_air_dashing = false
+		air_dash_timer = 0.0
+	if is_wall_running:
+		is_wall_running = false
+		wall_run_timer = 0.0
+	if is_slamming:
+		is_slamming = false
+	if is_slam_frozen:
+		is_slam_frozen = false
+		slam_freeze_timer = 0.0
+	
+	# Spawn shadow at the rewind position
+	_spawn_shadow(shadow_position)
+	
+	# Set cooldown
+	rewind_cooldown_timer = rewind_cooldown
+
+
+func _spawn_shadow(position: Vector2) -> void:
+	"""Spawn a shadow entity at the specified position."""
+	var shadow = ShadowScene.instantiate()
+	shadow.global_position = position
+	# Add shadow to the scene (as a sibling of the player, not a child)
+	get_parent().add_child(shadow)
 
 
 # ====================================
