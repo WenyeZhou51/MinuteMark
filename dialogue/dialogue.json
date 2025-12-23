@@ -1,0 +1,21 @@
+{
+  "intro": {
+	"id": "intro",
+	"text": "You're late.",
+	"next": "reply",
+	"priority": 1
+  },
+  "reply": {
+	"id": "reply",
+	"text": "Traffic.",
+	"next": null,
+	"priority": 1
+  },
+
+  "interrupt": {
+	"id": "interrupt",
+	"text": "Watch out!",
+	"next": null,
+	"priority": 10
+  }
+}
