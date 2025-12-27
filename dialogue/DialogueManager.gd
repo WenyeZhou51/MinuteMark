@@ -8,6 +8,7 @@ var current_priority: int = 0
 var dialogue_start_time: float = 0.0
 var interrupt_delay: float = 5.0  # seconds
 var interrupt_unlocked := false
+var interrupt_consumed := false
 
 func load_dialogue(path: String) -> void:
 	var file = FileAccess.open(path, FileAccess.READ)
@@ -22,19 +23,24 @@ func start(id: String) -> void:
 	if not dialogue_data.has(id):
 		return
 
+	# If we are starting a fresh non-interrupt line, allow interrupt again.
+	# (Adjust this rule later if you want stricter behavior.)
+	if id != "interrupt":
+		interrupt_consumed = false
+
 	var requested_priority = dialogue_data[id].get("priority", 0)
 
 	if _is_active() and not _can_interrupt():
 		return
-
 	if _is_active() and requested_priority < current_priority:
 		return
 
 	current_priority = requested_priority
 	current_id = id
 	dialogue_start_time = Time.get_ticks_msec() / 1000.0
-	interrupt_unlocked = false 
+	interrupt_unlocked = false
 	_emit_current()
+
 
 func advance() -> void:
 	if current_id == "":
@@ -61,6 +67,9 @@ func can_interrupt() -> bool:
 	if current_id == "":
 		return false
 
+	if interrupt_consumed:
+		return false
+
 	if interrupt_unlocked:
 		return true
 
@@ -70,6 +79,9 @@ func can_interrupt() -> bool:
 
 	return false
 
+func do_interrupt(id: String = "interrupt") -> void:
+	interrupt_consumed = true
+	start(id)
 
 func _can_interrupt() -> bool:
 	var now = Time.get_ticks_msec() / 1000.0
@@ -91,3 +103,5 @@ func end_conversation() -> void:
 	current_id = ""
 	current_priority = 0
 	dialogue_start_time = 0.0
+	interrupt_unlocked = false
+	interrupt_consumed = false

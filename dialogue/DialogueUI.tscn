@@ -1,6 +1,19 @@
-[gd_scene load_steps=2 format=3 uid="uid://b756hnxt8gukc"]
+[gd_scene load_steps=3 format=3 uid="uid://b756hnxt8gukc"]
 
-[ext_resource type="Script" path="res://dialogue/dialogue_ui.gd" id="1_60r3g"]
+[ext_resource type="Script" uid="uid://y41shuqje1hx" path="res://dialogue/dialogue_ui.gd" id="1_60r3g"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_60r3g"]
+content_margin_left = 40.0
+content_margin_top = 20.0
+content_margin_right = 40.0
+content_margin_bottom = 1.0
+border_width_left = 32
+border_width_top = 24
+border_width_right = 32
+border_width_bottom = 24
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
 
 [node name="DialogueUI" type="Control"]
 layout_mode = 3
@@ -17,32 +30,30 @@ focus_mode = 2
 mouse_filter = 1
 script = ExtResource("1_60r3g")
 
-[node name="DialoguePanel" type="Panel" parent="."]
+[node name="DialoguePanel" type="PanelContainer" parent="."]
+custom_minimum_size = Vector2(0, 180)
 layout_mode = 1
 anchors_preset = 12
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_top = -180.0
+offset_right = -681.0
+offset_bottom = 29.0
 grow_horizontal = 2
 grow_vertical = 0
+theme_override_styles/panel = SubResource("StyleBoxFlat_60r3g")
 
-[node name="DialogueLabel" type="Label" parent="DialoguePanel"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-theme_override_font_sizes/font_size = 36
+[node name="DialogueLabel" type="RichTextLabel" parent="DialoguePanel"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_font_sizes/normal_font_size = 30
 text = "Hello."
+scroll_active = false
 autowrap_mode = 1
 
 [node name="InterruptIndicator" type="Label" parent="DialoguePanel"]
-layout_mode = 0
-offset_left = 648.0
-offset_top = 55.0
-offset_right = 688.0
-offset_bottom = 158.0
-theme_override_font_sizes/font_size = 36
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
 text = "...
 "
