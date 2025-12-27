@@ -1,40 +1,45 @@
-[gd_scene load_steps=5 format=3 uid="uid://c11axlg6fqkg"]
+[gd_scene load_steps=2 format=3 uid="uid://c11axlg6fqkg"]
 
-[ext_resource type="Texture2D" uid="uid://rte0t12en10e" path="res://Sprites/Pause bg.png" id="2_bottom"]
-[ext_resource type="Texture2D" uid="uid://bpr70dxba6rqr" path="res://Sprites/Bg white overlay .png" id="3_top"]
-
-[sub_resource type="Shader" id="Shader_mask"]
-code = "shader_type canvas_item;
-
-uniform sampler2D sweep_mask : filter_nearest;
-
-void fragment() {
-	vec4 mask = texture(sweep_mask, UV);
-	COLOR.a *= mask.r;
-}
-"
-
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_mask"]
-shader = SubResource("Shader_mask")
+[ext_resource type="Script" path="res://pendulum_story.gd" id="1_script"]
 
 [node name="PendulumStory" type="Node2D"]
+script = ExtResource("1_script")
+bob_radius = 500.0
+pendulum_line_width = 20.0
+pendulum_length = 1200.0
+max_swing_angle = 75.0
+noise_detail = 5.0
+noise_roughness = 0.56
+noise_softness = 0.25
+
+[node name="ImageTransform" type="ColorRect" parent="."]
+offset_left = 451.0
+offset_top = 421.0
+offset_right = 3011.0
+offset_bottom = 2021.0
+scale = Vector2(0.643953, 0.6)
+color = Color(0.5, 0.5, 0.8, 0.3)
 
 [node name="ImageBottom" type="Sprite2D" parent="."]
 position = Vector2(1280, 800)
-texture = ExtResource("2_bottom")
 
 [node name="ImageTop" type="Sprite2D" parent="."]
-material = SubResource("ShaderMaterial_mask")
 position = Vector2(1280, 800)
-texture = ExtResource("3_top")
 
-[node name="MaskViewport" type="SubViewport" parent="."]
-transparent_bg = true
-size = Vector2i(2560, 1600)
-render_target_update_mode = 4
+[node name="Pendulum" type="Node2D" parent="."]
 
-[node name="MaskCanvas" type="Node2D" parent="MaskViewport"]
+[node name="Pivot" type="Polygon2D" parent="Pendulum"]
+color = Color(0.4, 0.2, 0.1, 1)
 
-[node name="Line2D" type="Line2D" parent="."]
-points = PackedVector2Array(1280, 0, 0, 1600)
-width = 3.0
+[node name="Line2D" type="Line2D" parent="Pendulum"]
+points = PackedVector2Array(0, 0, 0, 100)
+width = 4.0
+default_color = Color(0.3, 0.15, 0.05, 1)
+
+[node name="BobOutline" type="Polygon2D" parent="Pendulum"]
+color = Color(0.2, 0.1, 0.05, 1)
+polygon = PackedVector2Array(-135, 0, -95.4594, 95.4594, 0, 135, 95.4594, 95.4594, 135, 0, 95.4594, -95.4594, 0, -135, -95.4594, -95.4594)
+
+[node name="Bob" type="Polygon2D" parent="Pendulum"]
+color = Color(0.6, 0.3, 0.1, 1)
+polygon = PackedVector2Array(-120, 0, -84.8528, 84.8528, 0, 120, 84.8528, 84.8528, 120, 0, 84.8528, -84.8528, 0, -120, -84.8528, -84.8528)

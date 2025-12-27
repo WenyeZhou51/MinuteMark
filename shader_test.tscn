@@ -1,0 +1,52 @@
+[gd_scene load_steps=5 format=3 uid="uid://dkk30msjpj0f6"]
+
+[ext_resource type="Script" path="res://shader_test.gd" id="1_x8y2u"]
+[ext_resource type="Texture2D" uid="uid://0ehr1ibqvwei" path="res://story frames/test1.webp" id="2_y3v4w"]
+[ext_resource type="Shader" path="res://shaders/paint_splatter_reveal.gdshader" id="3_z5x6v"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_1v2u3"]
+resource_local_to_scene = true
+shader = ExtResource("3_z5x6v")
+shader_parameter/reveal_progress = 0.0
+shader_parameter/center_position = Vector2(0.5, 0.5)
+shader_parameter/center_reveal_size = 0.4
+shader_parameter/edge_roughness = 0.4
+shader_parameter/detail_scale = 10.0
+shader_parameter/edge_softness = 0.02
+shader_parameter/aspect_ratio = 1.0
+shader_parameter/noise_seed = 1.0
+shader_parameter/outline_thickness = 0.03
+shader_parameter/outline_color = Color(0, 0, 0, 1)
+shader_parameter/shader_active_check = true
+shader_parameter/debug_show_mask_only = false
+
+[node name="ShaderTest" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_x8y2u")
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="Background" type="ColorRect" parent="CanvasLayer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 1)
+
+[node name="TextureRect" type="TextureRect" parent="CanvasLayer"]
+visible = false
+material = SubResource("ShaderMaterial_1v2u3")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("2_y3v4w")
+expand_mode = 1
+stretch_mode = 5
