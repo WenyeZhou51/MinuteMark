@@ -4,26 +4,27 @@
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_60r3g"]
 content_margin_left = 40.0
-content_margin_top = 20.0
+content_margin_top = 30.0
 content_margin_right = 40.0
-content_margin_bottom = 1.0
-border_width_left = 32
-border_width_top = 24
-border_width_right = 32
-border_width_bottom = 24
-corner_radius_top_left = 8
-corner_radius_top_right = 8
-corner_radius_bottom_right = 8
+content_margin_bottom = 30.0
+bg_color = Color(0.08, 0.08, 0.12, 0.95)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.4, 0.4, 0.5, 1)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+shadow_color = Color(0, 0, 0, 0.3)
+shadow_size = 8
 
 [node name="DialogueUI" type="Control"]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 399.0
-offset_top = -321.0
-offset_right = 399.0
-offset_bottom = -321.0
 grow_horizontal = 2
 grow_vertical = 2
 focus_mode = 2
@@ -37,9 +38,10 @@ anchors_preset = 12
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_top = -180.0
-offset_right = -681.0
-offset_bottom = 29.0
+offset_left = 40.0
+offset_top = -220.0
+offset_right = -40.0
+offset_bottom = -40.0
 grow_horizontal = 2
 grow_vertical = 0
 theme_override_styles/panel = SubResource("StyleBoxFlat_60r3g")
@@ -47,13 +49,33 @@ theme_override_styles/panel = SubResource("StyleBoxFlat_60r3g")
 [node name="DialogueLabel" type="RichTextLabel" parent="DialoguePanel"]
 layout_mode = 2
 size_flags_vertical = 3
-theme_override_font_sizes/normal_font_size = 30
+theme_override_colors/default_color = Color(0.9, 0.9, 0.95, 1)
+theme_override_font_sizes/normal_font_size = 32
 text = "Hello."
 scroll_active = false
 autowrap_mode = 1
 
 [node name="InterruptIndicator" type="Label" parent="DialoguePanel"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 28
-text = "...
-"
+size_flags_horizontal = 8
+size_flags_vertical = 8
+theme_override_colors/font_color = Color(1, 0.4, 0.4, 1)
+theme_override_font_sizes/font_size = 24
+text = "[I] to Interrupt"
+
+[node name="SpeakerLabel" type="Label" parent="."]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 60.0
+offset_top = -270.0
+offset_right = 400.0
+offset_bottom = -225.0
+grow_vertical = 0
+theme_override_colors/font_color = Color(1, 0.8, 0.4, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_x = 2
+theme_override_constants/shadow_offset_y = 2
+theme_override_font_sizes/font_size = 36
+text = "Speaker"

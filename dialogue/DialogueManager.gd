@@ -1,6 +1,6 @@
 extends Node
 
-signal line_changed(text: String)
+signal line_changed(line: Dictionary)
 
 var dialogue_data: Dictionary = {}
 var current_id: String = ""
@@ -97,7 +97,7 @@ func _emit_current() -> void:
 		return
 
 	var line: Dictionary = dialogue_data[current_id]
-	emit_signal("line_changed", line["text"])
+	emit_signal("line_changed", line)
 	
 func end_conversation() -> void:
 	current_id = ""

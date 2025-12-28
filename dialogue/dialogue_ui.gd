@@ -2,6 +2,7 @@ extends Control
 
 @onready var label: RichTextLabel = $DialoguePanel/DialogueLabel
 @onready var interrupt_indicator: Label = $DialoguePanel/InterruptIndicator
+@onready var speaker_label: Label = $SpeakerLabel
 
 
 var indicator_faded_in := false
@@ -15,8 +16,11 @@ func _ready():
 
 	interrupt_indicator.visible = false
 
-func _on_line_changed(text: String) -> void:
-	label.text = text
+func _on_line_changed(line: Dictionary) -> void:
+	label.text = line.get("text", "")
+	if speaker_label:
+		speaker_label.text = line.get("speaker", "???")
+	
 	_reset_indicator()
 
 	# Fade-in animation for new line
@@ -45,7 +49,7 @@ func _fade_in_indicator():
 
 	indicator_faded_in = true
 	interrupt_indicator.visible = true
-	interrupt_indicator.text = "..."
+	# interrupt_indicator.text = "..." # Use text from scene
 	interrupt_indicator.modulate = Color(1, 1, 1, 0)
 
 	var tween := create_tween()
