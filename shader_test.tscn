@@ -1,7 +1,7 @@
 [gd_scene load_steps=5 format=3 uid="uid://dkk30msjpj0f6"]
 
 [ext_resource type="Script" path="res://shader_test.gd" id="1_x8y2u"]
-[ext_resource type="Texture2D" uid="uid://0ehr1ibqvwei" path="res://story frames/test1.webp" id="2_y3v4w"]
+[ext_resource type="Texture2D" path="res://story frames/test1.webp" id="2_y3v4w"]
 [ext_resource type="Shader" path="res://shaders/paint_splatter_reveal.gdshader" id="3_z5x6v"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_1v2u3"]

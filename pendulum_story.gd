@@ -7,6 +7,8 @@ extends Node2D
 @export_range(0.0, 90.0, 1.0) var max_swing_angle: float = 60.0  # Degrees from vertical
 @export_range(0.0, 90.0, 1.0) var cutoff_angle: float = 50.0  # Degrees from vertical - when reached, show complete image
 
+@export_range(0.0, 1.0, 0.01) var transition_threshold: float = 0.9  # 0.9 = 90% of total swing (~60° past center if max_swing is 75°)
+
 @export_group("Paint Splatter Shader")
 @export_range(0.0, 90.0, 1.0) var reveal_start_angle_offset: float = 30.0  # Degrees past vertical center to start reveal
 @export_range(0.0, 1.0, 0.01) var center_reveal_size: float = 0.4  # Inner area that reveals instantly
@@ -27,8 +29,12 @@ extends Node2D
 @onready var bob = $Pendulum/Bob
 @onready var bob_outline = $Pendulum/BobOutline
 @onready var image_transform = $ImageTransform  # Template ColorRect for image sizing/positioning (visible guide)
-@onready var image_bottom = $ImageBottom  # Current frame (test1)
-@onready var image_top = $ImageTop  # Next frame (test2)
+@onready var image_bottom = $ImageBottom  # Current frame
+@onready var image_top = $ImageTop  # Next frame
+
+var story_textures: Array[Texture2D] = []
+var current_story_index: int = 0  # Index of the image currently being revealed (top image)
+var is_swinging_right: bool = true # True if moving L->R, False if moving R->L
 
 var pivot_point: Vector2
 var is_dragging: bool = false
@@ -86,91 +92,17 @@ func _ready():
 	print("Cutoff threshold: ", rad_to_deg(deg_to_rad(90 - cutoff_angle)), "° (when reached, show full image)")
 	
 	# Load story frame images
-	image_bottom.texture = load("res://story frames/test1.webp")
-	image_top.texture = load("res://story frames/test2.webp")
+	load_story_textures()
 	
-	# Ensure both images are visible
-	image_bottom.visible = true
-	image_top.visible = true
+	if story_textures.size() >= 2:
+		image_bottom.texture = story_textures[0]
+		image_top.texture = story_textures[1]
+	elif story_textures.size() == 1:
+		image_bottom.texture = story_textures[0]
+		image_top.visible = false
 	
-	# Verify images loaded
-	print("\n=== Image Loading ===")
-	print("ImageBottom texture loaded: ", image_bottom.texture != null)
-	if image_bottom.texture:
-		print("  - Size: ", image_bottom.texture.get_size())
-	print("ImageBottom visible: ", image_bottom.visible)
-	print("ImageTop texture loaded: ", image_top.texture != null)
-	if image_top.texture:
-		print("  - Size: ", image_top.texture.get_size())
-	print("ImageTop visible: ", image_top.visible)
-	print("=====================\n")
-	
-	# Get the target rect from ImageTransform ColorRect
-	# IMPORTANT: Must account for the ColorRect's scale and position!
-	print("\n=== ImageTransform Debug ===")
-	print("ImageTransform offset_left: ", image_transform.offset_left)
-	print("ImageTransform offset_top: ", image_transform.offset_top)
-	print("ImageTransform offset_right: ", image_transform.offset_right)
-	print("ImageTransform offset_bottom: ", image_transform.offset_bottom)
-	print("ImageTransform scale: ", image_transform.scale)
-	print("ImageTransform position: ", image_transform.position)
-	
-	# Calculate the base rect size (before scale)
-	var base_width = image_transform.offset_right - image_transform.offset_left
-	var base_height = image_transform.offset_bottom - image_transform.offset_top
-	
-	print("Base rect size (before scale): ", Vector2(base_width, base_height))
-	
-	# Apply the ColorRect's scale to get the actual visual size
-	# IMPORTANT: The scale only affects SIZE, not position!
-	var actual_width = base_width * image_transform.scale.x
-	var actual_height = base_height * image_transform.scale.y
-	
-	# The actual top-left corner position is just the offset values
-	# (ColorRect offsets are already absolute screen positions)
-	var actual_top_left = Vector2(image_transform.offset_left, image_transform.offset_top)
-	
-	# Calculate the actual center
-	var actual_center = actual_top_left + Vector2(actual_width / 2, actual_height / 2)
-	
-	print("Actual visual size (after scale): ", Vector2(actual_width, actual_height))
-	print("Actual top-left position: ", actual_top_left)
-	print("Actual center position: ", actual_center)
-	print("ColorRect global_position: ", image_transform.global_position)
-	print("ColorRect size: ", image_transform.size)
-	
-	# Position images at the center of the actual visual rect
-	image_bottom.position = actual_center
-	image_bottom.centered = true
-	
-	image_top.position = actual_center
-	image_top.centered = true
-	
-	print("\n=== Image Scaling Debug ===")
-	
-	# Calculate scale to make both images fit the actual visual size
-	# regardless of their source texture resolution/aspect ratio
-	if image_bottom.texture:
-		var tex_size_bottom = image_bottom.texture.get_size()
-		print("ImageBottom texture size: ", tex_size_bottom)
-		# Scale needed to reach target size
-		var scale_x = actual_width / tex_size_bottom.x
-		var scale_y = actual_height / tex_size_bottom.y
-		image_bottom.scale = Vector2(scale_x, scale_y)
-		print("ImageBottom scale applied: ", image_bottom.scale)
-		print("ImageBottom position: ", image_bottom.position)
-	
-	if image_top.texture:
-		var tex_size_top = image_top.texture.get_size()
-		print("ImageTop texture size: ", tex_size_top)
-		# Scale needed to reach target size
-		var scale_x = actual_width / tex_size_top.x
-		var scale_y = actual_height / tex_size_top.y
-		image_top.scale = Vector2(scale_x, scale_y)
-		print("ImageTop scale applied: ", image_top.scale)
-		print("ImageTop position: ", image_top.position)
-	
-	print("=== End Debug ===\n")
+	# Ensure images are correctly sized and positioned
+	setup_images()
 	
 	# Load and set up the paint splatter reveal shader
 	var splatter_shader = load("res://shaders/paint_splatter_reveal.gdshader")
@@ -207,6 +139,12 @@ func _ready():
 	
 	# Initialize mask
 	update_pendulum()
+	
+	# Debug print all loaded textures
+	print("\n=== All Story Textures Loaded ===")
+	for i in range(story_textures.size()):
+		print("Index ", i, ": ", story_textures[i].resource_path)
+	print("=================================\n")
 
 func _process(_delta):
 	update_pendulum()
@@ -230,6 +168,10 @@ func _input(event):
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			if event.pressed:
+				# Don't allow dragging if we've reached the end of the sequence
+				if current_story_index + 1 >= story_textures.size():
+					return
+					
 				# Check if clicking near the pendulum line or bob
 				var bob_pos = get_pendulum_end()
 				var closest_point = Geometry2D.get_closest_point_to_segment(event.position, pivot_point, bob_pos)
@@ -242,10 +184,6 @@ func _input(event):
 					print("Started dragging | Current angle: %.1f° | Start angle: %.1f°" % [current_deg, start_deg])
 			else:
 				is_dragging = false
-				# Check if drag is complete (within 10 degrees of end)
-				var angle_to_end = abs(current_angle - end_angle)
-				if angle_to_end < deg_to_rad(10):
-					complete_transition()
 	
 	elif event is InputEventMouseMotion and is_dragging:
 		# Calculate angle from pivot to mouse
@@ -256,9 +194,9 @@ func _input(event):
 			var target_angle = atan2(mouse_vector.y, mouse_vector.x)
 			
 			# Clamp between start and end angles
-			# start_angle is bottom-left (~135°), end_angle is bottom-right (~45°)
-			# Both are positive, start > end
-			current_angle = clamp(target_angle, end_angle, start_angle)
+			var min_angle = min(start_angle, end_angle)
+			var max_angle = max(start_angle, end_angle)
+			current_angle = clamp(target_angle, min_angle, max_angle)
 
 func get_pendulum_end() -> Vector2:
 	return pivot_point + Vector2(cos(current_angle), sin(current_angle)) * pendulum_length
@@ -278,28 +216,37 @@ func update_pendulum():
 func update_mask():
 	# Paint splatter reveal that begins when pendulum swings reveal_start_angle_offset PAST vertical center
 	
-	var swing_from_start = rad_to_deg(start_angle - current_angle)
+	var swing_from_start = rad_to_deg(abs(current_angle - start_angle))
+	var total_swing_range = max_swing_angle * 2.0
+	
+	# Calculate total swing progress (0.0 to 1.0)
+	var total_progress = swing_from_start / total_swing_range if total_swing_range > 0 else 0.0
+	
+	# AUTOMATIC TRANSITION: Trigger when swing threshold is reached
+	# No is_dragging or release check required anymore
+	if total_progress >= transition_threshold:
+		complete_transition()
+		return
+	
 	var reveal_trigger_angle = max_swing_angle + reveal_start_angle_offset
 	
-	# Calculate reveal progress
-	var progress = 0.0
+	# Calculate reveal progress for shader
+	var reveal_progress = 0.0
 	
 	if swing_from_start >= reveal_trigger_angle:
-		# Map from reveal_trigger_angle to total_swing (max_swing_angle * 2)
-		var total_swing_range = max_swing_angle * 2.0
 		var reveal_range = total_swing_range - reveal_trigger_angle
 		
 		if reveal_range > 0:
-			progress = (swing_from_start - reveal_trigger_angle) / reveal_range
-			progress = clamp(progress, 0.0, 1.0)
+			reveal_progress = (swing_from_start - reveal_trigger_angle) / reveal_range
+			reveal_progress = clamp(reveal_progress, 0.0, 1.0)
 		else:
-			progress = 1.0
+			reveal_progress = 1.0
 	
 	# Update shader parameters for paint splatter reveal
 	var shader_material = image_top.material as ShaderMaterial
 	if shader_material != null:
 		# Update progress
-		shader_material.set_shader_parameter("reveal_progress", progress)
+		shader_material.set_shader_parameter("reveal_progress", reveal_progress)
 		
 		# Allow real-time tweaking in the inspector
 		shader_material.set_shader_parameter("center_position", reveal_center)
@@ -313,17 +260,70 @@ func update_mask():
 		shader_material.set_shader_parameter("shader_active_check", show_debug_tint)
 		shader_material.set_shader_parameter("debug_show_mask_only", debug_show_shader_mask)
 		
-		# Debug output - check center_reveal_size
-		if Engine.get_frames_drawn() % 60 == 0:
-			print("[DEBUG] Shader center_reveal_size: ", center_reveal_size, " | Progress: ", progress)
-		
-		# Debug output - show every 10% increment
-		var progress_percent = int(progress * 10)
+		# Debug output
+		var progress_percent = int(total_progress * 10)
 		if progress_percent != get_meta("last_progress_shown", -1):
 			set_meta("last_progress_shown", progress_percent)
-			print("Swing from start: %.1f° | Progress: %.1f%%" % [swing_from_start, progress * 100.0])
+			print("Total Swing: %.1f%% | Reveal: %.1f%%" % [total_progress * 100.0, reveal_progress * 100.0])
 	else:
 		print("WARNING: Shader material is null!")
+
+func load_story_textures():
+	var dir = DirAccess.open("res://story frames/")
+	if dir:
+		dir.list_dir_begin()
+		var file_name = dir.get_next()
+		var frame_files = []
+		while file_name != "":
+			if !dir.current_is_dir() and file_name.ends_with(".png") and file_name.begins_with("P"):
+				frame_files.append(file_name)
+			file_name = dir.get_next()
+		
+		# Sort files numerically (P1, P2, P3...)
+		frame_files.sort_custom(func(a, b):
+			var num_a = a.substr(1).to_int()
+			var num_b = b.substr(1).to_int()
+			return num_a < num_b
+		)
+		
+		for frame in frame_files:
+			var tex = load("res://story frames/" + frame)
+			if tex:
+				story_textures.append(tex)
+		
+		print("Loaded ", story_textures.size(), " story textures: ", frame_files)
+	else:
+		print("Error: Could not open story frames directory")
+
+func setup_images():
+	# Calculate the base rect size (before scale)
+	var base_width = image_transform.offset_right - image_transform.offset_left
+	var base_height = image_transform.offset_bottom - image_transform.offset_top
+	
+	# Apply the ColorRect's scale to get the actual visual size
+	var actual_width = base_width * image_transform.scale.x
+	var actual_height = base_height * image_transform.scale.y
+	
+	# The actual top-left corner position is just the offset values
+	var actual_top_left = Vector2(image_transform.offset_left, image_transform.offset_top)
+	
+	# Calculate the actual center
+	var actual_center = actual_top_left + Vector2(actual_width / 2, actual_height / 2)
+	
+	# Position images at the center
+	image_bottom.position = actual_center
+	image_bottom.centered = true
+	image_top.position = actual_center
+	image_top.centered = true
+	
+	# Scale images to fit
+	if image_bottom.texture:
+		var tex_size = image_bottom.texture.get_size()
+		image_bottom.scale = Vector2(actual_width / tex_size.x, actual_height / tex_size.y)
+	
+	if image_top.texture:
+		var tex_size = image_top.texture.get_size()
+		image_top.scale = Vector2(actual_width / tex_size.x, actual_height / tex_size.y)
 
 func update_bob_visuals():
 	# Generate bob polygon (circle approximation with 8 points)
@@ -350,7 +350,52 @@ func update_bob_visuals():
 	bob_outline.polygon = outline_polygon
 
 func complete_transition():
-	print("Transition complete! Showing full test2 with paint splatter reveal")
-	# Here you can load the next frame or trigger the next story beat
-	# The image_top (test2) will be fully visible via the shader
+	# Check if we have more images before proceeding
+	if current_story_index + 1 >= story_textures.size():
+		return
+
+	print("DEBUG: complete_transition() triggered automatically at end of swing")
+	print("DEBUG: Transitioning from index %d to %d" % [current_story_index, current_story_index + 1])
+	
+	current_story_index += 1
+	
+	# Update images for the next reveal
+	# Current top (which is now fully revealed) becomes the new bottom
+	image_bottom.texture = story_textures[current_story_index]
+	
+	# If there's a next image, load it into the top
+	if current_story_index + 1 < story_textures.size():
+		image_top.texture = story_textures[current_story_index + 1]
+		image_top.visible = true
+		
+		# Reset shader for the NEW top image
+		var shader_material = image_top.material as ShaderMaterial
+		if shader_material:
+			shader_material.set_shader_parameter("reveal_progress", 0.0)
+			if image_top.texture:
+				var tex_size = image_top.texture.get_size()
+				shader_material.set_shader_parameter("aspect_ratio", tex_size.x / tex_size.y)
+		
+		# SWAP SWING DIRECTION
+		# The end of the previous swing is the START of the next swing
+		var temp = start_angle
+		start_angle = end_angle
+		end_angle = temp
+		
+		is_swinging_right = !is_swinging_right
+		
+		# Force update current_angle to the new start so we don't trigger again immediately
+		current_angle = start_angle
+		
+		# Update scaling for the new textures
+		setup_images()
+		
+		print("DEBUG: Ready for next swing. New start: %.1f, end: %.1f" % [rad_to_deg(start_angle), rad_to_deg(end_angle)])
+	else:
+		print("DEBUG: Final image reached. Sequence complete.")
+		# Last image revealed, hide image_top or set it to fully visible
+		var shader_material = image_top.material as ShaderMaterial
+		if shader_material:
+			shader_material.set_shader_parameter("reveal_progress", 1.0)
+		is_dragging = false # Finished the whole thing
 
