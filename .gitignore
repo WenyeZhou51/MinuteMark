@@ -2,3 +2,8 @@
 .godot/
 /android/
 .vscode/
+
+# Auto-generated UID files (should not be committed)
+*.gd.uid
+*.gdshader.uid
+*.tscn.uid

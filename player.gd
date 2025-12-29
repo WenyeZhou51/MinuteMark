@@ -156,6 +156,8 @@ const ShadowScene = preload("res://shadow.tscn")
 @export var rewind_time: float = 2.0  ## Seconds to rewind back in time
 @export var rewind_cooldown: float = 3.0  ## Cooldown between rewinds (seconds)
 @export var rewind_history_duration: float = 3.0  ## How long to keep state history (seconds)
+@export var rewind_traceback_frames: int = 5  ## Number of frames to extract for traceback animation
+@export var rewind_traceback_duration: float = 1.0  ## Duration of traceback animation in seconds
 
 # Internal state variables
 var is_jump_held: bool = false  # Is jump button currently held
@@ -262,6 +264,11 @@ var afterimage_enabled: bool = true  # Whether afterimages are enabled
 var rewind_cooldown_timer: float = 0.0  # Cooldown timer for rewind ability
 var state_history: Array[Dictionary] = []  # Stores state snapshots with timestamps
 var game_time: float = 0.0  # Total game time elapsed (for timestamping)
+var is_rewind_tracing: bool = false  # Is player currently in rewind traceback animation
+var rewind_traceback_frame_data: Array[Dictionary] = []  # Frames to animate through during traceback
+var rewind_traceback_timer: float = 0.0  # Timer for traceback animation
+var rewind_target_state: Dictionary = {}  # Target state to restore after traceback
+var rewind_shadow_path: Array[Dictionary] = []  # Path data for shadow (stored during traceback)
 
 # Component references
 @onready var coyote_timer: Timer = $CoyoteTimer
@@ -448,9 +455,13 @@ func _physics_process(delta: float) -> void:
 	
 	# Handle rewind input
 	if rewind_enabled and Input.is_action_just_pressed("rewind") and rewind_cooldown_timer <= 0:
+		print("[REWIND] Rewind input detected!")
 		# Don't allow rewind during certain states
-		if not is_stunned and not is_slam_frozen:
-			_perform_rewind()
+		if not is_stunned and not is_slam_frozen and not is_rewind_tracing:
+			print("[REWIND] Starting traceback...")
+			_start_rewind_traceback()
+		else:
+			print("[REWIND] Blocked by state - is_stunned: ", is_stunned, ", is_slam_frozen: ", is_slam_frozen, ", is_rewind_tracing: ", is_rewind_tracing)
 	
 	# Update run state based on speed (sprint state when speed exceeds threshold)
 	var current_speed = velocity.length()
@@ -677,6 +688,14 @@ func _physics_process(delta: float) -> void:
 	if is_attacking:
 		_process_attack(delta)
 		# Skip normal physics when attacking
+		move_and_slide()
+		_post_movement_updates()
+		return
+	
+	# 11.5. Process Rewind Traceback (if active, skip normal movement)
+	if is_rewind_tracing:
+		_process_rewind_traceback(delta)
+		# Skip normal physics when tracing
 		move_and_slide()
 		_post_movement_updates()
 		return
@@ -2614,8 +2633,258 @@ func _find_state_at_time(target_time: float) -> Dictionary:
 	return closest_snapshot
 
 
+func _start_rewind_traceback() -> void:
+	"""Start the rewind traceback animation - extract 5 frames and begin animation."""
+	if not rewind_enabled:
+		print("[REWIND] Rewind is disabled")
+		return
+	
+	# Check if we have enough history
+	var target_time = game_time - rewind_time
+	if target_time < 0:
+		# Not enough history available - use whatever we have
+		print("[REWIND] Not enough history (game_time: ", game_time, ", target_time: ", target_time, ")")
+		# Try to use available history instead
+		if state_history.is_empty():
+			print("[REWIND] No state history available")
+			return
+		# Use the oldest state we have
+		var oldest_state = state_history[0]
+		target_time = oldest_state["timestamp"]
+		print("[REWIND] Using oldest available state at time: ", target_time)
+	
+	var target_state = _find_state_at_time(target_time)
+	if target_state.is_empty():
+		print("[REWIND] Could not find target state at time: ", target_time, " (history size: ", state_history.size(), ")")
+		# Try to use the oldest state we have
+		if not state_history.is_empty():
+			var oldest_state = state_history[0]
+			target_state = oldest_state
+			target_time = oldest_state["timestamp"]
+			print("[REWIND] Using oldest state as fallback")
+		else:
+			print("[REWIND] No state history available at all")
+			return
+	
+	# Store target state for after traceback completes
+	rewind_target_state = target_state
+	
+	# Store current position BEFORE traceback (needed for path end point)
+	var current_position_before_rewind = global_position
+	
+	# Extract path from state history (from target_time to current game_time)
+	rewind_shadow_path = _extract_path_from_history(target_time, game_time, current_position_before_rewind)
+	
+	# Extract evenly-spaced frames from the past 2 seconds
+	rewind_traceback_frame_data = _extract_traceback_frames(target_time, game_time, rewind_traceback_frames)
+	
+	# Debug: ensure we have frames
+	if rewind_traceback_frame_data.is_empty():
+		# If we can't extract frames, try to get at least the start and end states
+		var start_state = _find_state_at_time(target_time)
+		var end_state = _find_state_at_time(game_time)
+		
+		if not start_state.is_empty() and not end_state.is_empty():
+			# Create minimal frames array with interpolated frames
+			rewind_traceback_frame_data = []
+			for i in range(rewind_traceback_frames):
+				var t = float(i) / (rewind_traceback_frames - 1.0) if rewind_traceback_frames > 1 else 0.0  # 0.0 to 1.0
+				var interp_pos = end_state["position"].lerp(start_state["position"], t)
+				var interp_vel = end_state["velocity"].lerp(start_state["velocity"], t)
+				var interp_time = game_time + (target_time - game_time) * t
+				rewind_traceback_frame_data.append({
+					"position": interp_pos,
+					"velocity": interp_vel,
+					"facing_direction": end_state["facing_direction"] if t < 0.5 else start_state["facing_direction"],
+					"timestamp": interp_time
+				})
+		else:
+			# Fallback: if we can't extract frames, just do immediate rewind
+			_perform_rewind()
+			return
+	
+	# Cancel conflicting states before starting traceback
+	if is_attacking:
+		is_attacking = false
+		attack_timer = 0.0
+	if is_ground_sliding:
+		is_ground_sliding = false
+		ground_slide_timer = 0.0
+	if is_air_dashing:
+		is_air_dashing = false
+		air_dash_timer = 0.0
+	if is_wall_running:
+		is_wall_running = false
+		wall_run_timer = 0.0
+	if is_slamming:
+		is_slamming = false
+	if is_slam_frozen:
+		is_slam_frozen = false
+		slam_freeze_timer = 0.0
+	
+	# Start traceback animation
+	print("[REWIND] Starting traceback with ", rewind_traceback_frame_data.size(), " frames over ", rewind_traceback_duration, " seconds")
+	is_rewind_tracing = true
+	rewind_traceback_timer = 0.0
+	
+	# Set initial position to first frame (current position)
+	if rewind_traceback_frame_data.size() > 0:
+		# Don't set position here - let _process_rewind_traceback handle it
+		# This ensures frame 0 is processed in the first physics frame
+		velocity = Vector2.ZERO  # Stop movement during traceback
+		print("[REWIND] Ready to start traceback with ", rewind_traceback_frame_data.size(), " frames")
+	else:
+		# If no frames extracted, fallback to immediate rewind
+		print("[REWIND] No frames extracted, falling back to immediate rewind")
+		is_rewind_tracing = false
+		_perform_rewind()
+		return
+
+
+func _extract_traceback_frames(start_time: float, end_time: float, num_frames: int) -> Array[Dictionary]:
+	"""Extract evenly-spaced frames from state history for traceback animation.
+	Frames go from current (end_time) backwards to past (start_time)."""
+	var frames: Array[Dictionary] = []
+	
+	if state_history.is_empty():
+		return frames
+	
+	# Calculate time step between frames (going backwards)
+	var time_range = end_time - start_time
+	if time_range <= 0:
+		return frames
+	
+	var time_step = time_range / (num_frames - 1) if num_frames > 1 else 0.0
+	
+	# Extract frames at evenly-spaced timestamps (from current to past)
+	for i in range(num_frames):
+		# Go backwards: frame 0 is current (end_time), frame 4 is past (start_time)
+		var target_timestamp = end_time - (time_step * i)
+		var frame_state = _find_state_at_time(target_timestamp)
+		
+		if not frame_state.is_empty():
+			frames.append({
+				"position": frame_state["position"],
+				"velocity": frame_state["velocity"],
+				"facing_direction": frame_state["facing_direction"],
+				"timestamp": target_timestamp
+			})
+	
+	# Always ensure we have the current position as the first frame
+	var current_state = _find_state_at_time(end_time)
+	if not current_state.is_empty():
+		# Check if we already have current frame
+		var has_current = false
+		for frame in frames:
+			if abs(frame["timestamp"] - end_time) < 0.01:
+				has_current = true
+				break
+		
+		if not has_current:
+			frames.insert(0, {
+				"position": current_state["position"],
+				"velocity": current_state["velocity"],
+				"facing_direction": current_state["facing_direction"],
+				"timestamp": end_time
+			})
+	
+	# Always ensure we have the target position (2 seconds ago) as the last frame
+	var target_state = _find_state_at_time(start_time)
+	if not target_state.is_empty():
+		# Check if we already have target frame
+		var has_target = false
+		for frame in frames:
+			if abs(frame["timestamp"] - start_time) < 0.01:
+				has_target = true
+				break
+		
+		if not has_target:
+			frames.append({
+				"position": target_state["position"],
+				"velocity": target_state["velocity"],
+				"facing_direction": target_state["facing_direction"],
+				"timestamp": start_time
+			})
+	
+	# Sort by timestamp in descending order (most recent first, oldest last)
+	# This way we animate from current to past
+	frames.sort_custom(func(a, b): return a["timestamp"] > b["timestamp"])
+	
+	return frames
+
+
+func _process_rewind_traceback(delta: float) -> void:
+	"""Process the rewind traceback animation - smoothly animate through frames over the duration."""
+	rewind_traceback_timer += delta
+	
+	# Check if animation is complete
+	if rewind_traceback_timer >= rewind_traceback_duration:
+		print("[REWIND TRACEBACK] Animation complete, ending traceback")
+		_end_rewind_traceback()
+		return
+	
+	# Calculate progress (0.0 to 1.0)
+	var progress = rewind_traceback_timer / rewind_traceback_duration
+	progress = clamp(progress, 0.0, 1.0)
+	
+	# Map progress to frame index (0 to frame_count - 1)
+	if rewind_traceback_frame_data.size() > 1:
+		var frame_index = progress * (rewind_traceback_frame_data.size() - 1)
+		var frame_index_floor = int(frame_index)
+		var frame_index_ceil = min(frame_index_floor + 1, rewind_traceback_frame_data.size() - 1)
+		var t = frame_index - frame_index_floor  # Interpolation factor between frames
+		
+		# Get the two frames to interpolate between
+		var current_frame = rewind_traceback_frame_data[frame_index_floor]
+		var next_frame = rewind_traceback_frame_data[frame_index_ceil]
+		
+		# Smooth interpolation using smoothstep
+		t = t * t * (3.0 - 2.0 * t)
+		
+		# Interpolate position and velocity
+		if not current_frame.is_empty() and not next_frame.is_empty():
+			global_position = current_frame["position"].lerp(next_frame["position"], t)
+			velocity = current_frame["velocity"].lerp(next_frame["velocity"], t)
+			facing_direction = current_frame["facing_direction"]
+	else:
+		# Only one frame or no frames - just use the first frame
+		if rewind_traceback_frame_data.size() > 0:
+			var frame = rewind_traceback_frame_data[0]
+			if not frame.is_empty():
+				global_position = frame["position"]
+				velocity = frame["velocity"]
+				facing_direction = frame["facing_direction"]
+	
+	# Zero out velocity to prevent physics from interfering
+	velocity = Vector2.ZERO
+
+
+func _end_rewind_traceback() -> void:
+	"""Complete the traceback animation and perform the actual rewind."""
+	is_rewind_tracing = false
+	rewind_traceback_timer = 0.0
+	
+	# Restore player to target state
+	if not rewind_target_state.is_empty():
+		global_position = rewind_target_state["position"]
+		velocity = rewind_target_state["velocity"]
+		facing_direction = rewind_target_state["facing_direction"]
+	
+	# Spawn shadow with path animation
+	_spawn_shadow_with_path(rewind_shadow_path)
+	
+	# Clear stored data
+	rewind_target_state = {}
+	rewind_shadow_path = []
+	rewind_traceback_frame_data = []
+	
+	# Set cooldown
+	rewind_cooldown_timer = rewind_cooldown
+
+
 func _perform_rewind() -> void:
 	"""Perform the rewind action - restore player state and spawn animated shadow."""
+	# This function is kept for fallback cases, but normally _start_rewind_traceback() is used
 	if not rewind_enabled:
 		return
 	
