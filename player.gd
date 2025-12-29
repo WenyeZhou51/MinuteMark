@@ -159,6 +159,14 @@ const ShadowScene = preload("res://shadow.tscn")
 @export var rewind_traceback_frames: int = 5  ## Number of frames to extract for traceback animation
 @export var rewind_traceback_duration: float = 1.0  ## Duration of traceback animation in seconds
 
+@export_subgroup("Rewind Preview")
+@export var rewind_preview_time_scale: float = 0.3  ## Time scale during preview (0.3 = 30% speed)
+@export var rewind_preview_duration: float = 3.0  ## Real-time duration before auto-cancel (seconds)
+@export var rewind_preview_shadow_count: int = 5  ## Number of shadow markers to show
+@export var rewind_preview_shadow_color: Color = Color(0.3, 0.1, 0.6, 0.5)  ## Color for preview shadows (more transparent purple)
+@export var rewind_preview_line_color: Color = Color(0.5, 0.2, 0.8, 0.4)  ## Color for connecting lines
+@export var rewind_preview_allow_movement: bool = true  ## Whether player can move during preview
+
 # Internal state variables
 var is_jump_held: bool = false  # Is jump button currently held
 var is_jumping: bool = false  # Is player currently in jump state
@@ -269,6 +277,17 @@ var rewind_traceback_frame_data: Array[Dictionary] = []  # Frames to animate thr
 var rewind_traceback_timer: float = 0.0  # Timer for traceback animation
 var rewind_target_state: Dictionary = {}  # Target state to restore after traceback
 var rewind_shadow_path: Array[Dictionary] = []  # Path data for shadow (stored during traceback)
+
+# Rewind preview state variables
+var is_rewind_previewing: bool = false  # Is player in slow-motion preview state
+var rewind_preview_timer: float = 0.0  # Real-time timer for 3-second expiration
+var rewind_preview_path_shadows: Array[Node2D] = []  # Array of shadow marker nodes
+var rewind_preview_path_lines: Array[Line2D] = []  # Array of lines connecting shadows
+var rewind_preview_frames: Array[Dictionary] = []  # Frames extracted for preview visualization
+var rewind_preview_original_time_scale: float = 1.0  # Store original time scale before preview
+var rewind_preview_update_timer: float = 0.0  # Timer for updating preview path
+var rewind_preview_update_interval: float = 0.05  # Update preview path every 0.05 seconds (20 times per second)
+var rewind_preview_just_ended: bool = false  # Flag to prevent immediate restart after expiration/cancel
 
 # Component references
 @onready var coyote_timer: Timer = $CoyoteTimer
@@ -425,6 +444,15 @@ func _physics_process(delta: float) -> void:
 		if slam_freeze_timer <= 0:
 			_end_slam_freeze()
 	
+	# 0. Process Rewind Preview (if active, handle preview state)
+	# Note: Input handling for cancel/execute happens later in the function
+	if is_rewind_previewing:
+		_process_rewind_preview(delta)
+		# Allow movement during preview if enabled
+		if not rewind_preview_allow_movement:
+			# Frozen during preview - skip movement but still process input later
+			velocity = Vector2.ZERO
+	
 	# 1. Process Input
 	var input_vector := _get_input_vector()
 	
@@ -453,15 +481,44 @@ func _physics_process(delta: float) -> void:
 			# Air dash (only if available)
 			_start_air_dash(input_vector.x)
 	
-	# Handle rewind input
-	if rewind_enabled and Input.is_action_just_pressed("rewind") and rewind_cooldown_timer <= 0:
-		print("[REWIND] Rewind input detected!")
+	# Handle cancel input (E key) - check this first, regardless of cooldown
+	# Use both just_pressed and pressed to be more reliable during slow-motion
+	if is_rewind_previewing and (Input.is_action_just_pressed("rewind_cancel") or Input.is_action_pressed("rewind_cancel")):
+		print("[REWIND] Cancel pressed, ending preview")
+		rewind_preview_just_ended = true
+		_end_rewind_preview()
+		# After canceling, skip the rest of physics processing this frame
+		if not rewind_preview_allow_movement:
+			move_and_slide()
+			_post_movement_updates()
+			return
+	
+	# Handle rewind input (hold for preview, release for rewind)
+	if rewind_enabled and rewind_cooldown_timer <= 0:
 		# Don't allow rewind during certain states
 		if not is_stunned and not is_slam_frozen and not is_rewind_tracing:
-			print("[REWIND] Starting traceback...")
-			_start_rewind_traceback()
-		else:
-			print("[REWIND] Blocked by state - is_stunned: ", is_stunned, ", is_slam_frozen: ", is_slam_frozen, ", is_rewind_tracing: ", is_rewind_tracing)
+			# Reset the "just ended" flag if R is released
+			if not Input.is_action_pressed("rewind"):
+				rewind_preview_just_ended = false
+			
+			# Check for hold (enter preview) or release (execute rewind)
+			if Input.is_action_just_pressed("rewind") and not is_rewind_previewing and not rewind_preview_just_ended:
+				# Just pressed R - start preview
+				_start_rewind_preview()
+			elif Input.is_action_pressed("rewind") and not is_rewind_previewing and not rewind_preview_just_ended:
+				# Holding R but preview not started yet - start it
+				_start_rewind_preview()
+			elif Input.is_action_just_released("rewind") and is_rewind_previewing:
+				# Released R while previewing - execute rewind
+				print("[REWIND] Released R during preview, executing rewind")
+				_end_rewind_preview()
+				_start_rewind_traceback()
+	
+	# Skip movement if previewing and movement not allowed (after processing input)
+	if is_rewind_previewing and not rewind_preview_allow_movement:
+		move_and_slide()
+		_post_movement_updates()
+		return
 	
 	# Update run state based on speed (sprint state when speed exceeds threshold)
 	var current_speed = velocity.length()
@@ -2880,6 +2937,180 @@ func _end_rewind_traceback() -> void:
 	
 	# Set cooldown
 	rewind_cooldown_timer = rewind_cooldown
+
+
+# ====================================
+# REWIND PREVIEW MECHANICS
+# ====================================
+
+func _create_preview_path_visualization() -> void:
+	"""Create shadow markers and connecting lines for preview visualization."""
+	# Clear any existing visualization
+	_clear_preview_path_visualization()
+	
+	if rewind_preview_frames.is_empty():
+		return
+	
+	# Create shadow markers
+	for i in range(rewind_preview_frames.size()):
+		var frame = rewind_preview_frames[i]
+		if frame.is_empty():
+			continue
+		
+		# Create Node2D for shadow marker
+		var shadow_marker = Node2D.new()
+		shadow_marker.name = "PreviewShadow" + str(i)
+		shadow_marker.global_position = frame["position"]
+		
+		# Create Polygon2D for visual
+		var polygon = Polygon2D.new()
+		polygon.color = rewind_preview_shadow_color
+		polygon.polygon = PackedVector2Array([Vector2(-16, -32), Vector2(16, -32), Vector2(16, 32), Vector2(-16, 32)])
+		shadow_marker.add_child(polygon)
+		
+		# Add to scene tree
+		get_parent().add_child(shadow_marker)
+		rewind_preview_path_shadows.append(shadow_marker)
+	
+	# Create connecting lines
+	for i in range(rewind_preview_path_shadows.size() - 1):
+		var line = Line2D.new()
+		line.name = "PreviewLine" + str(i)
+		line.width = 3.0
+		line.default_color = rewind_preview_line_color
+		
+		# Set line points connecting consecutive shadows
+		var start_pos = rewind_preview_path_shadows[i].global_position
+		var end_pos = rewind_preview_path_shadows[i + 1].global_position
+		line.points = PackedVector2Array([start_pos, end_pos])
+		
+		# Add to scene tree
+		get_parent().add_child(line)
+		rewind_preview_path_lines.append(line)
+
+
+func _update_preview_path_visualization() -> void:
+	"""Update preview path visualization - re-extract frames and update shadows/lines."""
+	# Re-extract frames from current state (player may have moved)
+	var target_time = game_time - rewind_time
+	if target_time < 0:
+		return
+	
+	# Extract fresh frames
+	var new_frames = _extract_traceback_frames(target_time, game_time, rewind_preview_shadow_count)
+	if new_frames.is_empty():
+		return
+	
+	rewind_preview_frames = new_frames
+	
+	# Update shadow positions
+	for i in range(min(rewind_preview_frames.size(), rewind_preview_path_shadows.size())):
+		var frame = rewind_preview_frames[i]
+		if not frame.is_empty() and is_instance_valid(rewind_preview_path_shadows[i]):
+			rewind_preview_path_shadows[i].global_position = frame["position"]
+	
+	# Update line positions
+	for i in range(rewind_preview_path_lines.size()):
+		if i < rewind_preview_path_shadows.size() - 1:
+			var start_pos = rewind_preview_path_shadows[i].global_position
+			var end_pos = rewind_preview_path_shadows[i + 1].global_position
+			if is_instance_valid(rewind_preview_path_lines[i]):
+				rewind_preview_path_lines[i].points = PackedVector2Array([start_pos, end_pos])
+
+
+func _clear_preview_path_visualization() -> void:
+	"""Remove all preview shadow markers and lines."""
+	# Remove shadows
+	for shadow in rewind_preview_path_shadows:
+		if is_instance_valid(shadow):
+			shadow.queue_free()
+	rewind_preview_path_shadows.clear()
+	
+	# Remove lines
+	for line in rewind_preview_path_lines:
+		if is_instance_valid(line):
+			line.queue_free()
+	rewind_preview_path_lines.clear()
+
+
+func _start_rewind_preview() -> void:
+	"""Enter slow-motion preview state - show rewind path visualization."""
+	if not rewind_enabled:
+		return
+	
+	# Check if we have enough history
+	var target_time = game_time - rewind_time
+	if target_time < 0:
+		# Not enough history available
+		return
+	
+	# Extract frames for preview visualization (same as traceback)
+	rewind_preview_frames = _extract_traceback_frames(target_time, game_time, rewind_preview_shadow_count)
+	
+	if rewind_preview_frames.is_empty():
+		# Can't create preview without frames
+		return
+	
+	# Store original time scale
+	rewind_preview_original_time_scale = Engine.time_scale
+	
+	# Set slow-motion time scale
+	Engine.time_scale = rewind_preview_time_scale
+	
+	# Create visualization
+	_create_preview_path_visualization()
+	
+	# Start preview state
+	is_rewind_previewing = true
+	rewind_preview_timer = 0.0
+	
+	print("[REWIND PREVIEW] Started preview with ", rewind_preview_frames.size(), " frames")
+
+
+func _process_rewind_preview(delta: float) -> void:
+	"""Process the rewind preview state - update timer and handle expiration."""
+	# Check for cancel input - use both just_pressed and pressed to be more reliable
+	if Input.is_action_just_pressed("rewind_cancel") or (Input.is_action_pressed("rewind_cancel") and not Input.is_action_pressed("rewind")):
+		print("[REWIND PREVIEW] Cancel pressed in preview process, ending preview")
+		rewind_preview_just_ended = true
+		_end_rewind_preview()
+		return
+	
+	# Use real-time delta (divide by time_scale to get wall-clock time)
+	# But we need to use unscaled delta for the timer since we want real-time seconds
+	var real_delta = delta / Engine.time_scale if Engine.time_scale > 0 else delta
+	rewind_preview_timer += real_delta
+	rewind_preview_update_timer += real_delta
+	
+	# Check for expiration (3 real-time seconds)
+	if rewind_preview_timer >= rewind_preview_duration:
+		print("[REWIND PREVIEW] Preview expired after ", rewind_preview_duration, " seconds (timer: ", rewind_preview_timer, ")")
+		rewind_preview_just_ended = true
+		_end_rewind_preview()
+		return
+	
+	# Update visualization more frequently (every update_interval seconds)
+	if rewind_preview_update_timer >= rewind_preview_update_interval:
+		rewind_preview_update_timer = 0.0
+		_update_preview_path_visualization()
+
+
+func _end_rewind_preview() -> void:
+	"""Exit preview state - restore time scale and cleanup visualization."""
+	is_rewind_previewing = false
+	rewind_preview_timer = 0.0
+	rewind_preview_update_timer = 0.0
+	
+	# Restore original time scale
+	Engine.time_scale = rewind_preview_original_time_scale
+	
+	# Clear visualization
+	_clear_preview_path_visualization()
+	
+	# Clear frame data
+	rewind_preview_frames = []
+	
+	print("[REWIND PREVIEW] Ended preview, restored time scale to ", Engine.time_scale)
 
 
 func _perform_rewind() -> void:
