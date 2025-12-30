@@ -1,6 +1,7 @@
 # Minute
+THIS IS A PLATFORMER ABOUT GOING FAST
 
-A Godot 4.3 game project featuring pendulum-based storytelling and dynamic gameplay mechanics.
+a fast-paced 2D platformer set in a collapsing cyberpunk city. The player escapes from an exploding skyscraper using parkour moves like running, jumping, and wall-jumping. The core mechanic is a time-rewind system that freezes past versions of the player in place to use as platforms. 
 
 ## Setup Instructions
 
