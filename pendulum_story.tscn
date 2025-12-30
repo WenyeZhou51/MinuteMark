@@ -36,10 +36,6 @@ points = PackedVector2Array(0, 0, 0, 100)
 width = 4.0
 default_color = Color(0.3, 0.15, 0.05, 1)
 
-[node name="BobOutline" type="Polygon2D" parent="Pendulum"]
-color = Color(0.2, 0.1, 0.05, 1)
-polygon = PackedVector2Array(-135, 0, -95.4594, 95.4594, 0, 135, 95.4594, 95.4594, 135, 0, 95.4594, -95.4594, 0, -135, -95.4594, -95.4594)
+[node name="Bob" type="Sprite2D" parent="Pendulum"]
 
-[node name="Bob" type="Polygon2D" parent="Pendulum"]
-color = Color(0.6, 0.3, 0.1, 1)
-polygon = PackedVector2Array(-120, 0, -84.8528, 84.8528, 0, 120, 84.8528, 84.8528, 120, 0, 84.8528, -84.8528, 0, -120, -84.8528, -84.8528)
+[node name="PendulumSound" type="AudioStreamPlayer" parent="."]

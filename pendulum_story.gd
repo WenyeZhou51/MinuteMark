@@ -2,6 +2,7 @@ extends Node2D
 
 # Inspector-adjustable properties
 @export var bob_radius: float = 120.0
+@export var bob_sprite_scale_multiplier: float = 2.25
 @export var pendulum_line_width: float = 4.0
 @export_range(0.0, 2000.0, 10.0) var pendulum_length: float = 1500.0
 @export_range(0.0, 90.0, 1.0) var max_swing_angle: float = 60.0  # Degrees from vertical
@@ -27,7 +28,7 @@ extends Node2D
 @onready var pivot_visual = $Pendulum/Pivot
 @onready var line = $Pendulum/Line2D
 @onready var bob = $Pendulum/Bob
-@onready var bob_outline = $Pendulum/BobOutline
+@onready var pendulum_sound = $PendulumSound
 @onready var image_transform = $ImageTransform  # Template ColorRect for image sizing/positioning (visible guide)
 @onready var image_bottom = $ImageBottom  # Current frame
 @onready var image_top = $ImageTop  # Next frame
@@ -35,6 +36,7 @@ extends Node2D
 var story_textures: Array[Texture2D] = []
 var current_story_index: int = 0  # Index of the image currently being revealed (top image)
 var is_swinging_right: bool = true # True if moving L->R, False if moving R->L
+var sound_played_this_swing: bool = false
 
 var pivot_point: Vector2
 var is_dragging: bool = false
@@ -206,9 +208,9 @@ func update_pendulum():
 	var pendulum_end = get_pendulum_end()
 	line.points = PackedVector2Array([pivot_point, pendulum_end])
 	
-	# Update bob position (the weight at the end)
+	# Update bob position (the weight at the end) and rotation
 	bob.position = pendulum_end
-	bob_outline.position = pendulum_end
+	bob.rotation = current_angle - PI/2 # Point the top of the sprite towards the pivot
 	
 	# Update mask
 	update_mask()
@@ -241,6 +243,12 @@ func update_mask():
 			reveal_progress = clamp(reveal_progress, 0.0, 1.0)
 		else:
 			reveal_progress = 1.0
+			
+		# Play pendulum sound when reveal starts
+		if !sound_played_this_swing and reveal_progress > 0.01:
+			if pendulum_sound:
+				pendulum_sound.play()
+				sound_played_this_swing = true
 	
 	# Update shader parameters for paint splatter reveal
 	var shader_material = image_top.material as ShaderMaterial
@@ -326,28 +334,20 @@ func setup_images():
 		image_top.scale = Vector2(actual_width / tex_size.x, actual_height / tex_size.y)
 
 func update_bob_visuals():
-	# Generate bob polygon (circle approximation with 8 points)
-	var bob_polygon = PackedVector2Array()
-	var outline_radius = bob_radius + 15.0  # Outline is 15px larger
+	# Load and set the sprite texture
+	bob.texture = load("res://Sprites/New bob.png")
+	if bob.texture:
+		bob.centered = true
+		var tex_size = bob.texture.get_size()
+		# Scale the bob based on bob_radius and the multiplier
+		var max_dim = max(tex_size.x, tex_size.y)
+		var scale_factor = (bob_radius * 2.0) / max_dim * bob_sprite_scale_multiplier
+		bob.scale = Vector2(scale_factor, scale_factor)
 	
-	for i in range(8):
-		var angle = i * PI / 4.0  # 45 degrees per point
-		bob_polygon.append(Vector2(
-			cos(angle) * bob_radius,
-			sin(angle) * bob_radius
-		))
-	
-	# Generate outline polygon
-	var outline_polygon = PackedVector2Array()
-	for i in range(8):
-		var angle = i * PI / 4.0
-		outline_polygon.append(Vector2(
-			cos(angle) * outline_radius,
-			sin(angle) * outline_radius
-		))
-	
-	bob.polygon = bob_polygon
-	bob_outline.polygon = outline_polygon
+	# Load the pendulum sound
+	var sound_stream = load("res://audio/pendulum sound.wav")
+	if sound_stream:
+		pendulum_sound.stream = sound_stream
 
 func complete_transition():
 	# Check if we have more images before proceeding
@@ -386,6 +386,9 @@ func complete_transition():
 		
 		# Force update current_angle to the new start so we don't trigger again immediately
 		current_angle = start_angle
+		
+		# Reset sound flag for the next swing
+		sound_played_this_swing = false
 		
 		# Update scaling for the new textures
 		setup_images()
