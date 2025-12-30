@@ -276,6 +276,7 @@ var rewind_start_time: float = 0.0  # Game time when rewind started
 var rewind_target_time: float = 0.0  # Target time (2 seconds ago) for rewind
 var rewind_path_visualization: Node2D = null  # Container for ghost path visuals
 var ghost_markers: Array[Node2D] = []  # Array of ghost marker nodes
+var grayscale_overlay: ColorRect = null  # Grayscale overlay for rewind effect
 
 # Component references
 @onready var coyote_timer: Timer = $CoyoteTimer
@@ -2985,6 +2986,10 @@ func _enter_rewind_slowmo() -> void:
 	original_time_scale = Engine.time_scale
 	is_in_rewind_slowmo = true
 	Engine.time_scale = rewind_slowmo_scale
+	
+	# Enable grayscale overlay
+	_enable_grayscale_overlay()
+	
 	print("[REWIND] Entered slow-mo (time_scale: ", rewind_slowmo_scale, ")")
 
 
@@ -2995,6 +3000,10 @@ func _exit_rewind_slowmo() -> void:
 	
 	is_in_rewind_slowmo = false
 	Engine.time_scale = original_time_scale
+	
+	# Disable grayscale overlay
+	_disable_grayscale_overlay()
+	
 	print("[REWIND] Exited slow-mo (restored time_scale: ", original_time_scale, ")")
 
 
@@ -3099,6 +3108,90 @@ func _clear_ghost_path_visualization() -> void:
 		rewind_path_visualization = null
 	
 	print("[REWIND] Cleared ghost path visualization")
+
+
+func _enable_grayscale_overlay() -> void:
+	"""Enable grayscale overlay effect on the screen."""
+	# Find or create the grayscale overlay
+	var canvas_layer = get_tree().root.get_node_or_null("GrayscaleOverlay")
+	if not canvas_layer:
+		# Create a canvas layer for grayscale overlay
+		canvas_layer = CanvasLayer.new()
+		canvas_layer.name = "GrayscaleOverlay"
+		canvas_layer.layer = 200  # Very high layer to affect everything
+		get_tree().root.call_deferred("add_child", canvas_layer)
+		
+		# Wait for canvas_layer to be added before adding children
+		await get_tree().process_frame
+		
+		# Create ColorRect for grayscale overlay
+		# SCREEN_TEXTURE should work directly without BackBufferCopy in Godot 4
+		var color_rect = ColorRect.new()
+		color_rect.name = "GrayscaleRect"
+		color_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+		color_rect.set_offsets_preset(Control.PRESET_FULL_RECT)  # Ensure it covers full screen
+		color_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		color_rect.color = Color.WHITE
+		color_rect.modulate = Color.WHITE
+		color_rect.visible = true
+		
+		# Get viewport to ensure proper sizing
+		var viewport = get_viewport()
+		if viewport:
+			var viewport_size = viewport.get_visible_rect().size
+			color_rect.size = viewport_size
+			color_rect.position = Vector2.ZERO
+			print("[REWIND] Viewport size: ", viewport_size, ", ColorRect size: ", color_rect.size)
+		
+		# Load and apply grayscale shader
+		var shader = load("res://shaders/grayscale_overlay.gdshader")
+		if shader:
+			var shader_material = ShaderMaterial.new()
+			shader_material.shader = shader
+			shader_material.set_shader_parameter("intensity", 1.0)
+			color_rect.material = shader_material
+			print("[REWIND] Grayscale shader loaded and applied successfully")
+			print("[REWIND] ColorRect visible: ", color_rect.visible, ", has material: ", color_rect.material != null)
+		else:
+			print("[REWIND] ERROR: Could not load grayscale shader at res://shaders/grayscale_overlay.gdshader")
+		
+		# Add ColorRect to canvas layer
+		canvas_layer.add_child(color_rect)
+		grayscale_overlay = color_rect
+	else:
+		grayscale_overlay = canvas_layer.get_node_or_null("GrayscaleRect")
+		if grayscale_overlay:
+			if grayscale_overlay.material:
+				grayscale_overlay.material.set_shader_parameter("intensity", 1.0)
+				print("[REWIND] Grayscale overlay material found and intensity set to 1.0")
+			else:
+				print("[REWIND] WARNING: Grayscale overlay has no material")
+			grayscale_overlay.visible = true
+			print("[REWIND] Grayscale overlay made visible")
+		else:
+			print("[REWIND] WARNING: Could not find GrayscaleRect in canvas layer")
+	
+	print("[REWIND] Enabled grayscale overlay")
+
+
+func _disable_grayscale_overlay() -> void:
+	"""Disable grayscale overlay effect on the screen."""
+	if grayscale_overlay and is_instance_valid(grayscale_overlay):
+		# Fade out the effect by setting intensity to 0
+		if grayscale_overlay.material:
+			grayscale_overlay.material.set_shader_parameter("intensity", 0.0)
+		grayscale_overlay.visible = false
+		grayscale_overlay = null
+	
+	# Optionally remove the canvas layer (or keep it for reuse)
+	var canvas_layer = get_tree().root.get_node_or_null("GrayscaleOverlay")
+	if canvas_layer:
+		# Keep the layer but hide it for reuse
+		var color_rect = canvas_layer.get_node_or_null("GrayscaleRect")
+		if color_rect:
+			color_rect.visible = false
+	
+	print("[REWIND] Disabled grayscale overlay")
 
 
 func _perform_rewind() -> void:
