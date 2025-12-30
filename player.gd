@@ -180,6 +180,7 @@ var is_wall_running: bool = false  # Is player currently wall running
 var wall_run_timer: float = 0.0  # Time elapsed in current wall run
 var wall_run_speed: float = 0.0  # Current upward speed during wall run
 var wall_jump_cooldown: float = 0.0  # Cooldown after wall jump to prevent re-attachment
+var wall_jump_forced_direction: float = 0.0  # Forced direction away from wall after jump
 var wall_run_cooldown: float = 0.0  # Cooldown after wall run ends to prevent immediate restart
 var wall_run_start_position: Vector2 = Vector2.ZERO  # Position when wall run started (for tracking total movement)
 var wall_run_frame_count: int = 0  # Number of frames wall run has been active
@@ -418,6 +419,11 @@ func _physics_process(delta: float) -> void:
 	
 	# 1. Process Input
 	var input_vector := _get_input_vector()
+	
+	# Wall Jump Override: Force movement away from wall during wall jump cooldown
+	# regardless of actual player input
+	if wall_jump_cooldown > 0:
+		input_vector.x = wall_jump_forced_direction
 	
 	# Skip all input processing if slam frozen
 	if is_slam_frozen:
@@ -790,6 +796,8 @@ func _update_ground_state() -> void:
 func _on_landed() -> void:
 	"""Called when player lands on ground."""
 	is_jumping = false
+	wall_jump_cooldown = 0.0
+	wall_jump_forced_direction = 0.0
 	# Reset ledge climb cooldown on landing (allows fresh ledge climb attempts)
 	ledge_climb_cooldown_timer = 0.0
 	
@@ -1381,7 +1389,7 @@ func _handle_jump_input() -> void:
 		
 		# Check for wall jump first (highest priority)
 		# Note: Wall run jump is handled earlier in _physics_process
-		if wall_jump_enabled and is_on_wall and not is_wall_running:
+		if wall_jump_enabled and is_on_wall and not is_wall_running and wall_jump_cooldown <= 0:
 			_perform_wall_jump()
 		else:
 			# Check if we can jump immediately
@@ -1488,6 +1496,7 @@ func _perform_wall_jump() -> void:
 	
 	# Set cooldown to prevent immediate re-attachment to wall
 	wall_jump_cooldown = 0.3  # 0.3 second cooldown
+	wall_jump_forced_direction = jump_wall_normal.x  # Store direction away from wall
 	
 	# Clear wall state to prevent immediate re-attachment
 	is_on_wall = false
