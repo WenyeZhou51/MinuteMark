@@ -4,7 +4,7 @@
 [ext_resource type="PackedScene" uid="uid://b8x7lam2n4p5q" path="res://enemy.tscn" id="2_enemy"]
 [ext_resource type="PackedScene" uid="uid://3iklf1aqf11" path="res://Models/%h1%.glb" id="2_lgm15"]
 [ext_resource type="PackedScene" uid="uid://b4x74lonf1385" path="res://Models/%t1%.glb" id="3_3lf8s"]
-[ext_resource type="Script" path="res://background_camera_3d.gd" id="3_bg_cam"]
+[ext_resource type="Script" uid="uid://c7arfnsgtuaut" path="res://background_camera_3d.gd" id="3_bg_cam"]
 [ext_resource type="PackedScene" uid="uid://b25pn1r5fn6at" path="res://Models/%h2%.glb" id="4_irfdh"]
 [ext_resource type="PackedScene" uid="uid://c4k3l8m5n2qar" path="res://kickable_object.tscn" id="4_kickable"]
 [ext_resource type="PackedScene" uid="uid://b7q8n5ck2wh0e" path="res://pause_menu.tscn" id="8_b0gwe"]

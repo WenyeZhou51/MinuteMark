@@ -156,8 +156,8 @@ const ShadowScene = preload("res://shadow.tscn")
 @export var rewind_time: float = 2.0  ## Seconds to rewind back in time
 @export var rewind_cooldown: float = 3.0  ## Cooldown between rewinds (seconds)
 @export var rewind_history_duration: float = 3.0  ## How long to keep state history (seconds)
-@export var rewind_traceback_frames: int = 5  ## Number of frames to extract for traceback animation
-@export var rewind_traceback_duration: float = 1.0  ## Duration of traceback animation in seconds
+@export var rewind_traceback_speed: float = 2.0  ## Speed of traceback while holding in slow-mo (2.0 = 2x relative to slow-mo time)
+@export var rewind_slowmo_scale: float = 0.25  ## Time scale for slow-mo (0.25 = quarter speed)
 
 # Internal state variables
 var is_jump_held: bool = false  # Is jump button currently held
@@ -265,10 +265,17 @@ var rewind_cooldown_timer: float = 0.0  # Cooldown timer for rewind ability
 var state_history: Array[Dictionary] = []  # Stores state snapshots with timestamps
 var game_time: float = 0.0  # Total game time elapsed (for timestamping)
 var is_rewind_tracing: bool = false  # Is player currently in rewind traceback animation
+var is_rewind_holding: bool = false  # Is player currently holding R for rewind
+var is_in_rewind_slowmo: bool = false  # Is game currently in rewind slow-mo
+var original_time_scale: float = 1.0  # Store original time scale before slow-mo
+var rewind_hold_start_time: float = 0.0  # When the hold started (game_time)
+var rewind_current_progress: float = 0.0  # Current progress through rewind (0.0 = current, 1.0 = 2 seconds ago)
 var rewind_traceback_frame_data: Array[Dictionary] = []  # Frames to animate through during traceback
-var rewind_traceback_timer: float = 0.0  # Timer for traceback animation
-var rewind_target_state: Dictionary = {}  # Target state to restore after traceback
-var rewind_shadow_path: Array[Dictionary] = []  # Path data for shadow (stored during traceback)
+var rewind_start_position: Vector2 = Vector2.ZERO  # Position when rewind started (for shadow path)
+var rewind_start_time: float = 0.0  # Game time when rewind started
+var rewind_target_time: float = 0.0  # Target time (2 seconds ago) for rewind
+var rewind_path_visualization: Node2D = null  # Container for ghost path visuals
+var ghost_markers: Array[Node2D] = []  # Array of ghost marker nodes
 
 # Component references
 @onready var coyote_timer: Timer = $CoyoteTimer
@@ -453,15 +460,19 @@ func _physics_process(delta: float) -> void:
 			# Air dash (only if available)
 			_start_air_dash(input_vector.x)
 	
-	# Handle rewind input
-	if rewind_enabled and Input.is_action_just_pressed("rewind") and rewind_cooldown_timer <= 0:
-		print("[REWIND] Rewind input detected!")
-		# Don't allow rewind during certain states
-		if not is_stunned and not is_slam_frozen and not is_rewind_tracing:
-			print("[REWIND] Starting traceback...")
-			_start_rewind_traceback()
-		else:
-			print("[REWIND] Blocked by state - is_stunned: ", is_stunned, ", is_slam_frozen: ", is_slam_frozen, ", is_rewind_tracing: ", is_rewind_tracing)
+	# Handle rewind input (hold-to-rewind)
+	if rewind_enabled and rewind_cooldown_timer <= 0:
+		# Check if rewind button was just pressed (start rewind)
+		if Input.is_action_just_pressed("rewind"):
+			if not is_stunned and not is_slam_frozen and not is_rewind_tracing:
+				print("[REWIND] Rewind hold started")
+				_start_rewind_hold()
+		
+		# Check if rewind button was just released (stop and spawn shadow)
+		# This must be checked AFTER the press check to avoid same-frame conflicts
+		if Input.is_action_just_released("rewind") and is_rewind_holding:
+			print("[REWIND] Rewind hold released")
+			_stop_rewind_hold()
 	
 	# Update run state based on speed (sprint state when speed exceeds threshold)
 	var current_speed = velocity.length()
@@ -2633,75 +2644,46 @@ func _find_state_at_time(target_time: float) -> Dictionary:
 	return closest_snapshot
 
 
-func _start_rewind_traceback() -> void:
-	"""Start the rewind traceback animation - extract 5 frames and begin animation."""
+func _start_rewind_hold() -> void:
+	"""Start the hold-to-rewind - extract path and begin continuous traceback."""
 	if not rewind_enabled:
 		print("[REWIND] Rewind is disabled")
 		return
 	
 	# Check if we have enough history
-	var target_time = game_time - rewind_time
-	if target_time < 0:
+	rewind_target_time = game_time - rewind_time
+	if rewind_target_time < 0:
 		# Not enough history available - use whatever we have
-		print("[REWIND] Not enough history (game_time: ", game_time, ", target_time: ", target_time, ")")
+		print("[REWIND] Not enough history (game_time: ", game_time, ", target_time: ", rewind_target_time, ")")
 		# Try to use available history instead
 		if state_history.is_empty():
 			print("[REWIND] No state history available")
 			return
 		# Use the oldest state we have
 		var oldest_state = state_history[0]
-		target_time = oldest_state["timestamp"]
-		print("[REWIND] Using oldest available state at time: ", target_time)
+		rewind_target_time = oldest_state["timestamp"]
+		print("[REWIND] Using oldest available state at time: ", rewind_target_time)
 	
-	var target_state = _find_state_at_time(target_time)
-	if target_state.is_empty():
-		print("[REWIND] Could not find target state at time: ", target_time, " (history size: ", state_history.size(), ")")
-		# Try to use the oldest state we have
-		if not state_history.is_empty():
-			var oldest_state = state_history[0]
-			target_state = oldest_state
-			target_time = oldest_state["timestamp"]
-			print("[REWIND] Using oldest state as fallback")
-		else:
-			print("[REWIND] No state history available at all")
-			return
-	
-	# Store target state for after traceback completes
-	rewind_target_state = target_state
-	
-	# Store current position BEFORE traceback (needed for path end point)
-	var current_position_before_rewind = global_position
+	# Store rewind start information
+	rewind_start_time = game_time
+	rewind_start_position = global_position
+	rewind_current_progress = 0.0
 	
 	# Extract path from state history (from target_time to current game_time)
-	rewind_shadow_path = _extract_path_from_history(target_time, game_time, current_position_before_rewind)
+	# This will be used for both traceback and shadow animation
+	rewind_traceback_frame_data = _extract_path_from_history(rewind_target_time, game_time, rewind_start_position)
 	
-	# Extract evenly-spaced frames from the past 2 seconds
-	rewind_traceback_frame_data = _extract_traceback_frames(target_time, game_time, rewind_traceback_frames)
-	
-	# Debug: ensure we have frames
 	if rewind_traceback_frame_data.is_empty():
-		# If we can't extract frames, try to get at least the start and end states
-		var start_state = _find_state_at_time(target_time)
-		var end_state = _find_state_at_time(game_time)
-		
-		if not start_state.is_empty() and not end_state.is_empty():
-			# Create minimal frames array with interpolated frames
-			rewind_traceback_frame_data = []
-			for i in range(rewind_traceback_frames):
-				var t = float(i) / (rewind_traceback_frames - 1.0) if rewind_traceback_frames > 1 else 0.0  # 0.0 to 1.0
-				var interp_pos = end_state["position"].lerp(start_state["position"], t)
-				var interp_vel = end_state["velocity"].lerp(start_state["velocity"], t)
-				var interp_time = game_time + (target_time - game_time) * t
-				rewind_traceback_frame_data.append({
-					"position": interp_pos,
-					"velocity": interp_vel,
-					"facing_direction": end_state["facing_direction"] if t < 0.5 else start_state["facing_direction"],
-					"timestamp": interp_time
-				})
-		else:
-			# Fallback: if we can't extract frames, just do immediate rewind
-			_perform_rewind()
-			return
+		print("[REWIND] Could not extract path, aborting rewind")
+		return
+	
+	# Sort path by timestamp in descending order (most recent first) for easier traceback
+	# This way progress 0.0 = first element, progress 1.0 = last element
+	rewind_traceback_frame_data.sort_custom(func(a, b): return a["timestamp"] > b["timestamp"])
+	
+	print("[REWIND] Extracted path with ", rewind_traceback_frame_data.size(), " points")
+	print("[REWIND] Path time range: ", rewind_traceback_frame_data[rewind_traceback_frame_data.size() - 1]["timestamp"], " to ", rewind_traceback_frame_data[0]["timestamp"])
+	print("[REWIND] Target time range: ", rewind_target_time, " to ", game_time)
 	
 	# Cancel conflicting states before starting traceback
 	if is_attacking:
@@ -2722,23 +2704,48 @@ func _start_rewind_traceback() -> void:
 		is_slam_frozen = false
 		slam_freeze_timer = 0.0
 	
-	# Start traceback animation
-	print("[REWIND] Starting traceback with ", rewind_traceback_frame_data.size(), " frames over ", rewind_traceback_duration, " seconds")
-	is_rewind_tracing = true
-	rewind_traceback_timer = 0.0
+	# Enter slow-mo and create ghost path visualization
+	_enter_rewind_slowmo()
+	_create_ghost_path_visualization()
 	
-	# Set initial position to first frame (current position)
-	if rewind_traceback_frame_data.size() > 0:
-		# Don't set position here - let _process_rewind_traceback handle it
-		# This ensures frame 0 is processed in the first physics frame
-		velocity = Vector2.ZERO  # Stop movement during traceback
-		print("[REWIND] Ready to start traceback with ", rewind_traceback_frame_data.size(), " frames")
-	else:
-		# If no frames extracted, fallback to immediate rewind
-		print("[REWIND] No frames extracted, falling back to immediate rewind")
-		is_rewind_tracing = false
-		_perform_rewind()
+	# Start hold-to-rewind
+	is_rewind_holding = true
+	is_rewind_tracing = true
+	rewind_hold_start_time = game_time
+	velocity = Vector2.ZERO  # Stop movement during traceback
+	print("[REWIND] Hold-to-rewind started with ", rewind_traceback_frame_data.size(), " path points")
+
+
+func _stop_rewind_hold() -> void:
+	"""Stop the hold-to-rewind and spawn shadow at current position."""
+	if not is_rewind_holding:
 		return
+	
+	print("[REWIND] Stopping hold-to-rewind at progress: ", rewind_current_progress)
+	
+	# Get the current state at the release position
+	var release_state = _get_state_at_progress(rewind_current_progress)
+	
+	if not release_state.is_empty():
+		# Restore player to release position
+		global_position = release_state["position"]
+		velocity = release_state["velocity"]
+		facing_direction = release_state["facing_direction"]
+	
+	# Shadow spawning removed - no shadow on rewind
+	
+	# Exit slow-mo and clear ghost path visualization
+	_exit_rewind_slowmo()
+	_clear_ghost_path_visualization()
+	
+	# End rewind
+	is_rewind_holding = false
+	is_rewind_tracing = false
+	rewind_current_progress = 0.0
+	rewind_traceback_frame_data = []
+	
+	# Set cooldown
+	rewind_cooldown_timer = rewind_cooldown
 
 
 func _extract_traceback_frames(start_time: float, end_time: float, num_frames: int) -> Array[Dictionary]:
@@ -2814,72 +2821,284 @@ func _extract_traceback_frames(start_time: float, end_time: float, num_frames: i
 
 
 func _process_rewind_traceback(delta: float) -> void:
-	"""Process the rewind traceback animation - smoothly animate through frames over the duration."""
-	rewind_traceback_timer += delta
-	
-	# Check if animation is complete
-	if rewind_traceback_timer >= rewind_traceback_duration:
-		print("[REWIND TRACEBACK] Animation complete, ending traceback")
-		_end_rewind_traceback()
+	"""Process the hold-to-rewind traceback - continuously advance backwards while R is held."""
+	if not is_rewind_holding:
+		# If not holding anymore, stop (should have been handled by release)
 		return
 	
-	# Calculate progress (0.0 to 1.0)
-	var progress = rewind_traceback_timer / rewind_traceback_duration
-	progress = clamp(progress, 0.0, 1.0)
+	# Check if button is still being held
+	if not Input.is_action_pressed("rewind"):
+		# Button was released - stop rewind
+		print("[REWIND TRACEBACK] Button no longer pressed, stopping")
+		_stop_rewind_hold()
+		return
 	
-	# Map progress to frame index (0 to frame_count - 1)
-	if rewind_traceback_frame_data.size() > 1:
-		var frame_index = progress * (rewind_traceback_frame_data.size() - 1)
-		var frame_index_floor = int(frame_index)
-		var frame_index_ceil = min(frame_index_floor + 1, rewind_traceback_frame_data.size() - 1)
-		var t = frame_index - frame_index_floor  # Interpolation factor between frames
+	# Advance progress backwards (0.0 = current, 1.0 = 2 seconds ago)
+	# Progress increases as we go back in time
+	# In slow-mo, delta is already affected by time_scale (0.25x)
+	# To make rewind 2.0x relative to slow-mo time: progress_delta = (2.0 * delta) / rewind_time
+	# Since delta is already 0.25x, this gives us 2.0x speed relative to slow-mo time
+	var progress_delta = (rewind_traceback_speed * delta) / rewind_time
+	var old_progress = rewind_current_progress
+	rewind_current_progress += progress_delta
+	
+	# Clamp progress to 0.0 - 1.0
+	rewind_current_progress = clamp(rewind_current_progress, 0.0, 1.0)
+	
+	# Debug output (only every 10 frames to avoid spam)
+	if Engine.get_physics_frames() % 10 == 0:
+		print("[REWIND TRACEBACK] Progress: ", old_progress, " -> ", rewind_current_progress, " (delta: ", progress_delta, ", speed: ", rewind_traceback_speed, ")")
+	
+	# Check if we've reached the end (2 seconds ago)
+	if rewind_current_progress >= 1.0:
+		print("[REWIND] Reached 2 seconds ago, completing rewind")
+		_complete_rewind_hold()
+		return
+	
+	# Get state at current progress and update player position
+	var current_state = _get_state_at_progress(rewind_current_progress)
+	if not current_state.is_empty():
+		global_position = current_state["position"]
+		velocity = current_state["velocity"]
+		facing_direction = current_state["facing_direction"]
 		
-		# Get the two frames to interpolate between
-		var current_frame = rewind_traceback_frame_data[frame_index_floor]
-		var next_frame = rewind_traceback_frame_data[frame_index_ceil]
-		
-		# Smooth interpolation using smoothstep
-		t = t * t * (3.0 - 2.0 * t)
-		
-		# Interpolate position and velocity
-		if not current_frame.is_empty() and not next_frame.is_empty():
-			global_position = current_frame["position"].lerp(next_frame["position"], t)
-			velocity = current_frame["velocity"].lerp(next_frame["velocity"], t)
-			facing_direction = current_frame["facing_direction"]
+		# Update ghost visualization (fade out completed segments)
+		_update_ghost_path_visualization(rewind_current_progress)
 	else:
-		# Only one frame or no frames - just use the first frame
-		if rewind_traceback_frame_data.size() > 0:
-			var frame = rewind_traceback_frame_data[0]
-			if not frame.is_empty():
-				global_position = frame["position"]
-				velocity = frame["velocity"]
-				facing_direction = frame["facing_direction"]
+		print("[REWIND TRACEBACK] WARNING: Could not get state at progress ", rewind_current_progress)
 	
 	# Zero out velocity to prevent physics from interfering
 	velocity = Vector2.ZERO
 
 
-func _end_rewind_traceback() -> void:
-	"""Complete the traceback animation and perform the actual rewind."""
+func _get_state_at_progress(progress: float) -> Dictionary:
+	"""Get the player state at the given progress (0.0 = current, 1.0 = 2 seconds ago).
+	Path is sorted descending (most recent first, oldest last)."""
+	if rewind_traceback_frame_data.is_empty():
+		return {}
+	
+	# Calculate target time based on progress
+	# progress 0.0 = rewind_start_time (current, most recent)
+	# progress 1.0 = rewind_target_time (2 seconds ago, oldest)
+	var target_time = rewind_start_time - (progress * (rewind_start_time - rewind_target_time))
+	
+	# Path is sorted descending (most recent first), so:
+	# frame_data[0] = most recent (rewind_start_time)
+	# frame_data[-1] = oldest (rewind_target_time)
+	
+	# Find the two path points to interpolate between
+	var prev_point: Dictionary = rewind_traceback_frame_data[0]
+	var next_point: Dictionary = rewind_traceback_frame_data[rewind_traceback_frame_data.size() - 1]
+	
+	# Find the segment containing target_time
+	# Since path is descending, we go from high timestamp to low timestamp
+	for i in range(rewind_traceback_frame_data.size() - 1):
+		var point1 = rewind_traceback_frame_data[i]
+		var point2 = rewind_traceback_frame_data[i + 1]
+		var timestamp1 = point1["timestamp"]
+		var timestamp2 = point2["timestamp"]
+		
+		# Since descending: timestamp1 > timestamp2
+		# Check if target_time is between these two points
+		if timestamp1 >= target_time and timestamp2 <= target_time:
+			prev_point = point1  # More recent
+			next_point = point2  # More past
+			break
+	
+	# If target_time is after most recent point, return most recent
+	if target_time > prev_point["timestamp"]:
+		return {
+			"position": prev_point["position"],
+			"velocity": prev_point["velocity"],
+			"facing_direction": prev_point.get("facing_direction", facing_direction)
+		}
+	
+	# If target_time is before oldest point, return oldest
+	if target_time < next_point["timestamp"]:
+		return {
+			"position": next_point["position"],
+			"velocity": next_point["velocity"],
+			"facing_direction": next_point.get("facing_direction", facing_direction)
+		}
+	
+	# Interpolate between the two points
+	var time_range = prev_point["timestamp"] - next_point["timestamp"]  # Always positive (descending)
+	if time_range <= 0.0:
+		return {
+			"position": prev_point["position"],
+			"velocity": prev_point["velocity"],
+			"facing_direction": prev_point.get("facing_direction", facing_direction)
+		}
+	
+	var t = (prev_point["timestamp"] - target_time) / time_range
+	t = clamp(t, 0.0, 1.0)
+	
+	# Smooth interpolation using smoothstep
+	t = t * t * (3.0 - 2.0 * t)
+	
+	return {
+		"position": prev_point["position"].lerp(next_point["position"], t),
+		"velocity": prev_point["velocity"].lerp(next_point["velocity"], t),
+		"facing_direction": prev_point.get("facing_direction", facing_direction)
+	}
+
+
+func _complete_rewind_hold() -> void:
+	"""Complete the rewind when reaching 2 seconds ago (R still held)."""
+	if not is_rewind_holding:
+		return
+	
+	print("[REWIND] Completing rewind at 2 seconds ago")
+	
+	# Get state at 2 seconds ago
+	var target_state = _find_state_at_time(rewind_target_time)
+	if not target_state.is_empty():
+		global_position = target_state["position"]
+		velocity = target_state["velocity"]
+		facing_direction = target_state["facing_direction"]
+	
+	# Shadow spawning removed - no shadow on rewind
+	
+	# Exit slow-mo and clear ghost path visualization
+	_exit_rewind_slowmo()
+	_clear_ghost_path_visualization()
+	
+	# End rewind
+	is_rewind_holding = false
 	is_rewind_tracing = false
-	rewind_traceback_timer = 0.0
-	
-	# Restore player to target state
-	if not rewind_target_state.is_empty():
-		global_position = rewind_target_state["position"]
-		velocity = rewind_target_state["velocity"]
-		facing_direction = rewind_target_state["facing_direction"]
-	
-	# Spawn shadow with path animation
-	_spawn_shadow_with_path(rewind_shadow_path)
-	
-	# Clear stored data
-	rewind_target_state = {}
-	rewind_shadow_path = []
+	rewind_current_progress = 0.0
 	rewind_traceback_frame_data = []
 	
 	# Set cooldown
 	rewind_cooldown_timer = rewind_cooldown
+
+
+# Old _end_rewind_traceback function removed - replaced by _stop_rewind_hold and _complete_rewind_hold
+
+
+func _enter_rewind_slowmo() -> void:
+	"""Enter slow-motion state for rewind."""
+	if is_in_rewind_slowmo:
+		return  # Already in slow-mo
+	
+	# Store current time scale (in case something else modified it)
+	original_time_scale = Engine.time_scale
+	is_in_rewind_slowmo = true
+	Engine.time_scale = rewind_slowmo_scale
+	print("[REWIND] Entered slow-mo (time_scale: ", rewind_slowmo_scale, ")")
+
+
+func _exit_rewind_slowmo() -> void:
+	"""Exit slow-motion state for rewind."""
+	if not is_in_rewind_slowmo:
+		return  # Not in slow-mo
+	
+	is_in_rewind_slowmo = false
+	Engine.time_scale = original_time_scale
+	print("[REWIND] Exited slow-mo (restored time_scale: ", original_time_scale, ")")
+
+
+func _create_ghost_path_visualization() -> void:
+	"""Create visual representation of rewind path using ghost markers."""
+	# Clear any existing visualization first
+	_clear_ghost_path_visualization()
+	
+	if rewind_traceback_frame_data.is_empty():
+		return
+	
+	# Create container node for ghost markers
+	rewind_path_visualization = Node2D.new()
+	rewind_path_visualization.name = "RewindPathVisualization"
+	# Add to scene root so it's not affected by player movement
+	get_tree().root.add_child(rewind_path_visualization)
+	
+	# Create ghost markers at evenly-spaced intervals along the path
+	# Use every 0.2 seconds of path time, or at least 10 markers
+	var path_duration = rewind_start_time - rewind_target_time
+	var marker_interval = 0.2  # seconds
+	var num_markers = max(10, int(path_duration / marker_interval))
+	
+	# Limit markers for performance (max 50)
+	num_markers = min(num_markers, 50)
+	
+	# Calculate which path points to use for markers
+	var marker_indices: Array[int] = []
+	if num_markers > 0:
+		for i in range(num_markers):
+			var progress = float(i) / float(num_markers - 1) if num_markers > 1 else 0.0
+			var target_index = int(progress * (rewind_traceback_frame_data.size() - 1))
+			target_index = clamp(target_index, 0, rewind_traceback_frame_data.size() - 1)
+			marker_indices.append(target_index)
+	
+	# Create ghost markers
+	for i in range(marker_indices.size()):
+		var path_index = marker_indices[i]
+		var path_point = rewind_traceback_frame_data[path_index]
+		
+		# Calculate transparency based on progress (more transparent = further in past)
+		var marker_progress = float(i) / float(marker_indices.size() - 1) if marker_indices.size() > 1 else 0.0
+		var alpha = 0.3 + (0.7 * (1.0 - marker_progress))  # Fade from 1.0 (current) to 0.3 (past)
+		
+		# Create ghost marker (simple colored rectangle)
+		var ghost_marker = Polygon2D.new()
+		ghost_marker.polygon = PackedVector2Array([
+			Vector2(-16, -32),
+			Vector2(16, -32),
+			Vector2(16, 32),
+			Vector2(-16, 32)
+		])
+		ghost_marker.color = Color(0.5, 0.2, 0.8, alpha)  # Purple with transparency
+		ghost_marker.global_position = path_point["position"]
+		
+		rewind_path_visualization.add_child(ghost_marker)
+		ghost_markers.append(ghost_marker)
+	
+	print("[REWIND] Created ", ghost_markers.size(), " ghost markers for path visualization")
+
+
+func _update_ghost_path_visualization(progress: float) -> void:
+	"""Update ghost visualization as player rewinds - fade out completed segments."""
+	if ghost_markers.is_empty():
+		return
+	
+	# Fade out markers that are behind the current progress
+	# Progress 0.0 = current position, progress 1.0 = 2 seconds ago
+	# Markers are ordered from current (index 0) to past (last index)
+	for i in range(ghost_markers.size()):
+		var marker = ghost_markers[i]
+		if not is_instance_valid(marker):
+			continue
+		
+		# Calculate marker progress (0.0 = current, 1.0 = past)
+		var marker_progress = float(i) / float(ghost_markers.size() - 1) if ghost_markers.size() > 1 else 0.0
+		
+		# If marker is behind current progress, fade it out
+		if marker_progress < progress:
+			# Fade out based on how far behind
+			var fade_amount = 1.0 - ((progress - marker_progress) / progress) if progress > 0.0 else 1.0
+			fade_amount = clamp(fade_amount, 0.0, 1.0)
+			var base_alpha = 0.3 + (0.7 * (1.0 - marker_progress))
+			marker.modulate.a = base_alpha * fade_amount
+		else:
+			# Marker is ahead, keep normal transparency
+			var base_alpha = 0.3 + (0.7 * (1.0 - marker_progress))
+			marker.modulate.a = base_alpha
+
+
+func _clear_ghost_path_visualization() -> void:
+	"""Remove all ghost markers and clear visualization."""
+	# Clear markers array
+	for marker in ghost_markers:
+		if is_instance_valid(marker):
+			marker.queue_free()
+	ghost_markers.clear()
+	
+	# Remove container node
+	if rewind_path_visualization and is_instance_valid(rewind_path_visualization):
+		rewind_path_visualization.queue_free()
+		rewind_path_visualization = null
+	
+	print("[REWIND] Cleared ghost path visualization")
 
 
 func _perform_rewind() -> void:
@@ -2950,6 +3169,8 @@ func _extract_path_from_history(start_time: float, end_time: float, end_position
 		if timestamp >= start_time and timestamp <= end_time:
 			path_points.append({
 				"position": snapshot["position"],
+				"velocity": snapshot.get("velocity", Vector2.ZERO),
+				"facing_direction": snapshot.get("facing_direction", facing_direction),
 				"timestamp": timestamp
 			})
 	
@@ -2962,6 +3183,8 @@ func _extract_path_from_history(start_time: float, end_time: float, end_position
 		if not start_state.is_empty():
 			path_points.append({
 				"position": start_state["position"],
+				"velocity": start_state.get("velocity", Vector2.ZERO),
+				"facing_direction": start_state.get("facing_direction", facing_direction),
 				"timestamp": start_time
 			})
 	
@@ -2975,8 +3198,12 @@ func _extract_path_from_history(start_time: float, end_time: float, end_position
 	
 	if not end_point_exists:
 		# Add current position as final point
+		# Use current state for velocity and facing_direction
+		var current_state = _find_state_at_time(end_time)
 		path_points.append({
 			"position": end_position,  # Position before rewind
+			"velocity": current_state.get("velocity", velocity) if not current_state.is_empty() else velocity,
+			"facing_direction": current_state.get("facing_direction", facing_direction) if not current_state.is_empty() else facing_direction,
 			"timestamp": end_time
 		})
 	
