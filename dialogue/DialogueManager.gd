@@ -80,8 +80,23 @@ func can_interrupt() -> bool:
 	return false
 
 func do_interrupt(id: String = "interrupt") -> void:
+	# Force interrupt without checking time delay
 	interrupt_consumed = true
-	start(id)
+	
+	if not dialogue_data.has(id):
+		return
+		
+	var requested_priority = dialogue_data[id].get("priority", 0)
+	
+	# Still respect priority? Usually interrupt has higher priority anyway
+	if _is_active() and requested_priority < current_priority:
+		return
+
+	current_priority = requested_priority
+	current_id = id
+	dialogue_start_time = Time.get_ticks_msec() / 1000.0
+	interrupt_unlocked = false
+	_emit_current()
 
 func _can_interrupt() -> bool:
 	var now = Time.get_ticks_msec() / 1000.0

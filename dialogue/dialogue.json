@@ -2,7 +2,7 @@
   "intro": {
 	"id": "intro",
 	"speaker": "Boss",
-	"text": "You're late.",
+	"text": "You're late.You're late.You're late.You're late.You're late.You're late.You're late.You're late.You're late.You're late.You're late.You're late.",
 	"next": "reply",
 	"priority": 1
   },
