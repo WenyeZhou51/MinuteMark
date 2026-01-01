@@ -12,7 +12,7 @@
 [ext_resource type="Script" path="res://addons/juicy-effect/UI/Wiggle_polygon.gd" id="7_wiggle"]
 [ext_resource type="PackedScene" uid="uid://dr1sbq3ws5wx3" path="res://video_menu.tscn" id="8_video_menu"]
 [ext_resource type="PackedScene" uid="uid://xnhlguhegqau" path="res://audio_menu.tscn" id="9_audio_menu"]
-[ext_resource type="PackedScene" uid="uid://bkjwbsnu7x3jf" path="res://assist_menu.tscn" id="10_assist_menu"]
+[ext_resource type="PackedScene" uid="uid://btpudyf5rfdba" path="res://input_menu.tscn" id="10_input_menu"]
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_focus"]
 
@@ -37,15 +37,7 @@ point_count = 2
 process_mode = 3
 layer = 100
 script = ExtResource("1_pause")
-use_transition_effect = null
-transition_type = null
-transition_duration = null
-pause_bg_fade_duration = null
-pocket_watch_fade_duration = null
 pocket_watch_fps = 60.0
-white_overlay_slide_distance = null
-white_overlay_slide_duration = null
-menu_fade_duration = null
 
 [node name="PauseBg" type="TextureRect" parent="."]
 z_index = -5
@@ -372,7 +364,7 @@ grow_horizontal = 2
 grow_vertical = 2
 rotation = -0.045
 focus_neighbor_top = NodePath("../VideoButton")
-focus_neighbor_bottom = NodePath("../AssistButton")
+focus_neighbor_bottom = NodePath("../InputButton")
 mouse_filter = 1
 theme = SubResource("Theme_buttons")
 flat = true
@@ -473,7 +465,7 @@ duration = 0.0
 [node name="Confirm" type="Node" parent="MenuContainer/AudioButton"]
 script = ExtResource("3_player")
 
-[node name="AssistButton" type="Button" parent="MenuContainer"]
+[node name="InputButton" type="Button" parent="MenuContainer"]
 custom_minimum_size = Vector2(300, 80)
 layout_mode = 1
 anchors_preset = 8
@@ -496,13 +488,13 @@ flat = true
 script = ExtResource("2_juicy_button")
 auto_pivot_center = true
 
-[node name="SelectingIndicator" type="Node2D" parent="MenuContainer/AssistButton"]
+[node name="SelectingIndicator" type="Node2D" parent="MenuContainer/InputButton"]
 process_mode = 4
 visible = false
 z_index = -1
 position = Vector2(150, 40)
 
-[node name="RedPolygon" type="Polygon2D" parent="MenuContainer/AssistButton/SelectingIndicator"]
+[node name="RedPolygon" type="Polygon2D" parent="MenuContainer/InputButton/SelectingIndicator"]
 position = Vector2(-150, -40)
 color = Color(1, 0.5, 0, 0.5)
 polygon = PackedVector2Array(-91.25, 45, 388.75, 105, 381.25, 45, -68.75, -15)
@@ -511,7 +503,7 @@ polygon_color = Color(1, 0.5, 0, 0.5)
 intensity = 10.0
 duration = 0.1
 
-[node name="CyanPolygon" type="Polygon2D" parent="MenuContainer/AssistButton/SelectingIndicator"]
+[node name="CyanPolygon" type="Polygon2D" parent="MenuContainer/InputButton/SelectingIndicator"]
 position = Vector2(-155, -35)
 color = Color(1, 0.9, 0, 0.5)
 polygon = PackedVector2Array(-57.125, 81.25, 370.375, 61.25, 388.375, -18.75, -64.625, 15.25)
@@ -520,16 +512,20 @@ polygon_color = Color(1, 0.9, 0, 0.5)
 intensity = 10.0
 duration = 0.1
 
-[node name="ButtonContent" type="CenterContainer" parent="MenuContainer/AssistButton"]
+[node name="ButtonContent" type="CenterContainer" parent="MenuContainer/InputButton"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_left = -48.5849
+offset_top = -22.7926
+offset_right = 144.415
+offset_bottom = 18.2074
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="Label" type="Label" parent="MenuContainer/AssistButton/ButtonContent"]
+[node name="Label" type="Label" parent="MenuContainer/InputButton/ButtonContent"]
 layout_mode = 2
 theme_override_colors/font_shadow_color = Color(1, 0.6, 0, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
@@ -537,12 +533,12 @@ theme_override_constants/shadow_offset_x = 15
 theme_override_constants/outline_size = 4
 theme_override_fonts/font = ExtResource("2_t4l2a")
 theme_override_font_sizes/font_size = 115
-text = "ASSIST"
+text = "Controls"
 
-[node name="Focus" type="Node" parent="MenuContainer/AssistButton"]
+[node name="Focus" type="Node" parent="MenuContainer/InputButton"]
 script = ExtResource("3_player")
 
-[node name="ScaleButton" type="Node" parent="MenuContainer/AssistButton/Focus" node_paths=PackedStringArray("target_node")]
+[node name="ScaleButton" type="Node" parent="MenuContainer/InputButton/Focus" node_paths=PackedStringArray("target_node")]
 script = ExtResource("4_scale")
 target_node = NodePath("../../ButtonContent")
 target_scale = Vector3(1.2, 1.2, 1)
@@ -550,7 +546,7 @@ curve = SubResource("Curve_focus_scale")
 revert_on_exit = false
 duration = 0.1
 
-[node name="ShowSelecting" type="Node" parent="MenuContainer/AssistButton/Focus" node_paths=PackedStringArray("target_node")]
+[node name="ShowSelecting" type="Node" parent="MenuContainer/InputButton/Focus" node_paths=PackedStringArray("target_node")]
 script = ExtResource("5_active")
 target_node = NodePath("../../SelectingIndicator")
 initial_state = 1
@@ -558,23 +554,23 @@ play_start_state = 1
 also_set_process = true
 duration = 0.0
 
-[node name="BringToFront" type="Node" parent="MenuContainer/AssistButton/Focus" node_paths=PackedStringArray("target_node")]
+[node name="BringToFront" type="Node" parent="MenuContainer/InputButton/Focus" node_paths=PackedStringArray("target_node")]
 script = ExtResource("6_order")
 target_node = NodePath("../..")
 set_to = 1
 duration = 0.0
 
-[node name="Unfocus" type="Node" parent="MenuContainer/AssistButton"]
+[node name="Unfocus" type="Node" parent="MenuContainer/InputButton"]
 script = ExtResource("3_player")
 
-[node name="ScaleButton" type="Node" parent="MenuContainer/AssistButton/Unfocus" node_paths=PackedStringArray("target_node")]
+[node name="ScaleButton" type="Node" parent="MenuContainer/InputButton/Unfocus" node_paths=PackedStringArray("target_node")]
 script = ExtResource("4_scale")
 target_node = NodePath("../../ButtonContent")
 curve = SubResource("Curve_unfocus_scale")
 revert_on_exit = false
 duration = 0.1
 
-[node name="HideSelecting" type="Node" parent="MenuContainer/AssistButton/Unfocus" node_paths=PackedStringArray("target_node")]
+[node name="HideSelecting" type="Node" parent="MenuContainer/InputButton/Unfocus" node_paths=PackedStringArray("target_node")]
 script = ExtResource("5_active")
 target_node = NodePath("../../SelectingIndicator")
 initial_state = 1
@@ -582,12 +578,12 @@ action = 1
 also_set_process = true
 duration = 0.0
 
-[node name="RestoreOrder" type="Node" parent="MenuContainer/AssistButton/Unfocus" node_paths=PackedStringArray("target_node")]
+[node name="RestoreOrder" type="Node" parent="MenuContainer/InputButton/Unfocus" node_paths=PackedStringArray("target_node")]
 script = ExtResource("6_order")
 target_node = NodePath("../..")
 duration = 0.0
 
-[node name="Confirm" type="Node" parent="MenuContainer/AssistButton"]
+[node name="Confirm" type="Node" parent="MenuContainer/InputButton"]
 script = ExtResource("3_player")
 
 [node name="QuitButton" type="Button" parent="MenuContainer"]
@@ -605,7 +601,7 @@ offset_bottom = 540.0
 grow_horizontal = 2
 grow_vertical = 2
 rotation = -0.04
-focus_neighbor_top = NodePath("../AssistButton")
+focus_neighbor_top = NodePath("../InputButton")
 mouse_filter = 1
 theme = SubResource("Theme_buttons")
 flat = true
@@ -712,11 +708,11 @@ visible = false
 [node name="AudioMenu" parent="." instance=ExtResource("9_audio_menu")]
 visible = false
 
-[node name="AssistMenu" parent="." instance=ExtResource("10_assist_menu")]
+[node name="InputMenu" parent="." instance=ExtResource("10_input_menu")]
 visible = false
 
 [connection signal="pressed" from="MenuContainer/ResumeButton" to="." method="_on_resume_pressed"]
 [connection signal="pressed" from="MenuContainer/VideoButton" to="." method="_on_video_pressed"]
 [connection signal="pressed" from="MenuContainer/AudioButton" to="." method="_on_audio_pressed"]
-[connection signal="pressed" from="MenuContainer/AssistButton" to="." method="_on_assist_pressed"]
+[connection signal="pressed" from="MenuContainer/InputButton" to="." method="_on_inputs_pressed"]
 [connection signal="pressed" from="MenuContainer/QuitButton" to="." method="_on_quit_pressed"]
