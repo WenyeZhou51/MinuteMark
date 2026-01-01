@@ -87,6 +87,9 @@ wall_run_min_speed = 200.0
 wall_run_max_speed = 1500.0
 wall_run_speed_decay = 2000.0
 wall_run_empowered_jump_vertical = -950.0
+run_scale = 0.09
+jump_scale = 0.09
+wall_run_scale = 0.09
 ground_slide_speed = 1700.0
 ground_slide_duration = 0.4
 ground_slide_height_reduction = 0.4
@@ -380,11 +383,3 @@ color = Color(0.811765, 0.647059, 0.25098, 1)
 polygon = PackedVector2Array(-250, -20, 250, -20, 250, 20, -250, 20)
 
 [node name="PauseMenu" parent="." instance=ExtResource("8_b0gwe")]
-use_transition_effect = true
-transition_type = 0
-transition_duration = 0.4
-pause_bg_fade_duration = 0.2
-pocket_watch_fade_duration = 0.2
-white_overlay_slide_distance = 50.0
-white_overlay_slide_duration = 0.3
-menu_fade_duration = 0.3

@@ -94,6 +94,21 @@ const ShadowScene = preload("res://shadow.tscn")
 @export_group("Dash")
 @export var dash_enabled: bool = true  ## Enable dash mechanics
 
+@export_group("Animations")
+@export_subgroup("Run")
+@export var run_scale: float = 0.03
+@export var run_fps: float = 24.0
+@export var run_offset: Vector2 = Vector2.ZERO
+@export_subgroup("Jump")
+@export var jump_scale: float = 0.03
+@export var jump_fps: float = 24.0
+@export var jump_offset: Vector2 = Vector2.ZERO
+@export_subgroup("Wall Run")
+@export var wall_run_scale: float = 0.03
+@export var wall_run_fps: float = 24.0
+@export var wall_run_offset: Vector2 = Vector2.ZERO
+@export var wall_run_base_flip: bool = true ## Flip the wall run animation 180 degrees by default
+
 @export_subgroup("Ground Slide")
 @export var ground_slide_speed: float = 1500.0  ## Speed during ground slide
 @export var ground_slide_duration: float = 0.5  ## Duration of ground slide in seconds
@@ -267,6 +282,7 @@ var game_time: float = 0.0  # Total game time elapsed (for timestamping)
 # Component references
 @onready var coyote_timer: Timer = $CoyoteTimer
 @onready var jump_buffer_timer: Timer = $JumpBufferTimer
+@onready var animated_sprite: AnimatedSprite2D = $AnimatedSprite2D
 @onready var attack_visual: Node2D = $AttackVisual
 @onready var attack_indicator: Line2D = $AttackVisual/AttackIndicator
 @onready var attack_target_marker: Marker2D = $AttackVisual/AttackTarget
@@ -298,6 +314,9 @@ func _ready() -> void:
 	
 	# Create bullet parry visual indicator
 	_create_bullet_parry_indicator()
+	
+	# Setup animations
+	_setup_animations()
 	
 	# Connect to enemy signals
 	_connect_to_enemies()
@@ -493,6 +512,9 @@ func _physics_process(delta: float) -> void:
 			modulate = Color(0.7, 1.5, 0.7)  # Green tint - ready for wall run!
 		else:
 			modulate = Color.WHITE  # Normal color
+	
+	# Update animations
+	_update_animations()
 	
 	# Update facing direction based on movement
 	if input_vector.x != 0 and not is_attacking and not is_ground_sliding and not is_air_dashing:
@@ -2791,3 +2813,101 @@ func _restore_normal_time() -> void:
 	parry_time_slowdown_active = false
 	parry_time_slowdown_timer = 0.0
 	Engine.time_scale = 1.0
+
+
+# ====================================
+# ANIMATION SYSTEM
+# ====================================
+
+func _setup_animations() -> void:
+	var sf := SpriteFrames.new()
+	
+	# Load animation sequences with their specific FPS
+	_load_animation_sequence(sf, "run", "res://animation/Run/", "Run 复制_", 23, run_fps)
+	_load_animation_sequence(sf, "jump", "res://animation/jump/", "jump_", 28, jump_fps)
+	_load_animation_sequence(sf, "wall_run", "res://animation/Wall run/", "Wall run_", 18, wall_run_fps)
+	
+	animated_sprite.sprite_frames = sf
+	animated_sprite.play("run") # Default animation
+
+func _load_animation_sequence(sf: SpriteFrames, anim_name: String, folder: String, prefix: String, count: int, fps: float) -> void:
+	if not sf.has_animation(anim_name):
+		sf.add_animation(anim_name)
+	
+	var frames_added = 0
+	for i in range(1, count + 1):
+		var frame_num = str(i).pad_zeros(3)
+		var path = folder + prefix + frame_num + ".png"
+		if ResourceLoader.exists(path):
+			var tex = load(path)
+			sf.add_frame(anim_name, tex)
+			frames_added += 1
+	
+	if frames_added > 0:
+		sf.set_animation_speed(anim_name, fps)
+		sf.set_animation_loop(anim_name, true)
+	else:
+		print("Warning: No frames found for animation: ", anim_name, " at path: ", folder + prefix)
+
+func _update_animations() -> void:
+	if not animated_sprite or not animated_sprite.sprite_frames:
+		return
+		
+	var is_moving_horizontally = abs(velocity.x) > 10.0
+	
+	# Determine which animation to play and its scale/offset
+	var current_scale = run_scale
+	var current_offset = run_offset
+	
+	if is_on_floor():
+		current_scale = run_scale
+		current_offset = run_offset
+		if is_moving_horizontally:
+			if animated_sprite.animation != "run":
+				animated_sprite.play("run")
+			animated_sprite.speed_scale = max(0.5, abs(velocity.x) / max_speed)
+		else:
+			# If stopped on floor, stay on first frame of run as idle
+			animated_sprite.play("run")
+			animated_sprite.stop()
+			animated_sprite.frame = 0
+			animated_sprite.speed_scale = 1.0
+	elif is_wall_running:
+		current_scale = wall_run_scale
+		current_offset = wall_run_offset
+		if animated_sprite.animation != "wall_run":
+			animated_sprite.play("wall_run")
+		animated_sprite.speed_scale = 1.0
+	else:
+		# In air
+		current_scale = jump_scale
+		current_offset = jump_offset
+		if animated_sprite.animation != "jump":
+			animated_sprite.play("jump")
+		
+		# For jump animation, we can tie frame to vertical velocity for a more dynamic look
+		# or just let it play. Since it has 28 frames, let's play it.
+		animated_sprite.speed_scale = 1.0
+	
+	# Apply scale
+	animated_sprite.scale = Vector2(current_scale, current_scale)
+	
+	# Handle flipping
+	if is_moving_horizontally:
+		animated_sprite.flip_h = velocity.x < 0
+	elif is_on_wall:
+		# When on wall, face away from wall normal (towards open space)
+		# wall_normal points AWAY from the wall. 
+		# If wall_normal.x > 0, wall is on left, we should face right (flip_h = false)
+		# If wall_normal.x < 0, wall is on right, we should face left (flip_h = true)
+		animated_sprite.flip_h = wall_normal.x < 0
+		
+	# Apply additional flip for wall run if requested (flips 180 degrees horizontally)
+	if animated_sprite.animation == "wall_run" and wall_run_base_flip:
+		animated_sprite.flip_h = !animated_sprite.flip_h
+		
+	# Apply offset (flip X based on flip_h so the offset is always relative to character facing)
+	var final_offset = current_offset
+	if animated_sprite.flip_h:
+		final_offset.x = -current_offset.x
+	animated_sprite.position = final_offset
