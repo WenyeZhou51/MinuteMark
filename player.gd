@@ -482,36 +482,14 @@ func _physics_process(delta: float) -> void:
 	# Visual feedback: Turn player red when in sprint state, dark red when slamming, cyan when wall running, yellow when dashing
 	# Stun visual feedback is handled in _process_stun()
 	if not is_stunned:
-		if is_slam_frozen:
-			# Bright white flash when frozen after slam
-			modulate = Color(2.0, 2.0, 2.0)  # Bright white (frozen state)
-		elif bullet_grace_period_active:
-			# Flash cyan/white during bullet grace period to indicate player can parry
-			var flash = sin(bullet_grace_period_timer * 50.0) * 0.5 + 0.5
-			modulate = Color(0.3 + flash * 0.7, 1.0, 1.0)  # Bright cyan flash (faster flash)
-		elif grace_period_active:
-			# Flash orange/white during grace period to indicate player can cancel stun
-			var flash = sin(grace_period_timer * 40.0) * 0.5 + 0.5
-			modulate = Color(1.0, 0.5 + flash * 0.5, 0.0)  # Orange flash
-		elif stun_invulnerability_timer > 0:
-			# Flash blue during post-stun invulnerability
-			var flash = sin(stun_invulnerability_timer * 20.0) * 0.5 + 0.5
-			modulate = Color(0.5 + flash * 0.5, 0.5 + flash * 0.5, 1.5)  # Blue flash
-		elif is_ground_sliding or is_air_dashing:
-			modulate = Color(1.5, 1.5, 0.5)  # Yellow tint for dashes (invulnerable)
-		elif is_wall_running:
-			modulate = Color(0.5, 1.5, 1.5)  # Cyan tint for wall run
-		elif is_wall_sliding:
-			modulate = Color(0.7, 0.7, 1.2)  # Light blue tint for wall slide
-		elif is_slamming:
-			modulate = Color(1.5, 0.2, 0.2)  # Dark red tint for ground slam
-		elif is_running:
-			modulate = Color(1.5, 0.5, 0.5)  # Red tint
-		elif abs(velocity.x) >= wall_run_min_velocity:
-			# Player is moving fast enough to wall run - show green tint
-			modulate = Color(0.7, 1.5, 0.7)  # Green tint - ready for wall run!
+		# Flash in 0.1 second intervals during any invulnerability/grace period
+		if stun_invulnerability_timer > 0 or grace_period_active or bullet_grace_period_active:
+			animated_sprite.visible = fmod(game_time, 0.2) < 0.1
 		else:
-			modulate = Color.WHITE  # Normal color
+			animated_sprite.visible = true
+			
+		# Remove all state-based coloring
+		modulate = Color.WHITE
 	
 	# Update animations
 	_update_animations()
@@ -1987,7 +1965,7 @@ func _end_attack() -> void:
 # ====================================
 
 func _process_stun(delta: float) -> void:
-	"""Update stun state - player falls to ground and can't move, rotates horizontal and shakes."""
+	"""Update stun state - player falls to ground and can't move, shakes and flashes."""
 	# Remove previous shake offset before physics
 	global_position -= stun_shake_offset
 	
@@ -1997,12 +1975,13 @@ func _process_stun(delta: float) -> void:
 	# Stop horizontal movement
 	velocity.x = 0.0
 	
-	# Rotate player to horizontal (90 degrees)
-	rotation = PI / 2.0
+	# Keep player upright
+	rotation = 0.0
 	
-	# Visual feedback: make player flash red
-	var flash = sin(stun_timer * 20.0) * 0.5 + 0.5
-	modulate = Color(1.0, flash, flash, 1.0)
+	# Visual feedback: flash in 0.1 second intervals
+	var flash_period = 0.2 # 0.1s on, 0.1s off
+	animated_sprite.visible = fmod(stun_timer, flash_period) < 0.1
+	modulate = Color.WHITE
 
 
 func _start_stun(colliding_enemy: Node2D = null) -> void:
@@ -2070,8 +2049,9 @@ func _end_stun() -> void:
 	is_stunned = false
 	stun_timer = 0.0
 	
-	# Reset rotation to upright
+	# Reset rotation and visibility
 	rotation = 0.0
+	animated_sprite.visible = true
 	
 	# Reset visual feedback
 	modulate = Color.WHITE
@@ -2795,10 +2775,10 @@ func _parry_bullet(bullet: Node2D) -> void:
 	attack_cooldown_timer = attack_cooldown
 	
 	# Visual feedback - brief flash
-	modulate = Color(0.3, 1.5, 1.5)  # Cyan flash
+	animated_sprite.visible = false
 	await get_tree().create_timer(0.1, true, false, true).timeout  # Use process_always flag for time scale
 	if not is_stunned:  # Only reset if not in another state
-		modulate = Color.WHITE
+		animated_sprite.visible = true
 
 
 func _start_parry_time_slowdown() -> void:
