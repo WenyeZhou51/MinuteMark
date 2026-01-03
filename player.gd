@@ -158,6 +158,7 @@ const ShadowScene = preload("res://shadow.tscn")
 @export var rewind_history_duration: float = 3.0  ## How long to keep state history (seconds)
 @export var rewind_traceback_speed: float = 2.0  ## Speed of traceback while holding in slow-mo (2.0 = 2x relative to slow-mo time)
 @export var rewind_slowmo_scale: float = 0.25  ## Time scale for slow-mo (0.25 = quarter speed)
+@export var rewind_restore_velocity: bool = false  ## Whether to restore velocity when rewinding (false = zero velocity on rewind)
 
 # Internal state variables
 var is_jump_held: bool = false  # Is jump button currently held
@@ -2730,7 +2731,10 @@ func _stop_rewind_hold() -> void:
 	if not release_state.is_empty():
 		# Restore player to release position
 		global_position = release_state["position"]
-		velocity = release_state["velocity"]
+		if rewind_restore_velocity:
+			velocity = release_state["velocity"]
+		else:
+			velocity = Vector2.ZERO
 		facing_direction = release_state["facing_direction"]
 	
 	# Shadow spawning removed - no shadow on rewind
@@ -2955,7 +2959,10 @@ func _complete_rewind_hold() -> void:
 	var target_state = _find_state_at_time(rewind_target_time)
 	if not target_state.is_empty():
 		global_position = target_state["position"]
-		velocity = target_state["velocity"]
+		if rewind_restore_velocity:
+			velocity = target_state["velocity"]
+		else:
+			velocity = Vector2.ZERO
 		facing_direction = target_state["facing_direction"]
 	
 	# Shadow spawning removed - no shadow on rewind
