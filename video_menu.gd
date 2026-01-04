@@ -53,7 +53,10 @@ func apply_brightness(value: float):
 			canvas_layer = CanvasLayer.new()
 			canvas_layer.name = "BrightnessControl"
 			canvas_layer.layer = 128  # High layer to affect everything
-			get_tree().root.add_child(canvas_layer)
+			get_tree().root.call_deferred("add_child", canvas_layer)
+			
+			# Wait for canvas_layer to be added before adding children
+			await get_tree().process_frame
 			
 			var color_rect = ColorRect.new()
 			color_rect.name = "BrightnessRect"
@@ -110,5 +113,3 @@ func _on_brightness_slider_value_changed(value: float):
 func _on_fullscreen_toggle_toggled(toggled_on: bool):
 	"""Called when fullscreen toggle changes"""
 	apply_fullscreen(toggled_on)
-
-

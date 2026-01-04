@@ -129,5 +129,3 @@ func _on_time_slow_slider_value_changed(value: float):
 	# Update label
 	if has_node("MenuContainer/TimeSlowContainer/TimeSlowLabel"):
 		$MenuContainer/TimeSlowContainer/TimeSlowLabel.text = "Time Slow: %.0f%%" % value
-
-
