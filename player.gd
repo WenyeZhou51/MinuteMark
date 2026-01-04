@@ -94,7 +94,25 @@ const ShadowScene = preload("res://shadow.tscn")
 @export_group("Dash")
 @export var dash_enabled: bool = true  ## Enable dash mechanics
 
+@export_group("Animations")
+@export_subgroup("Run")
+@export var run_scale: float = 0.03
+@export var run_fps: float = 24.0
+@export var run_offset: Vector2 = Vector2.ZERO
+@export_subgroup("Jump")
+@export var jump_scale: float = 0.03
+@export var jump_fps: float = 24.0
+@export var jump_offset: Vector2 = Vector2.ZERO
+@export_subgroup("Wall Run")
+@export var wall_run_scale: float = 0.03
+@export var wall_run_fps: float = 24.0
+@export var wall_run_offset: Vector2 = Vector2.ZERO
+@export var wall_run_base_flip: bool = true ## Flip the wall run animation 180 degrees by default
+
 @export_subgroup("Ground Slide")
+@export var ground_slide_scale: float = 0.03
+@export var ground_slide_fps: float = 24.0
+@export var ground_slide_offset: Vector2 = Vector2.ZERO
 @export var ground_slide_speed: float = 1500.0  ## Speed during ground slide
 @export var ground_slide_duration: float = 0.5  ## Duration of ground slide in seconds
 @export var ground_slide_height_reduction: float = 0.5  ## Height reduction during slide (0.5 = 50% height)
@@ -109,9 +127,15 @@ const ShadowScene = preload("res://shadow.tscn")
 @export var air_dash_cooldown: float = 0.35  ## Cooldown between air dashes
 @export var air_dash_end_horizontal_velocity: float = 1000.0  ## Horizontal velocity when air dash ends (in dash direction)
 @export var air_dash_end_vertical_velocity: float = 0.0  ## Vertical velocity when air dash ends
+@export var air_dash_afterimage_count: int = 7 ## Number of afterimages to spawn during dash
+@export var air_dash_afterimage_lifetime: float = 0.4 ## How long each afterimage lasts
+@export var air_dash_afterimage_alpha: float = 0.7 ## Initial transparency of afterimages
 
 # KICK ATTACK CONFIGURATION
 @export_group("Kick Attack")
+@export var kick_scale: float = 0.03
+@export var kick_fps: float = 24.0
+@export var kick_offset: Vector2 = Vector2.ZERO
 @export var attack_enabled: bool = true  ## Enable kick attack mechanics
 @export var attack_detection_range: float = 80.0  ## Range to detect enemies for attack (smaller range)
 @export var attack_knockback_speed: float = 700.0  ## Speed at which player is knocked back from enemy
@@ -183,6 +207,7 @@ var is_wall_running: bool = false  # Is player currently wall running
 var wall_run_timer: float = 0.0  # Time elapsed in current wall run
 var wall_run_speed: float = 0.0  # Current upward speed during wall run
 var wall_jump_cooldown: float = 0.0  # Cooldown after wall jump to prevent re-attachment
+var wall_jump_forced_direction: float = 0.0  # Forced direction away from wall after jump
 var wall_run_cooldown: float = 0.0  # Cooldown after wall run ends to prevent immediate restart
 var wall_run_start_position: Vector2 = Vector2.ZERO  # Position when wall run started (for tracking total movement)
 var wall_run_frame_count: int = 0  # Number of frames wall run has been active
@@ -197,6 +222,10 @@ var ledge_climb_grace_timer: float = 0.0  # Timer for momentum protection after 
 var ledge_climb_cooldown_timer: float = 0.0  # Cooldown to prevent re-triggering same ledge
 
 # Attack state variables
+enum KickTargetType { NONE, ENEMY, OBJECT, BULLET }
+var current_kick_target_type: KickTargetType = KickTargetType.NONE
+var current_kick_target_node: Node2D = null
+var kick_has_fired: bool = false
 var is_attacking: bool = false  # Is player currently performing an attack
 var attack_timer: float = 0.0  # Time elapsed in current attack
 var attack_cooldown_timer: float = 0.0  # Time remaining until next attack can be performed
@@ -229,6 +258,7 @@ var ground_slide_timer: float = 0.0  # Time elapsed in current ground slide
 var air_dash_timer: float = 0.0  # Time elapsed in current air dash
 var ground_slide_cooldown_timer: float = 0.0  # Cooldown timer for ground slide
 var air_dash_cooldown_timer: float = 0.0  # Cooldown timer for air dash
+var air_dash_afterimages_spawned: int = 0  # Counter for afterimages spawned during current dash
 var dash_direction: float = 1.0  # Horizontal direction of dash (1 = right, -1 = left)
 var pre_air_dash_horizontal_speed: float = 0.0  # Horizontal speed before air dash
 var velocity_before_move_and_slide: Vector2 = Vector2.ZERO  # Velocity before move_and_slide() for collision detection
@@ -256,11 +286,6 @@ var grace_period_timer: float = 0.0  # Time remaining in grace period
 var grace_period_active: bool = false  # Is grace period currently active
 var grace_period_colliding_enemy: Node2D = null  # Enemy that triggered grace period
 
-# Afterimage state variables
-var afterimage_timer: float = 0.0  # Timer for spawning afterimages
-var afterimage_spawn_interval: float = 0.3  # Spawn an afterimage every 0.3 seconds (~3 over 1 second)
-var afterimage_enabled: bool = true  # Whether afterimages are enabled
-
 # Rewind state variables
 var rewind_cooldown_timer: float = 0.0  # Cooldown timer for rewind ability
 var state_history: Array[Dictionary] = []  # Stores state snapshots with timestamps
@@ -282,6 +307,7 @@ var grayscale_overlay: ColorRect = null  # Grayscale overlay for rewind effect
 # Component references
 @onready var coyote_timer: Timer = $CoyoteTimer
 @onready var jump_buffer_timer: Timer = $JumpBufferTimer
+@onready var animated_sprite: AnimatedSprite2D = $AnimatedSprite2D
 @onready var attack_visual: Node2D = $AttackVisual
 @onready var attack_indicator: Line2D = $AttackVisual/AttackIndicator
 @onready var attack_target_marker: Marker2D = $AttackVisual/AttackTarget
@@ -313,6 +339,9 @@ func _ready() -> void:
 	
 	# Create bullet parry visual indicator
 	_create_bullet_parry_indicator()
+	
+	# Setup animations
+	_setup_animations()
 	
 	# Connect to enemy signals
 	_connect_to_enemies()
@@ -415,13 +444,6 @@ func _physics_process(delta: float) -> void:
 	if rewind_cooldown_timer > 0:
 		rewind_cooldown_timer -= delta
 	
-	# Update afterimage timer and spawn afterimages
-	if afterimage_enabled:
-		afterimage_timer += delta
-		if afterimage_timer >= afterimage_spawn_interval:
-			_spawn_afterimage()
-			afterimage_timer = 0.0
-	
 	# Cache world space state once per frame for performance
 	var space_state = get_world_2d().direct_space_state
 	
@@ -436,6 +458,11 @@ func _physics_process(delta: float) -> void:
 	
 	# 1. Process Input
 	var input_vector := _get_input_vector()
+	
+	# Wall Jump Override: Force movement away from wall during wall jump cooldown
+	# regardless of actual player input
+	if wall_jump_cooldown > 0:
+		input_vector.x = wall_jump_forced_direction
 	
 	# Skip all input processing if slam frozen
 	if is_slam_frozen:
@@ -483,36 +510,17 @@ func _physics_process(delta: float) -> void:
 	# Visual feedback: Turn player red when in sprint state, dark red when slamming, cyan when wall running, yellow when dashing
 	# Stun visual feedback is handled in _process_stun()
 	if not is_stunned:
-		if is_slam_frozen:
-			# Bright white flash when frozen after slam
-			modulate = Color(2.0, 2.0, 2.0)  # Bright white (frozen state)
-		elif bullet_grace_period_active:
-			# Flash cyan/white during bullet grace period to indicate player can parry
-			var flash = sin(bullet_grace_period_timer * 50.0) * 0.5 + 0.5
-			modulate = Color(0.3 + flash * 0.7, 1.0, 1.0)  # Bright cyan flash (faster flash)
-		elif grace_period_active:
-			# Flash orange/white during grace period to indicate player can cancel stun
-			var flash = sin(grace_period_timer * 40.0) * 0.5 + 0.5
-			modulate = Color(1.0, 0.5 + flash * 0.5, 0.0)  # Orange flash
-		elif stun_invulnerability_timer > 0:
-			# Flash blue during post-stun invulnerability
-			var flash = sin(stun_invulnerability_timer * 20.0) * 0.5 + 0.5
-			modulate = Color(0.5 + flash * 0.5, 0.5 + flash * 0.5, 1.5)  # Blue flash
-		elif is_ground_sliding or is_air_dashing:
-			modulate = Color(1.5, 1.5, 0.5)  # Yellow tint for dashes (invulnerable)
-		elif is_wall_running:
-			modulate = Color(0.5, 1.5, 1.5)  # Cyan tint for wall run
-		elif is_wall_sliding:
-			modulate = Color(0.7, 0.7, 1.2)  # Light blue tint for wall slide
-		elif is_slamming:
-			modulate = Color(1.5, 0.2, 0.2)  # Dark red tint for ground slam
-		elif is_running:
-			modulate = Color(1.5, 0.5, 0.5)  # Red tint
-		elif abs(velocity.x) >= wall_run_min_velocity:
-			# Player is moving fast enough to wall run - show green tint
-			modulate = Color(0.7, 1.5, 0.7)  # Green tint - ready for wall run!
+		# Flash in 0.1 second intervals during any invulnerability/grace period
+		if stun_invulnerability_timer > 0 or grace_period_active or bullet_grace_period_active:
+			animated_sprite.visible = fmod(game_time, 0.2) < 0.1
 		else:
-			modulate = Color.WHITE  # Normal color
+			animated_sprite.visible = true
+			
+		# Remove all state-based coloring
+		modulate = Color.WHITE
+	
+	# Update animations
+	_update_animations()
 	
 	# Update facing direction based on movement
 	if input_vector.x != 0 and not is_attacking and not is_ground_sliding and not is_air_dashing:
@@ -592,6 +600,7 @@ func _physics_process(delta: float) -> void:
 		# Check for jump input to cancel slide with empowered jump
 		if Input.is_action_just_pressed("jump") and not is_stunned:
 			_perform_jump()  # Will automatically use slide jump bonus
+			velocity_before_move_and_slide = velocity
 			move_and_slide()
 			_post_movement_updates()
 			return
@@ -749,6 +758,7 @@ func _physics_process(delta: float) -> void:
 	_execute_buffered_jump()
 	
 	# 20. Move Character
+	velocity_before_move_and_slide = velocity
 	move_and_slide()
 	
 	# 21. QOL: Corner Correction (only when moving up fast)
@@ -824,6 +834,8 @@ func _update_ground_state() -> void:
 func _on_landed() -> void:
 	"""Called when player lands on ground."""
 	is_jumping = false
+	wall_jump_cooldown = 0.0
+	wall_jump_forced_direction = 0.0
 	# Reset ledge climb cooldown on landing (allows fresh ledge climb attempts)
 	ledge_climb_cooldown_timer = 0.0
 	
@@ -1228,6 +1240,12 @@ func _end_wall_run() -> void:
 func _check_wall_run_activation() -> void:
 	"""Check for wall run activation/continuation AFTER move_and_slide() using actual collision detection."""
 	
+	# Don't activate if in states that should block wall running
+	if is_stunned or is_attacking or is_slamming or is_ledge_climbing:
+		if is_wall_running:
+			_end_wall_run()
+		return
+	
 	# Check if wall run should END (lost wall contact during wall run)
 	if is_wall_running:
 		# During wall run, use raycast detection to check if still on wall
@@ -1238,10 +1256,14 @@ func _check_wall_run_activation() -> void:
 			_end_wall_run()
 		return  # Don't check for activation if already running
 	
-	# Check if wall run should START (hit wall during dash)
-	# Must be either ground sliding or air dashing to activate wall run
-	if not is_ground_sliding and not is_air_dashing:
-		return  # Only activate during dashes
+	# Check if wall run should START (hit wall during dash or fast run)
+	# Can activate during dashes, fast running, or while in the air
+	if not is_ground_sliding and not is_air_dashing and not is_running and is_on_floor():
+		# If on floor and not dashing/running, check if we have enough speed anyway
+		# (This handles cases where is_running might be false but speed is still above threshold)
+		var horizontal_speed = abs(velocity_before_move_and_slide.x)
+		if horizontal_speed < wall_run_min_velocity:
+			return
 	
 	if not wall_run_enabled:
 		return
@@ -1415,7 +1437,7 @@ func _handle_jump_input() -> void:
 		
 		# Check for wall jump first (highest priority)
 		# Note: Wall run jump is handled earlier in _physics_process
-		if wall_jump_enabled and is_on_wall and not is_wall_running:
+		if wall_jump_enabled and is_on_wall and not is_wall_running and wall_jump_cooldown <= 0:
 			_perform_wall_jump()
 		else:
 			# Check if we can jump immediately
@@ -1522,6 +1544,7 @@ func _perform_wall_jump() -> void:
 	
 	# Set cooldown to prevent immediate re-attachment to wall
 	wall_jump_cooldown = 0.3  # 0.3 second cooldown
+	wall_jump_forced_direction = jump_wall_normal.x  # Store direction away from wall
 	
 	# Clear wall state to prevent immediate re-attachment
 	is_on_wall = false
@@ -1861,7 +1884,7 @@ func _update_attack_indicator() -> void:
 
 
 func _handle_kick_input() -> void:
-	"""Process kick input - prioritize bullet parry > objects > enemies."""
+	"""Process kick input - always start kick animation, trigger effect at frame 5."""
 	# Can't kick when stunned
 	if is_stunned:
 		return
@@ -1872,97 +1895,149 @@ func _handle_kick_input() -> void:
 	
 	# Check for kick input (mapped to 'j' key)
 	if Input.is_action_just_pressed("melee_attack"):
-		# Priority 1: Parry bullet if one is available
-		if parry_enabled and closest_bullet:
-			_parry_bullet(closest_bullet)
-		# Priority 2: Kick object if one is available
-		elif kick_object_enabled and closest_kickable_object:
-			_kick_object(closest_kickable_object)
-		# Priority 3: Attack enemy if available
-		elif attack_enabled and not nearby_enemies.is_empty():
-			_start_attack()
+		_start_kick_sequence()
 
 
-func _start_attack() -> void:
-	"""Initiate a kick attack that sends player away from the closest enemy."""
-	# Find the closest enemy (filter out destroyed enemies)
-	var closest_enemy = null
-	var closest_distance = INF
-	
-	for enemy in nearby_enemies:
-		# Skip destroyed enemies
-		if not enemy or not is_instance_valid(enemy) or enemy.is_destroyed:
-			continue
-		var distance = global_position.distance_to(enemy.global_position)
-		if distance < closest_distance:
-			closest_distance = distance
-			closest_enemy = enemy
-	
-	if not closest_enemy:
-		return
-	
-	# Reset air dash availability (kick attack counts as a reset)
-	air_dash_available = true
-	
-	# Set up attack state
+func _start_kick_sequence() -> void:
+	"""Initialize the kick animation and determine target (if any)."""
 	is_attacking = true
 	attack_timer = 0.0
-	attack_target_enemy = closest_enemy
+	kick_has_fired = false
+	current_kick_target_type = KickTargetType.NONE
+	current_kick_target_node = null
+	attack_velocity = Vector2.ZERO
 	
-	# Calculate direction to enemy and knockback direction (AWAY from enemy)
-	var direction_to_enemy = (closest_enemy.global_position - global_position).normalized()
-	attack_direction = -direction_to_enemy  # Player flies AWAY from enemy
+	# Determine target based on priority: Bullet > Object > Enemy
+	if parry_enabled and closest_bullet:
+		current_kick_target_type = KickTargetType.BULLET
+		current_kick_target_node = closest_bullet
+	elif kick_object_enabled and closest_kickable_object:
+		current_kick_target_type = KickTargetType.OBJECT
+		current_kick_target_node = closest_kickable_object
+	elif attack_enabled and not nearby_enemies.is_empty():
+		# Find closest enemy
+		var closest_enemy = null
+		var closest_distance = INF
+		for enemy in nearby_enemies:
+			if not enemy or not is_instance_valid(enemy) or enemy.is_destroyed:
+				continue
+			var distance = global_position.distance_to(enemy.global_position)
+			if distance < closest_distance:
+				closest_distance = distance
+				closest_enemy = enemy
+		
+		if closest_enemy:
+			current_kick_target_type = KickTargetType.ENEMY
+			current_kick_target_node = closest_enemy
 	
-	# Update facing direction toward the enemy (for the kick animation)
-	if direction_to_enemy.x != 0:
-		facing_direction = sign(direction_to_enemy.x)
+	# If we have a target, ensure we're facing it
+	if current_kick_target_node:
+		var dir_to_target = (current_kick_target_node.global_position - global_position).normalized()
+		if dir_to_target.x != 0:
+			facing_direction = sign(dir_to_target.x)
 	
-	# Set knockback velocity (send player away from enemy)
-	attack_velocity = attack_direction * attack_knockback_speed
-	velocity = attack_velocity
+	# Reset air dash availability (kick animation counts as a reset)
+	air_dash_available = true
 	
-	# Kick the enemy and send them flying
-	if closest_enemy.has_method("kick"):
-		# Kick enemy in direction away from player
-		var enemy_knockback_direction = direction_to_enemy  # Enemy flies away from player
-		closest_enemy.kick(enemy_knockback_direction, attack_enemy_knockback_force)
-	
-	# Hide attack indicator during attack
-	attack_visual.visible = false
+	# Start the animation
+	if animated_sprite.animation != "kick":
+		animated_sprite.play("kick")
+	else:
+		animated_sprite.frame = 0
+		animated_sprite.play("kick")
 	
 	# Cancel other states
 	is_jumping = false
 	is_slamming = false
-	# Hide slam attack visual
 	if slam_attack_visual:
 		slam_attack_visual.visible = false
 	if is_ground_sliding:
 		_end_ground_slide()
 	if is_air_dashing:
 		_end_air_dash()
+
+
+func _execute_enemy_kick(enemy: Node2D) -> void:
+	"""Execute the kick against an enemy."""
+	if not enemy or not is_instance_valid(enemy) or enemy.is_destroyed:
+		return
+		
+	attack_target_enemy = enemy
 	
-	# Could trigger attack effects here (animation, sound, screen shake, etc.)
+	# Calculate direction to enemy and knockback direction (AWAY from enemy)
+	var direction_to_enemy = (enemy.global_position - global_position).normalized()
+	attack_direction = -direction_to_enemy  # Player flies AWAY from enemy
+	
+	# Set knockback velocity (send player away from enemy)
+	attack_velocity = attack_direction * attack_knockback_speed
+	velocity = attack_velocity
+	
+	# Kick the enemy and send them flying
+	if enemy.has_method("kick"):
+		# Kick enemy in direction away from player
+		var enemy_knockback_direction = direction_to_enemy  # Enemy flies away from player
+		enemy.kick(enemy_knockback_direction, attack_enemy_knockback_force)
+	
+	# Hide attack indicator
+	attack_visual.visible = false
 
 
 func _process_attack(delta: float) -> void:
-	"""Update attack state - maintain knockback momentum."""
+	"""Update attack state - trigger effect at frame 5 and wait for animation to complete."""
 	attack_timer += delta
 	
-	# Check if attack duration has elapsed
-	if attack_timer >= attack_duration:
+	# Check for kick execution at frame 5 (index 4)
+	if not kick_has_fired and animated_sprite.animation == "kick" and animated_sprite.frame >= 4:
+		_execute_kick_effect()
+		kick_has_fired = true
+	
+	# Movement logic - only apply knockback velocity AFTER the kick has fired
+	if kick_has_fired:
+		# Maintain knockback velocity (allow slight gravity to make it feel more natural)
+		if not is_on_floor():
+			velocity.y += gravity * 0.3 * delta
+			velocity.y = min(velocity.y, max_fall_speed)
+		
+		# Only override horizontal velocity if we actually hit a target
+		if current_kick_target_type != KickTargetType.NONE:
+			velocity.x = attack_velocity.x
+	else:
+		# Before kick - only slow down if we HAVE a target (anticipation)
+		# If no target, just maintain current momentum
+		if current_kick_target_type != KickTargetType.NONE:
+			velocity.x = move_toward(velocity.x, 0, 500.0 * delta)
+		
+		if not is_on_floor():
+			_apply_gravity(delta)
+	
+	# End attack ONLY when animation finishes (non-looping kick animation)
+	# This ensures the kick plays to completion as requested
+	if animated_sprite.animation == "kick":
+		if not animated_sprite.is_playing() and animated_sprite.frame >= animated_sprite.sprite_frames.get_frame_count("kick") - 1:
+			_end_attack()
+	else:
+		# Safety fallback if animation somehow changed
 		_end_attack()
-		return
 	
-	# Maintain knockback velocity (allow slight gravity to make it feel more natural)
-	# Apply reduced gravity during attack so it's not completely locked
-	if not is_on_floor():
-		velocity.y += gravity * 0.3 * delta  # 30% gravity during attack
-		velocity.y = min(velocity.y, max_fall_speed)  # Still respect terminal velocity
-	
-	# Keep horizontal momentum from attack
-	velocity.x = attack_velocity.x
-	
-	# Maintain attack knockback
+	# Absolute safety timeout (2 seconds) to prevent getting stuck
+	if attack_timer > 2.0:
+		_end_attack()
+
+
+func _execute_kick_effect() -> void:
+	"""Execute the actual physical effect of the kick based on target type."""
+	match current_kick_target_type:
+		KickTargetType.ENEMY:
+			if current_kick_target_node and is_instance_valid(current_kick_target_node):
+				_execute_enemy_kick(current_kick_target_node)
+		KickTargetType.OBJECT:
+			if current_kick_target_node and is_instance_valid(current_kick_target_node):
+				_execute_object_kick(current_kick_target_node)
+		KickTargetType.BULLET:
+			if current_kick_target_node and is_instance_valid(current_kick_target_node):
+				_execute_bullet_parry(current_kick_target_node)
+		KickTargetType.NONE:
+			pass
 
 
 func _end_attack() -> void:
@@ -1974,7 +2049,8 @@ func _end_attack() -> void:
 	
 	# PRESERVE MOMENTUM: Keep knockback velocity with retention multiplier
 	# This makes the attack feel like it flows into your movement
-	velocity.x = attack_velocity.x * attack_momentum_retention
+	if current_kick_target_type != KickTargetType.NONE:
+		velocity.x = attack_velocity.x * attack_momentum_retention
 	
 	# If on ground, maintain more horizontal velocity
 	# If in air, gravity will naturally take over for vertical
@@ -1990,7 +2066,7 @@ func _end_attack() -> void:
 # ====================================
 
 func _process_stun(delta: float) -> void:
-	"""Update stun state - player falls to ground and can't move, rotates horizontal and shakes."""
+	"""Update stun state - player falls to ground and can't move, shakes and flashes."""
 	# Remove previous shake offset before physics
 	global_position -= stun_shake_offset
 	
@@ -2000,12 +2076,13 @@ func _process_stun(delta: float) -> void:
 	# Stop horizontal movement
 	velocity.x = 0.0
 	
-	# Rotate player to horizontal (90 degrees)
-	rotation = PI / 2.0
+	# Keep player upright
+	rotation = 0.0
 	
-	# Visual feedback: make player flash red
-	var flash = sin(stun_timer * 20.0) * 0.5 + 0.5
-	modulate = Color(1.0, flash, flash, 1.0)
+	# Visual feedback: flash in 0.1 second intervals
+	var flash_period = 0.2 # 0.1s on, 0.1s off
+	animated_sprite.visible = fmod(stun_timer, flash_period) < 0.1
+	modulate = Color.WHITE
 
 
 func _start_stun(colliding_enemy: Node2D = null) -> void:
@@ -2061,7 +2138,7 @@ func _cancel_grace_period_with_kick() -> void:
 			nearby_enemies.append(enemy)
 		
 		# Perform the attack
-		_start_attack()
+		_start_kick_sequence()
 
 
 func _end_stun() -> void:
@@ -2073,8 +2150,9 @@ func _end_stun() -> void:
 	is_stunned = false
 	stun_timer = 0.0
 	
-	# Reset rotation to upright
+	# Reset rotation and visibility
 	rotation = 0.0
+	animated_sprite.visible = true
 	
 	# Reset visual feedback
 	modulate = Color.WHITE
@@ -2126,8 +2204,8 @@ func _cancel_bullet_grace_period_with_parry() -> void:
 	_update_bullet_detection()
 	
 	if closest_bullet and is_instance_valid(closest_bullet):
-		# Parry the closest bullet
-		_parry_bullet(closest_bullet)
+		# Perform the kick sequence
+		_start_kick_sequence()
 	else:
 		# No bullets to parry - just give brief invulnerability as reward
 		stun_invulnerability_timer = 0.3
@@ -2232,6 +2310,7 @@ func _start_air_dash(input_x: float) -> void:
 	# Start air dash
 	is_air_dashing = true
 	air_dash_timer = 0.0
+	air_dash_afterimages_spawned = 0
 	air_dash_cooldown_timer = air_dash_cooldown
 	air_dash_available = false  # Consume air dash (will reset on ground/wall/kick parry/slam)
 	is_invulnerable = true  # Player is invulnerable during air dash
@@ -2266,6 +2345,12 @@ func _process_air_dash(delta: float) -> void:
 	"""Update air dash state - force-based, allows physics to take over after initial impulse."""
 	# Increment timer
 	air_dash_timer += delta
+	
+	# Spawn afterimages throughout the dash
+	var interval = air_dash_duration / float(air_dash_afterimage_count)
+	if air_dash_timer >= (air_dash_afterimages_spawned + 0.5) * interval and air_dash_afterimages_spawned < air_dash_afterimage_count:
+		_spawn_air_dash_afterimage()
+		air_dash_afterimages_spawned += 1
 	
 	# Check if air dash duration has elapsed
 	if air_dash_timer >= air_dash_duration:
@@ -2544,8 +2629,8 @@ func _update_kick_object_indicator() -> void:
 		object_kick_indicator.visible = false
 
 
-func _kick_object(obj: Node2D) -> void:
-	"""Kick a kickable object in the facing direction."""
+func _execute_object_kick(obj: Node2D) -> void:
+	"""Execute the kick against an object."""
 	if not obj or not is_instance_valid(obj):
 		return
 	
@@ -2559,7 +2644,8 @@ func _kick_object(obj: Node2D) -> void:
 	obj.kick(kick_direction, kick_object_speed)
 	
 	# Apply knockback to player in opposite direction
-	velocity.x -= facing_direction * kick_object_knockback_force
+	attack_velocity = Vector2(-facing_direction * kick_object_knockback_force, -100.0)
+	velocity = attack_velocity
 	
 	# Set cooldown
 	attack_cooldown_timer = attack_cooldown
@@ -2574,18 +2660,48 @@ func _spawn_afterimage() -> void:
 	# Create a new afterimage instance
 	var afterimage = AfterimageScene.instantiate()
 	
-	# Set the afterimage's position to match the player
+	# Set the afterimage's position and rotation to match the player
 	afterimage.global_position = global_position
+	afterimage.rotation = rotation
 	
-	# Set the afterimage to start green (it will fade to red over its lifetime)
-	if afterimage.has_node("Polygon2D"):
+	# Initialize from current sprite
+	if afterimage.has_method("setup_from_sprite"):
+		afterimage.setup_from_sprite(animated_sprite)
+	elif afterimage.has_node("Polygon2D"):
+		# Fallback for old afterimage logic
 		var afterimage_polygon = afterimage.get_node("Polygon2D")
-		# Start with bright green color
-		afterimage_polygon.color = Color(0.2, 1.0, 0.2, 0.6)  # Green with 60% opacity
+		afterimage_polygon.color = Color(0.2, 1.0, 0.2, 0.6)
+		afterimage_polygon.visible = true
 	
-	# Add the afterimage to the scene (as a sibling of the player, not a child)
-	# This prevents the afterimage from moving with the player
+	# Add the afterimage to the scene
 	get_parent().add_child(afterimage)
+	
+	# Ensure it's rendered behind the player
+	afterimage.z_index = z_index - 1
+
+
+func _spawn_air_dash_afterimage() -> void:
+	"""Spawn a specialized brighter/desaturated afterimage for air dashing."""
+	var afterimage = AfterimageScene.instantiate()
+	
+	# Set the afterimage's position and rotation to match the player
+	afterimage.global_position = global_position
+	afterimage.rotation = rotation
+	
+	# Brighter and more desaturated modulation
+	var dash_modulate = Color(2.5, 2.5, 2.5, 1.0) # Much brighter white
+	
+	if afterimage.has_method("setup_from_sprite"):
+		afterimage.setup_from_sprite(animated_sprite, dash_modulate)
+		# Set properties from inspector
+		afterimage.lifetime = air_dash_afterimage_lifetime
+		afterimage.initial_alpha = air_dash_afterimage_alpha
+	
+	# Add to tree
+	get_parent().add_child(afterimage)
+	
+	# Ensure it's rendered at a consistent Z index relative to player
+	afterimage.z_index = z_index - 1
 
 
 # ====================================
@@ -3386,8 +3502,8 @@ func _update_bullet_parry_indicator() -> void:
 	else:
 		bullet_parry_indicator.visible = false
 
-func _parry_bullet(bullet: Node2D) -> void:
-	"""Parry a bullet - redirect it back towards the enemy that shot it."""
+func _execute_bullet_parry(bullet: Node2D) -> void:
+	"""Execute the parry against a bullet."""
 	if not bullet or not is_instance_valid(bullet):
 		return
 	
@@ -3401,7 +3517,8 @@ func _parry_bullet(bullet: Node2D) -> void:
 	bullet.parry(parry_direction)
 	
 	# Apply vertical boost to player
-	velocity.y = -parry_vertical_boost
+	attack_velocity = Vector2(velocity.x, -parry_vertical_boost)
+	velocity = attack_velocity
 	is_jumping = true  # Set jumping state so player has air control
 	
 	# Activate time slowdown effect
@@ -3411,10 +3528,11 @@ func _parry_bullet(bullet: Node2D) -> void:
 	attack_cooldown_timer = attack_cooldown
 	
 	# Visual feedback - brief flash
-	modulate = Color(0.3, 1.5, 1.5)  # Cyan flash
-	await get_tree().create_timer(0.1, true, false, true).timeout  # Use process_always flag for time scale
-	if not is_stunned:  # Only reset if not in another state
-		modulate = Color.WHITE
+	animated_sprite.visible = false
+	get_tree().create_timer(0.05, true, false, true).timeout.connect(func(): 
+		if is_instance_valid(self) and not is_stunned: 
+			animated_sprite.visible = true
+	)
 
 
 func _start_parry_time_slowdown() -> void:
@@ -3429,3 +3547,123 @@ func _restore_normal_time() -> void:
 	parry_time_slowdown_active = false
 	parry_time_slowdown_timer = 0.0
 	Engine.time_scale = 1.0
+
+
+# ====================================
+# ANIMATION SYSTEM
+# ====================================
+
+func _setup_animations() -> void:
+	var sf := SpriteFrames.new()
+	
+	# Load animation sequences with their specific FPS
+	_load_animation_sequence(sf, "run", "res://Animation/Run/", "Run 复制_", 23, run_fps)
+	_load_animation_sequence(sf, "jump", "res://Animation/jump/", "jump_", 28, jump_fps)
+	_load_animation_sequence(sf, "wall_run", "res://Animation/Wall run 复制/", "Wall run 复制_", 18, wall_run_fps)
+	_load_animation_sequence(sf, "slide", "res://Animation/Slide/", "Slide_", 10, ground_slide_fps)
+	_load_animation_sequence(sf, "kick", "res://Animation/Kick/", "Kick_", 14, kick_fps, false)
+	
+	animated_sprite.sprite_frames = sf
+	animated_sprite.play("run") # Default animation
+
+func _load_animation_sequence(sf: SpriteFrames, anim_name: String, folder: String, prefix: String, count: int, fps: float, loop: bool = true) -> void:
+	if not sf.has_animation(anim_name):
+		sf.add_animation(anim_name)
+	
+	var frames_added = 0
+	for i in range(1, count + 1):
+		var frame_num = str(i).pad_zeros(3)
+		var path = folder + prefix + frame_num + ".png"
+		if ResourceLoader.exists(path):
+			var tex = load(path)
+			sf.add_frame(anim_name, tex)
+			frames_added += 1
+	
+	if frames_added > 0:
+		sf.set_animation_speed(anim_name, fps)
+		sf.set_animation_loop(anim_name, loop)
+	else:
+		print("Warning: No frames found for animation: ", anim_name, " at path: ", folder + prefix)
+
+func _update_animations() -> void:
+	if not animated_sprite or not animated_sprite.sprite_frames:
+		return
+		
+	var is_moving_horizontally = abs(velocity.x) > 10.0
+	
+	# Determine which animation to play and its scale/offset
+	var current_scale = run_scale
+	var current_offset = run_offset
+	
+	if is_attacking or (animated_sprite.animation == "kick" and animated_sprite.is_playing()):
+		current_scale = kick_scale
+		current_offset = kick_offset
+		if animated_sprite.animation != "kick":
+			animated_sprite.play("kick")
+		animated_sprite.speed_scale = 1.0
+	elif is_ground_sliding:
+		current_scale = ground_slide_scale
+		current_offset = ground_slide_offset
+		if animated_sprite.animation != "slide":
+			animated_sprite.play("slide")
+		
+		# Stay at last frame if reached
+		if animated_sprite.frame == animated_sprite.sprite_frames.get_frame_count("slide") - 1:
+			animated_sprite.stop()
+		animated_sprite.speed_scale = 1.0
+	elif is_on_floor():
+		current_scale = run_scale
+		current_offset = run_offset
+		if is_moving_horizontally:
+			if animated_sprite.animation != "run":
+				animated_sprite.play("run")
+			animated_sprite.speed_scale = max(0.5, abs(velocity.x) / max_speed)
+		else:
+			# If stopped on floor, stay on first frame of run as idle
+			animated_sprite.play("run")
+			animated_sprite.stop()
+			animated_sprite.frame = 0
+			animated_sprite.speed_scale = 1.0
+	elif is_wall_running:
+		current_scale = wall_run_scale
+		current_offset = wall_run_offset
+		if animated_sprite.animation != "wall_run":
+			animated_sprite.play("wall_run")
+		animated_sprite.speed_scale = 1.0
+	else:
+		# In air
+		current_scale = jump_scale
+		current_offset = jump_offset
+		if animated_sprite.animation != "jump":
+			animated_sprite.play("jump")
+		
+		# For jump animation, we can tie frame to vertical velocity for a more dynamic look
+		# or just let it play. Since it has 28 frames, let's play it.
+		animated_sprite.speed_scale = 1.0
+	
+	# Apply scale
+	animated_sprite.scale = Vector2(current_scale, current_scale)
+	
+	# Handle flipping
+	if is_attacking or (animated_sprite.animation == "kick" and animated_sprite.is_playing()):
+		animated_sprite.flip_h = facing_direction < 0
+	elif is_ground_sliding:
+		animated_sprite.flip_h = facing_direction < 0
+	elif is_moving_horizontally:
+		animated_sprite.flip_h = velocity.x < 0
+	elif is_on_wall:
+		# When on wall, face away from wall normal (towards open space)
+		# wall_normal points AWAY from the wall. 
+		# If wall_normal.x > 0, wall is on left, we should face right (flip_h = false)
+		# If wall_normal.x < 0, wall is on right, we should face left (flip_h = true)
+		animated_sprite.flip_h = wall_normal.x < 0
+		
+	# Apply additional flip for wall run if requested (flips 180 degrees horizontally)
+	if animated_sprite.animation == "wall_run" and wall_run_base_flip:
+		animated_sprite.flip_h = !animated_sprite.flip_h
+		
+	# Apply offset (flip X based on flip_h so the offset is always relative to character facing)
+	var final_offset = current_offset
+	if animated_sprite.flip_h:
+		final_offset.x = -current_offset.x
+	animated_sprite.position = final_offset

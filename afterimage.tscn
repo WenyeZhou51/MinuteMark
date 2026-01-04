@@ -4,9 +4,11 @@
 
 [node name="Afterimage" type="Node2D"]
 script = ExtResource("1_afterimage")
-lifetime = 1.0
+lifetime = 0.5
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
 
 [node name="Polygon2D" type="Polygon2D" parent="."]
+visible = false
 color = Color(0.2, 1.0, 0.2, 0.6)
 polygon = PackedVector2Array(-16, -32, 16, -32, 16, 32, -16, 32)
-

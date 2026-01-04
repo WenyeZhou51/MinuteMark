@@ -60,8 +60,8 @@ func _ready():
 		inner_menus["video"] = $VideoMenu
 	if has_node("AudioMenu"):
 		inner_menus["audio"] = $AudioMenu
-	if has_node("AssistMenu"):
-		inner_menus["assist"] = $AssistMenu
+	if has_node("InputMenu"):
+		inner_menus["inputs"] = $InputMenu
 	
 	# Setup audio players
 	setup_audio_players()
@@ -291,8 +291,8 @@ func _on_audio_pressed():
 	show_inner_menu("audio")
 
 
-func _on_assist_pressed():
-	show_inner_menu("assist")
+func _on_inputs_pressed():
+	show_inner_menu("inputs")
 
 
 func show_inner_menu(menu_name: String):

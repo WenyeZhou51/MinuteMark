@@ -1,0 +1,24 @@
+{
+  "intro": {
+	"id": "intro",
+	"speaker": "Boss",
+	"text": "You're late.You're late.You're late.You're late.You're late.You're late.You're late.You're late.You're late.You're late.You're late.You're late.",
+	"next": "reply",
+	"priority": 1
+  },
+  "reply": {
+	"id": "reply",
+	"speaker": "Player",
+	"text": "Traffic.",
+	"next": null,
+	"priority": 1
+  },
+
+  "interrupt": {
+	"id": "interrupt",
+	"speaker": "Stranger",
+	"text": "Watch out!",
+	"next": null,
+	"priority": 10
+  }
+}

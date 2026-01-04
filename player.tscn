@@ -28,8 +28,11 @@ wall_jump_vertical_velocity = -800.0
 shape = SubResource("RectangleShape2D_w6f8y")
 
 [node name="Visual" type="Polygon2D" parent="."]
+visible = false
 color = Color(0.290196, 0.639216, 1, 1)
 polygon = PackedVector2Array(-16, -32, 16, -32, 16, 32, -16, 32)
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 
 [node name="CoyoteTimer" type="Timer" parent="."]
 wait_time = 0.15
