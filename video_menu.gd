@@ -113,6 +113,3 @@ func _on_brightness_slider_value_changed(value: float):
 func _on_fullscreen_toggle_toggled(toggled_on: bool):
 	"""Called when fullscreen toggle changes"""
 	apply_fullscreen(toggled_on)
-
-	"""Called when fullscreen toggle changes"""
-	apply_fullscreen(toggled_on)
