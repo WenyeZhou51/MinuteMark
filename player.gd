@@ -25,10 +25,14 @@ const DustParticlesScene = preload("res://dust_particles.tscn")
 @export var ground_deceleration: float = 2000.0  ## Deceleration when on ground (no input)
 @export var air_acceleration: float = 800.0  ## Acceleration when airborne (reduced control)
 @export var air_deceleration: float = 400.0  ## Deceleration when airborne (reduced control)
-@export var sprint_speed_threshold: float = 700.0  ## Speed required to enter sprint state
+@export var sprint_speed_threshold: float = 1000.0  ## Speed required to enter sprint state
 @export var run_speed_multiplier: float = 1.75  ## Speed multiplier when in sprint state
 @export var run_acceleration_multiplier: float = 1.3  ## Acceleration multiplier when in sprint state
 @export var run_activation_delay: float = 0.1  ## [UNUSED] Previously used for hold-to-sprint delay
+
+@export_group("Afterimage Trail")
+@export var trail_afterimage_interval: float = 0.05 ## Time between afterimage spawns in trail
+@export var trail_max_speed_threshold: float = 1500.0 ## Speed at which 4 afterimages are shown
 
 # JUMP CONFIGURATION
 @export_group("Jump Mechanics")
@@ -72,7 +76,7 @@ const DustParticlesScene = preload("res://dust_particles.tscn")
 @export var stun_duration: float = 1.0  ## Duration of stun when touching enemy (seconds)
 @export var grace_period_duration: float = 0.2  ## Grace period to cancel stun with kick (seconds)
 @export var stun_invulnerability_duration: float = 0.5  ## Invulnerability after stun ends (seconds)
-@export var stun_shake_intensity: float = 3.0  ## Intensity of shake effect during stun
+@export var stun_shake_intensity: float = 1.5  ## Intensity of shake effect during stun
 
 # WALL JUMP CONFIGURATION
 @export_group("Wall Jump")
@@ -145,7 +149,7 @@ const DustParticlesScene = preload("res://dust_particles.tscn")
 @export var attack_duration: float = 0.2  ## Duration of the attack knockback (seconds)
 @export var attack_momentum_retention: float = 0.6  ## How much momentum is kept after attack (0.0-1.0)
 @export var attack_cooldown: float = 0.2  ## Cooldown between attacks
-@export var attack_enemy_knockback_force: float = 1200.0  ## Force applied to enemy when kicked
+@export var attack_enemy_knockback_force: float = 2500.0  ## Force applied to enemy when kicked
 
 # BULLET PARRY CONFIGURATION
 @export_group("Bullet Parry")
@@ -153,6 +157,7 @@ const DustParticlesScene = preload("res://dust_particles.tscn")
 @export var parry_detection_range: float = 100.0  ## Range to detect bullets for parrying
 @export var parry_angle_cone: float = 120.0  ## Cone angle in front of player for bullet detection (degrees)
 @export var bullet_hit_grace_period: float = 0.1  ## Time window to press kick after being hit by bullet to parry instead of taking hitstun (seconds)
+@export var parry_early_grace_period: float = 0.15 ## Time window BEFORE getting hit or before bullet enters range to press kick (seconds)
 @export var parry_time_scale: float = 0.2  ## Time scale during parry (0.2 = 80% slower, 1.0 = normal speed)
 @export var parry_time_duration: float = 0.3  ## Duration of time slowdown effect during parry (seconds in real time)
 @export var parry_vertical_boost: float = 300.0  ## Upward velocity boost given to player on successful parry
@@ -199,6 +204,9 @@ var run_input_held_time: float = 0.0  # [UNUSED] Previously tracked run input ho
 # Performance optimization variables
 var ledge_check_timer: float = 0.0
 var ledge_check_interval: float = 0.2  # Check ledge climb every 0.2 seconds
+
+# Afterimage trail state
+var trail_afterimage_timer: float = 0.0
 
 # Wall jump state variables
 var is_on_wall: bool = false  # Is player touching a wall
@@ -250,6 +258,7 @@ var closest_bullet: Node2D = null  # Closest bullet in front of player
 var bullet_parry_indicator: Line2D = null  # Visual indicator for parryable bullet
 var bullet_grace_period_active: bool = false  # Is bullet hit grace period currently active
 var bullet_grace_period_timer: float = 0.0  # Time remaining in bullet grace period
+var early_parry_timer: float = 0.0  # Time remaining in early parry window (pressed kick before hit)
 var bullet_that_hit: Node2D = null  # Bullet that triggered grace period
 var parry_time_slowdown_active: bool = false  # Is time slowdown effect active from parry
 var parry_time_slowdown_timer: float = 0.0  # Time remaining for time slowdown effect (real time)
@@ -270,6 +279,11 @@ var is_slide_jump_available: bool = false  # Can player perform empowered jump f
 var is_invulnerable: bool = false  # Is player currently invulnerable (during dashes)
 var run_input_just_pressed: bool = false  # Track if run input was just pressed this frame
 var air_dash_available: bool = true  # Is air dash available (resets on ground/wall/kick parry/slam)
+
+# CAMERA SHAKE
+var camera_shake_intensity: float = 0.0
+var camera_shake_timer: float = 0.0
+var camera_shake_type: String = "random" # "random" or "sine"
 
 # Ground Slam state variables
 var is_slamming: bool = false  # Is player currently ground slamming
@@ -513,6 +527,25 @@ func _physics_process(delta: float) -> void:
 	var current_speed = velocity.length()
 	is_running = current_speed > sprint_speed_threshold
 	
+	# Handle speed-based afterimage trail
+	if current_speed > sprint_speed_threshold:
+		trail_afterimage_timer += delta
+		if trail_afterimage_timer >= trail_afterimage_interval:
+			trail_afterimage_timer = 0.0
+			
+			# Determine how many afterimages should be in the trail
+			# Above sprint speed (1000) = 2 afterimages
+			# At max speed (1500) = 4 afterimages
+			var count = 2
+			if current_speed >= trail_max_speed_threshold:
+				count = 4
+			
+			# Spawn a single afterimage with a lifetime that results in 'count' afterimages being visible
+			# (since they are spawned every trail_afterimage_interval seconds)
+			_spawn_trail_afterimage(count * trail_afterimage_interval)
+	else:
+		trail_afterimage_timer = 0.0
+	
 	# Visual feedback: Turn player red when in sprint state, dark red when slamming, cyan when wall running, yellow when dashing
 	# Stun visual feedback is handled in _process_stun()
 	if not is_stunned:
@@ -588,6 +621,11 @@ func _physics_process(delta: float) -> void:
 			if Input.is_action_just_pressed("melee_attack"):
 				# Cancel hitstun, perform parry instead!
 				_cancel_bullet_grace_period_with_parry()
+	
+	# Update early parry grace period timer
+	if early_parry_timer > 0:
+		early_parry_timer -= delta
+		# If timer just expired and we didn't hit anything, that's fine - kick animation continues as normal
 	
 	# Update parry time slowdown timer (uses unscaled delta for real-time countdown)
 	if parry_time_slowdown_active:
@@ -711,6 +749,28 @@ func _physics_process(delta: float) -> void:
 		_update_bullet_detection()
 		_update_bullet_parry_indicator()
 	
+	# 9.6. Check for Early Parry Triggers
+	if early_parry_timer > 0 and not kick_has_fired and not is_stunned:
+		# Priority: Bullet > Object > Enemy
+		if parry_enabled and closest_bullet:
+			_trigger_early_parry(KickTargetType.BULLET, closest_bullet)
+		elif kick_object_enabled and closest_kickable_object:
+			_trigger_early_parry(KickTargetType.OBJECT, closest_kickable_object)
+		elif attack_enabled and not nearby_enemies.is_empty():
+			# Find closest enemy
+			var closest_enemy = null
+			var closest_distance = INF
+			for enemy in nearby_enemies:
+				if not enemy or not is_instance_valid(enemy) or enemy.is_destroyed:
+					continue
+				var distance = global_position.distance_to(enemy.global_position)
+				if distance < closest_distance:
+					closest_distance = distance
+					closest_enemy = enemy
+			
+			if closest_enemy:
+				_trigger_early_parry(KickTargetType.ENEMY, closest_enemy)
+	
 	# 10. Handle Attack/Kick Input
 	if attack_enabled or kick_object_enabled or parry_enabled:
 		_handle_kick_input()
@@ -796,6 +856,9 @@ func _physics_process(delta: float) -> void:
 			# print("║ is_wall_running: ", is_wall_running)
 			# print("║ is_on_wall: ", is_on_wall)
 			# print("╚═══════════════════════════════════════════════════╝")
+
+	# Update camera shake
+	_process_camera_shake(delta)
 
 
 # ====================================
@@ -1921,6 +1984,7 @@ func _start_kick_sequence() -> void:
 	is_attacking = true
 	attack_timer = 0.0
 	kick_has_fired = false
+	early_parry_timer = parry_early_grace_period
 	current_kick_target_type = KickTargetType.NONE
 	current_kick_target_node = null
 	attack_velocity = Vector2.ZERO
@@ -2058,6 +2122,33 @@ func _execute_kick_effect() -> void:
 			pass
 
 
+func _trigger_early_parry(type: KickTargetType, node: Node2D) -> void:
+	"""Force an immediate parry when target enters range during early grace period."""
+	if not node or not is_instance_valid(node):
+		return
+		
+	# Consume the early parry window
+	early_parry_timer = 0.0
+	
+	# Set the target
+	current_kick_target_type = type
+	current_kick_target_node = node
+	
+	# If we are already in an attack animation, jump to the active frame
+	if is_attacking:
+		if not kick_has_fired:
+			# Jump to just before the active frame so it feels like it hit
+			animated_sprite.frame = 4
+			_execute_kick_effect()
+			kick_has_fired = true
+	else:
+		# Start a new kick and immediately trigger the effect
+		_start_kick_sequence()
+		animated_sprite.frame = 4
+		_execute_kick_effect()
+		kick_has_fired = true
+
+
 func _end_attack() -> void:
 	"""Complete the attack and preserve momentum."""
 	is_attacking = false
@@ -2181,6 +2272,11 @@ func _end_stun() -> void:
 
 func _on_enemy_touched(enemy: Node2D = null) -> void:
 	"""Called when player touches an enemy without attacking."""
+	# If we are already trying to parry (too early press), trigger it immediately!
+	if early_parry_timer > 0 and not kick_has_fired:
+		_trigger_early_parry(KickTargetType.ENEMY, enemy)
+		return
+		
 	# Check for invulnerability from dashes, already stunned, grace period active, or post-stun invulnerability
 	if not is_attacking and not is_stunned and not is_invulnerable and not grace_period_active and stun_invulnerability_timer <= 0:
 		_start_stun(enemy)
@@ -2193,6 +2289,11 @@ func _on_enemy_destroyed() -> void:
 
 func _on_bullet_hit(bullet: Node2D, shooter: Node2D = null) -> void:
 	"""Called when player is hit by a bullet - starts grace period for parry."""
+	# If we are already trying to parry (too early press), trigger it immediately!
+	if early_parry_timer > 0 and not kick_has_fired:
+		_trigger_early_parry(KickTargetType.BULLET, bullet)
+		return
+		
 	# Check for invulnerability from dashes, already stunned, grace periods active, or post-stun invulnerability
 	if not is_attacking and not is_stunned and not is_invulnerable and not grace_period_active and not bullet_grace_period_active and stun_invulnerability_timer <= 0:
 		# Start bullet grace period
@@ -2730,6 +2831,31 @@ func _spawn_air_dash_afterimage() -> void:
 	get_parent().add_child(afterimage)
 	
 	# Ensure it's rendered at a consistent Z index relative to player
+	afterimage.z_index = z_index - 1
+
+
+func _spawn_trail_afterimage(lifetime: float) -> void:
+	"""Spawn an afterimage for the speed trail with a specific lifetime."""
+	var afterimage = AfterimageScene.instantiate()
+	
+	# Set the afterimage's position and rotation to match the player
+	afterimage.global_position = global_position
+	afterimage.rotation = rotation
+	
+	if afterimage.has_method("setup_from_sprite"):
+		# Use a slightly more transparent and standard modulate for the trail
+		var trail_modulate = Color(1.0, 1.0, 1.0, 0.6)
+		afterimage.setup_from_sprite(animated_sprite, trail_modulate)
+		
+		# Override lifetime based on trail count
+		afterimage.lifetime = lifetime
+		# Ensure initial alpha matches our trail modulate
+		afterimage.initial_alpha = 0.6
+	
+	# Add the afterimage to the scene
+	get_parent().add_child(afterimage)
+	
+	# Ensure it's rendered behind the player
 	afterimage.z_index = z_index - 1
 
 
@@ -3613,6 +3739,31 @@ func _load_animation_sequence(sf: SpriteFrames, anim_name: String, folder: Strin
 		sf.set_animation_loop(anim_name, loop)
 	else:
 		print("Warning: No frames found for animation: ", anim_name, " at path: ", folder + prefix)
+
+# ====================================
+# VISUAL EFFECTS & CAMERA
+# ====================================
+
+func apply_camera_shake(intensity: float, duration: float) -> void:
+	"""Apply a screen shake effect."""
+	camera_shake_intensity = intensity
+	camera_shake_timer = duration
+
+func _process_camera_shake(delta: float) -> void:
+	"""Update the camera shake offset."""
+	var camera = $Camera2D
+	if not camera:
+		return
+		
+	if camera_shake_timer > 0:
+		camera_shake_timer -= delta
+		camera.offset = Vector2(
+			randf_range(-camera_shake_intensity, camera_shake_intensity),
+			randf_range(-camera_shake_intensity, camera_shake_intensity)
+		)
+	else:
+		camera.offset = Vector2.ZERO
+
 
 func _update_animations() -> void:
 	if not animated_sprite or not animated_sprite.sprite_frames:

@@ -5,6 +5,14 @@ extends Area2D
 @export var speed: float = 2000.0  ## Default speed of the bullet (pixels per second)
 @export var lifetime: float = 5.0  ## Auto-destroy after this many seconds
 
+@export_group("Visuals")
+@export var bullet_scale: Vector2 = Vector2(1.5, 1.5) ## Scale of the bullet visual
+@export var collision_scale: Vector2 = Vector2(1.2, 1.2) ## Scale of collision shape
+@export var particle_amount: int = 20 ## Number of particles in trail
+@export var particle_lifetime: float = 0.3 ## Lifetime of particles
+@export var particle_scale_min: float = 4.0 ## Min scale of particles
+@export var particle_scale_max: float = 8.0 ## Max scale of particles
+
 # Internal state
 var velocity: Vector2 = Vector2.ZERO
 var lifetime_timer: float = 0.0
@@ -27,11 +35,17 @@ func _ready() -> void:
 	body_entered.connect(_on_body_entered)
 	area_entered.connect(_on_area_entered)
 	
-	# Make visual more visible
+	# Make visual more visible and larger
 	if has_node("Visual"):
 		var visual = get_node("Visual")
+		visual.scale = bullet_scale
 		if visual is Polygon2D:
-			visual.color = Color(1.0, 0.5, 0.0, 1.0)  # Bright orange
+			visual.color = Color(1.0, 0.2, 0.0, 1.0)  # Brighter red-orange
+	
+	# Scale collision shape to match
+	if has_node("CollisionShape2D"):
+		var shape = get_node("CollisionShape2D")
+		shape.scale = collision_scale
 	
 	# Hide the built-in trail line (we'll use particles instead)
 	if has_node("Trail"):
@@ -105,6 +119,9 @@ func parry(parry_direction: Vector2) -> void:
 	can_be_parried = false
 	was_parried = true
 	
+	# Show Parry! text
+	_show_parry_text()
+	
 	# Calculate direction to shooter enemy
 	var target_direction: Vector2
 	if shooter_enemy and is_instance_valid(shooter_enemy) and not shooter_enemy.is_destroyed:
@@ -144,8 +161,8 @@ func _create_particle_trail() -> void:
 	
 	# Basic setup
 	particle_trail.emitting = true
-	particle_trail.amount = 50
-	particle_trail.lifetime = 0.4
+	particle_trail.amount = particle_amount
+	particle_trail.lifetime = particle_lifetime
 	particle_trail.one_shot = false
 	particle_trail.explosiveness = 0.0
 	particle_trail.randomness = 0.2
@@ -153,19 +170,20 @@ func _create_particle_trail() -> void:
 	particle_trail.draw_order = CPUParticles2D.DRAW_ORDER_INDEX
 	
 	# Emission
-	particle_trail.emission_shape = CPUParticles2D.EMISSION_SHAPE_POINT
+	particle_trail.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
+	particle_trail.emission_rect_extents = Vector2(5, 10)  # Smaller emission
 	
 	# Direction - particles emit backwards from bullet direction
 	particle_trail.direction = Vector2(-1, 0)  # Will be rotated with bullet
-	particle_trail.spread = 5.0
+	particle_trail.spread = 10.0
 	
 	# Velocity
-	particle_trail.initial_velocity_min = 0.0
-	particle_trail.initial_velocity_max = 50.0
+	particle_trail.initial_velocity_min = 20.0
+	particle_trail.initial_velocity_max = 100.0
 	
 	# Scale
-	particle_trail.scale_amount_min = 3.0
-	particle_trail.scale_amount_max = 6.0
+	particle_trail.scale_amount_min = particle_scale_min
+	particle_trail.scale_amount_max = particle_scale_max
 	var scale_curve = Curve.new()
 	scale_curve.add_point(Vector2(0.0, 1.0))
 	scale_curve.add_point(Vector2(0.5, 0.8))
@@ -186,3 +204,38 @@ func _create_particle_trail() -> void:
 	# Add to bullet
 	add_child(particle_trail)
 	particle_trail.position = Vector2.ZERO
+
+func _show_parry_text() -> void:
+	"""Show flashing 'Parry!' text at the bullet's location."""
+	var label = Label.new()
+	label.text = "Parry!"
+	label.z_index = 100
+	
+	# Style the label
+	# Using system fonts if custom ones aren't available, but try to match style
+	label.add_theme_font_size_override("font_size", 45) # 30% smaller (64 -> 45)
+	label.add_theme_constant_override("outline_size", 8)
+	label.add_theme_color_override("font_outline_color", Color.BLACK)
+	
+	# Center the label
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	
+	# Add to the level (parent of the bullet)
+	get_parent().add_child(label)
+	label.global_position = global_position + Vector2(-100, -100)
+	
+	# Flashing effect (yellow and pink) - bind to label so it persists if bullet is destroyed
+	var flash_tween = label.create_tween().set_loops(8)
+	flash_tween.tween_callback(func(): label.add_theme_color_override("font_color", Color(1.0, 1.0, 0.0))) # Yellow
+	flash_tween.tween_interval(0.05)
+	flash_tween.tween_callback(func(): label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.8))) # Pink/Magenta
+	flash_tween.tween_interval(0.05)
+	
+	# Fade out and movement - bind to label
+	var move_tween = label.create_tween()
+	var final_color = label.modulate
+	final_color.a = 0.0
+	
+	move_tween.tween_property(label, "global_position:y", label.global_position.y - 60, 0.8).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	move_tween.parallel().tween_property(label, "modulate", final_color, 0.8).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	move_tween.tween_callback(label.queue_free)
