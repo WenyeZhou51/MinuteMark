@@ -1,11 +1,8 @@
-[gd_scene load_steps=12 format=3 uid="uid://clfclx5p38xkv"]
+[gd_scene load_steps=9 format=3 uid="uid://clfclx5p38xkv"]
 
 [ext_resource type="PackedScene" uid="uid://vv3m4nx6g3jo" path="res://player.tscn" id="1_qj3g4"]
 [ext_resource type="PackedScene" uid="uid://b8x7lam2n4p5q" path="res://enemy.tscn" id="2_enemy"]
-[ext_resource type="PackedScene" uid="uid://3iklf1aqf11" path="res://Models/%h1%.glb" id="2_lgm15"]
-[ext_resource type="PackedScene" uid="uid://b4x74lonf1385" path="res://Models/%t1%.glb" id="3_3lf8s"]
-[ext_resource type="Script" uid="uid://c7arfnsgtuaut" path="res://background_camera_3d.gd" id="3_bg_cam"]
-[ext_resource type="PackedScene" uid="uid://b25pn1r5fn6at" path="res://Models/%h2%.glb" id="4_irfdh"]
+[ext_resource type="Script" path="res://background_camera_3d.gd" id="3_bg_cam"]
 [ext_resource type="PackedScene" uid="uid://c4k3l8m5n2qar" path="res://kickable_object.tscn" id="4_kickable"]
 [ext_resource type="PackedScene" uid="uid://b7q8n5ck2wh0e" path="res://pause_menu.tscn" id="8_b0gwe"]
 
@@ -52,15 +49,6 @@ transform = Transform3D(0.866025, -0.433013, 0.25, 0, 0.5, 0.866025, -0.5, -0.75
 light_energy = 1.2
 shadow_enabled = true
 
-[node name="_h1_" parent="Background3D/SubViewport" instance=ExtResource("2_lgm15")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 99.1926, -71.8518, -71.1135)
-
-[node name="_t1_" parent="Background3D/SubViewport" instance=ExtResource("3_3lf8s")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 71.6492, -72.0105, -52.7915)
-
-[node name="_h2_" parent="Background3D/SubViewport" instance=ExtResource("4_irfdh")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -49.9555, -78.0906, -213.866)
-
 [node name="Player" parent="." instance=ExtResource("1_qj3g4")]
 position = Vector2(200, 300)
 max_speed = 1500.0
@@ -99,11 +87,11 @@ ground_slide_scale = 0.07
 ground_slide_fps = 48.0
 ground_slide_offset = Vector2(0, -20)
 ground_slide_speed = 1700.0
-ground_slide_duration = 0.4
+ground_slide_duration = 0.7
 ground_slide_height_reduction = 0.4
-air_dash_horizontal_impulse = 2000.0
+ground_slide_cooldown = 1.2
+air_dash_horizontal_impulse = 1700.0
 air_dash_vertical_impulse = 0.0
-air_dash_duration = 0.27
 kick_scale = 0.07
 kick_fps = 40.0
 attack_detection_range = 150.0

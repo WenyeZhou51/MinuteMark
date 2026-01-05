@@ -2217,6 +2217,7 @@ func _cancel_bullet_grace_period_with_parry() -> void:
 
 func _start_ground_slide(input_x: float) -> void:
 	"""Initiate a ground slide with reduced height."""
+	print("[DEBUG-SLIDE] Starting Slide")
 	# Determine slide direction
 	if abs(input_x) > 0.1:
 		dash_direction = sign(input_x)
@@ -2252,6 +2253,11 @@ func _start_ground_slide(input_x: float) -> void:
 	if is_wall_running:
 		_end_wall_run()
 	
+	# Start slide animation
+	if animated_sprite:
+		animated_sprite.play("slide")
+		animated_sprite.frame = 0
+	
 	# Could trigger slide effects here (particles, sound, animation, etc.)
 
 
@@ -2260,8 +2266,13 @@ func _process_ground_slide(delta: float) -> void:
 	# Increment timer
 	ground_slide_timer += delta
 	
+	# Detailed debug for slide duration
+	if Engine.get_frames_drawn() % 10 == 0: # Every 10 frames to avoid spam
+		print("[DEBUG-SLIDE] Sliding: Time=%.2f/%.2f, Animation=%s, Frame=%d" % [ground_slide_timer, ground_slide_duration, animated_sprite.animation, animated_sprite.frame])
+	
 	# Check if slide duration has elapsed
 	if ground_slide_timer >= ground_slide_duration:
+		print("[DEBUG-SLIDE] Duration finished, ending slide")
 		_end_ground_slide()
 		return
 	
@@ -3560,7 +3571,7 @@ func _setup_animations() -> void:
 	_load_animation_sequence(sf, "run", "res://Animation/Run/", "Run 复制_", 23, run_fps)
 	_load_animation_sequence(sf, "jump", "res://Animation/jump/", "jump_", 28, jump_fps)
 	_load_animation_sequence(sf, "wall_run", "res://Animation/Wall run 复制/", "Wall run 复制_", 18, wall_run_fps)
-	_load_animation_sequence(sf, "slide", "res://Animation/Slide/", "Slide_", 10, ground_slide_fps)
+	_load_animation_sequence(sf, "slide", "res://Animation/Slide/", "Slide_", 10, ground_slide_fps, false)
 	_load_animation_sequence(sf, "kick", "res://Animation/Kick/", "Kick_", 14, kick_fps, false)
 	
 	animated_sprite.sprite_frames = sf
@@ -3600,42 +3611,59 @@ func _update_animations() -> void:
 		current_offset = kick_offset
 		if animated_sprite.animation != "kick":
 			animated_sprite.play("kick")
+			print("[DEBUG-ANIM] Started Kick")
 		animated_sprite.speed_scale = 1.0
 	elif is_ground_sliding:
 		current_scale = ground_slide_scale
 		current_offset = ground_slide_offset
 		if animated_sprite.animation != "slide":
 			animated_sprite.play("slide")
+			print("[DEBUG-ANIM] Started Slide Animation")
 		
-		# Stay at last frame if reached
-		if animated_sprite.frame == animated_sprite.sprite_frames.get_frame_count("slide") - 1:
-			animated_sprite.stop()
+		# Ensure it stays at the last frame if it reached it
+		var frame_count = animated_sprite.sprite_frames.get_frame_count("slide")
+		if animated_sprite.frame == frame_count - 1:
+			if animated_sprite.is_playing():
+				animated_sprite.stop()
+				print("[DEBUG-ANIM] Slide animation finished, locking to last frame (%d)" % (frame_count - 1))
+			# Force it to stay at the last frame to prevent any possible wrap-around
+			animated_sprite.frame = frame_count - 1
+		
+		# Detailed debug for sliding frame
+		# print("[DEBUG-FRAME] Sliding: Animation=%s, Frame=%d/%d, Playing=%s" % [animated_sprite.animation, animated_sprite.frame, frame_count-1, animated_sprite.is_playing()])
+		
 		animated_sprite.speed_scale = 1.0
 	elif is_on_floor():
 		current_scale = run_scale
 		current_offset = run_offset
 		if is_moving_horizontally:
-			if animated_sprite.animation != "run":
+			# FIX: Ensure animation plays if it was previously stopped (e.g. from idle)
+			if animated_sprite.animation != "run" or not animated_sprite.is_playing():
 				animated_sprite.play("run")
+				print("[DEBUG-ANIM] Playing Run (moving horizontally)")
 			animated_sprite.speed_scale = max(0.5, abs(velocity.x) / max_speed)
 		else:
 			# If stopped on floor, stay on first frame of run as idle
-			animated_sprite.play("run")
-			animated_sprite.stop()
-			animated_sprite.frame = 0
+			if animated_sprite.animation != "run" or animated_sprite.is_playing() or animated_sprite.frame != 0:
+				animated_sprite.play("run")
+				animated_sprite.stop()
+				animated_sprite.frame = 0
+				print("[DEBUG-ANIM] Set Idle (run frame 0)")
 			animated_sprite.speed_scale = 1.0
 	elif is_wall_running:
 		current_scale = wall_run_scale
 		current_offset = wall_run_offset
-		if animated_sprite.animation != "wall_run":
+		if animated_sprite.animation != "wall_run" or not animated_sprite.is_playing():
 			animated_sprite.play("wall_run")
+			print("[DEBUG-ANIM] Started Wall Run")
 		animated_sprite.speed_scale = 1.0
 	else:
 		# In air
 		current_scale = jump_scale
 		current_offset = jump_offset
-		if animated_sprite.animation != "jump":
+		if animated_sprite.animation != "jump" or not animated_sprite.is_playing():
 			animated_sprite.play("jump")
+			print("[DEBUG-ANIM] Started Jump/Air")
 		
 		# For jump animation, we can tie frame to vertical velocity for a more dynamic look
 		# or just let it play. Since it has 28 frames, let's play it.
