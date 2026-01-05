@@ -1,0 +1,141 @@
+[gd_scene load_steps=2 format=3 uid="uid://cs38ghuhtqc73"]
+
+[sub_resource type="GDScript" id="GDScript_mdfvh"]
+script/source = "extends Node2D
+
+@onready var screen_size = get_viewport_rect().size
+
+var mask_viewport: SubViewport
+var tear_line: Line2D
+var shader_rect: ColorRect
+var background: Sprite2D
+var stored_screenshot: Texture2D
+var scrap_script = preload(\"res://paper_scrap.gd\")
+var is_tearing: bool = false
+
+func _ready():
+	# 1. Setup Background Image
+	background = Sprite2D.new()
+	var tex = load(\"res://story frames/P1.png\")
+	if tex:
+		background.texture = tex
+		background.position = screen_size / 2
+		# Scale background to fit screen
+		var tex_size = background.texture.get_size()
+		var scale_factor = max(screen_size.x / tex_size.x, screen_size.y / tex_size.y)
+		background.scale = Vector2(scale_factor, scale_factor)
+	add_child(background)
+	
+	# 2. Setup Mask Viewport
+	mask_viewport = SubViewport.new()
+	mask_viewport.size = screen_size
+	mask_viewport.render_target_clear_mode = SubViewport.CLEAR_MODE_ALWAYS
+	mask_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	mask_viewport.transparent_bg = false
+	add_child(mask_viewport)
+	
+	var mask_bg = ColorRect.new()
+	mask_bg.size = screen_size
+	mask_bg.color = Color.BLACK
+	mask_viewport.add_child(mask_bg)
+	
+	tear_line = Line2D.new()
+	tear_line.default_color = Color.WHITE
+	tear_line.width = 120.0 # Fixed width for the mask
+	mask_viewport.add_child(tear_line)
+	
+	# 3. Setup Shader Rect
+	shader_rect = ColorRect.new()
+	shader_rect.size = screen_size
+	shader_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	shader_rect.z_index = 10
+	
+	var mat = ShaderMaterial.new()
+	mat.shader = load(\"res://shaders/paper_tear.gdshader\")
+	
+	# Wait for texture to be available
+	mat.set_shader_parameter(\"mask_texture\", mask_viewport.get_texture())
+	
+	var noise = FastNoiseLite.new()
+	noise.frequency = 0.05
+	noise.seed = randi()
+	
+	var noise_tex = NoiseTexture2D.new()
+	noise_tex.width = 512
+	noise_tex.height = 512
+	noise_tex.seamless = true
+	noise_tex.noise = noise
+	await noise_tex.changed
+	mat.set_shader_parameter(\"noise_texture\", noise_tex)
+	
+	# Set some default parameters for better look
+	mat.set_shader_parameter(\"noise_strength\", 0.4)
+	mat.set_shader_parameter(\"edge_thickness\", 0.015)
+	mat.set_shader_parameter(\"edge_color\", Color(0.95, 0.95, 0.9, 1.0)) # White paper pulp
+	
+	shader_rect.material = mat
+	add_child(shader_rect)
+
+func _input(event):
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		if not is_tearing:
+			start_tear_process()
+
+func start_tear_process():
+	is_tearing = true
+	# 1. Capture the screen first
+	await RenderingServer.frame_post_draw
+	var img = get_viewport().get_texture().get_image()
+	stored_screenshot = ImageTexture.create_from_image(img)
+	
+	# 2. Start the tear animation
+	trigger_tear()
+
+func trigger_tear():
+	var start_pos = Vector2(screen_size.x / 2, -50)
+	var end_pos = Vector2(screen_size.x / 2, screen_size.y + 50)
+	var steps = 30
+	var duration = 1.0 # Total duration of the tear
+	
+	tear_line.clear_points()
+	
+	var tween = create_tween()
+	for i in range(steps + 1):
+		var t = float(i) / steps
+		var current_pos = start_pos.lerp(end_pos, t)
+		
+		# Add a bit of horizontal jitter to the tear path
+		current_pos.x += randf_range(-10, 10)
+		
+		# Delay each segment and scrap spawn
+		tween.tween_callback(func(): 
+			tear_line.add_point(current_pos)
+			spawn_scrap(current_pos)
+		).set_delay(duration / steps)
+	
+	tween.finished.connect(func(): is_tearing = false)
+
+func spawn_scrap(pos: Vector2):
+	var scrap = RigidBody2D.new()
+	scrap.set_script(scrap_script)
+	scrap.global_position = pos
+	scrap.z_index = 20 # Above the shader_rect (which is at 10)
+	
+	# Flying direction (left or right)
+	var direction = 1 if randf() > 0.5 else -1
+	
+	# We need to add it to the scene tree
+	get_tree().root.add_child(scrap)
+	
+	if stored_screenshot and scrap.has_method(\"set_texture_from_capture\"):
+		scrap.set_texture_from_capture(stored_screenshot, pos)
+	
+	# Random impulse for natural \"flying away\" look
+	var impulse = Vector2(direction * randf_range(300, 600), randf_range(-100, -300))
+	scrap.apply_impulse(impulse)
+	scrap.apply_torque_impulse(randf_range(-1000, 1000))
+
+"
+
+[node name="TornPaperTest" type="Node2D"]
+script = SubResource("GDScript_mdfvh")

@@ -308,7 +308,39 @@ func become_physics_object(direction: Vector2, speed: float) -> void:
 		# Change color to indicate physics object
 		modulate = Color(1.0, 1.0, 0.5)  # Yellow tint
 		
+		# Show "Bonk!" text
+		_show_bonk_text()
+		
 		# print("Enemy became physics object with velocity: ", kick_velocity)
+
+func _show_bonk_text() -> void:
+	"""Show 'Bonk!' text when hit by a kicked object."""
+	var label = Label.new()
+	label.text = "Bonk!"
+	label.z_index = 100
+	
+	# Style the label
+	label.add_theme_font_size_override("font_size", 30) # Small popup text
+	label.add_theme_constant_override("outline_size", 6)
+	label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8)) # Light grey
+	label.add_theme_color_override("font_outline_color", Color.BLACK)
+	
+	# Center the label
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	
+	# Add to the level
+	get_parent().add_child(label)
+	# Center label roughly on enemy
+	label.global_position = global_position + Vector2(-50, -40) # Slightly higher up
+	
+	# Fade out and movement upwards
+	var tween = label.create_tween()
+	var final_color = label.modulate
+	final_color.a = 0.0
+	
+	tween.tween_property(label, "global_position:y", label.global_position.y - 60, 0.3).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(label, "modulate", final_color, 0.3).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tween.tween_callback(label.queue_free)
 
 func set_targeted(targeted: bool) -> void:
 	"""Set whether this enemy is currently targeted by the player."""

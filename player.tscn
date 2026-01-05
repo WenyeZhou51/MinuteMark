@@ -3,7 +3,7 @@
 [ext_resource type="Script" path="res://player.gd" id="1_2x4rk"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_w6f8y"]
-size = Vector2(32, 64)
+size = Vector2(45, 85)
 
 [node name="Player" type="CharacterBody2D" groups=["player"]]
 script = ExtResource("1_2x4rk")
@@ -25,6 +25,7 @@ wall_jump_horizontal_velocity = 600.0
 wall_jump_vertical_velocity = -800.0
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(-1.5, -6.5)
 shape = SubResource("RectangleShape2D_w6f8y")
 
 [node name="Visual" type="Polygon2D" parent="."]

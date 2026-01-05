@@ -642,6 +642,11 @@ func _physics_process(delta: float) -> void:
 	if wall_jump_enabled:
 		_update_wall_state(input_vector.x, space_state)
 	
+	# QOL: Check for Ledge Climb Opportunity
+	# This is checked early so it's not skipped by early returns in dash/slide states
+	if ledge_climb_enabled and is_on_wall and not is_ledge_climbing:
+		_check_ledge_climb(space_state)
+	
 	# 4. Process Ground Slide (if active, skip most normal movement)
 	if is_ground_sliding:
 		# Check for jump input to cancel slide with empowered jump
@@ -802,14 +807,10 @@ func _physics_process(delta: float) -> void:
 	# 13. QOL: Ledge Climb (if enabled and active, skip normal movement)
 	if is_ledge_climbing:
 		_process_ledge_climb(delta)
-		move_and_slide()
+		# NOTE: We don't call move_and_slide() here because _process_ledge_climb 
+		# sets global_position directly for a guaranteed result.
 		_post_movement_updates()
 		return
-	
-	# 14. QOL: Check for Ledge Climb Opportunity (only when airborne and timer allows)
-	if ledge_climb_enabled and not is_on_floor() and is_on_wall and ledge_check_timer >= ledge_check_interval:
-		_check_ledge_climb(space_state)
-		ledge_check_timer = 0.0
 	
 	# 15. Apply Gravity
 	_apply_gravity(delta)
@@ -831,7 +832,8 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 	
 	# 21. QOL: Corner Correction (only when moving up fast)
-	if corner_correction_enabled and velocity.y < 0 and abs(velocity.y) > 50:
+	# Use velocity_before_move_and_slide because move_and_slide might zero out velocity.y on ceiling hit
+	if corner_correction_enabled and (velocity.y < 0 or velocity_before_move_and_slide.y < 0) and abs(velocity_before_move_and_slide.y) > 50:
 		_apply_corner_correction(space_state)
 	
 	# 22. Post-Movement Updates
@@ -996,7 +998,7 @@ func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceS
 		# print("[WALL DETECT DEBUG] velocity.x: ", velocity.x, " | movement_per_frame: ", movement_per_frame)
 	
 	# During wall run, check at multiple heights for more accurate wall detection
-	var check_heights = [0.0]  # Default: center only
+	var check_heights = [-half_height + 4, 0.0, half_height - 4]
 	
 	var left_hit_any = false
 	var right_hit_any = false
@@ -1648,7 +1650,10 @@ func _on_jump_buffer_timeout() -> void:
 func _apply_corner_correction(space_state: PhysicsDirectSpaceState2D) -> void:
 	"""QOL FEATURE: Nudge player past corners to avoid head bonking on edges."""
 	# Only apply when moving upward (before/during collision, not after stopped)
-	if velocity.y >= 0:
+	# NOTE: If called after move_and_slide, velocity.y might be 0 if we hit a ceiling
+	var check_velocity = velocity if velocity.y != 0 else velocity_before_move_and_slide
+	
+	if check_velocity.y >= 0:
 		return
 	
 	# Get collision shape dimensions
@@ -1664,26 +1669,38 @@ func _apply_corner_correction(space_state: PhysicsDirectSpaceState2D) -> void:
 	var half_height = shape.size.y / 2.0
 	
 	# Cast upward from left corner of player's head
-	var left_corner_pos = global_position + Vector2(-half_width + 2, -half_height)
+	var left_corner_pos = global_position + Vector2(-half_width + 1, -half_height)
 	var left_cast_end = left_corner_pos + Vector2(0, -corner_correction_distance)
 	var query_left = PhysicsRayQueryParameters2D.create(left_corner_pos, left_cast_end)
 	query_left.exclude = [self]
 	var left_hit = space_state.intersect_ray(query_left)
 	
 	# Cast upward from right corner of player's head
-	var right_corner_pos = global_position + Vector2(half_width - 2, -half_height)
+	var right_corner_pos = global_position + Vector2(half_width - 1, -half_height)
 	var right_cast_end = right_corner_pos + Vector2(0, -corner_correction_distance)
 	var query_right = PhysicsRayQueryParameters2D.create(right_corner_pos, right_cast_end)
 	query_right.exclude = [self]
 	var right_hit = space_state.intersect_ray(query_right)
 	
 	# Corner correction logic: if one side hits a corner but the other doesn't, nudge toward the clear side
+	var nudged = false
 	if left_hit and not right_hit:
 		# Left corner is blocked, right is clear -> nudge right to slip past
-		position.x += corner_correction_distance * 0.75
+		print("[CORNER] Nudging RIGHT")
+		position.x += corner_correction_distance * 0.5
+		nudged = true
 	elif right_hit and not left_hit:
 		# Right corner is blocked, left is clear -> nudge left to slip past
-		position.x -= corner_correction_distance * 0.75
+		print("[CORNER] Nudging LEFT")
+		position.x -= corner_correction_distance * 0.5
+		nudged = true
+		
+	if nudged:
+		# If we were stopped by the ceiling, restore the vertical velocity so we continue upward
+		if velocity.y == 0 and velocity_before_move_and_slide.y < 0:
+			velocity.y = velocity_before_move_and_slide.y
+			# Move up slightly to ensure we aren't still stuck in the ceiling next frame
+			position.y -= 1.0
 
 
 # ====================================
@@ -1700,12 +1717,9 @@ func _check_ledge_climb(space_state: PhysicsDirectSpaceState2D) -> void:
 	if ledge_climb_cooldown_timer > 0:
 		return
 	
-	# Require sprint state (speed > threshold) to perform ledge climb
-	if not is_running:
-		return
-	
-	# Only check when airborne and near a wall
-	if not is_on_wall:
+	var is_dashing = is_ground_sliding or is_air_dashing or is_wall_running
+	# Require sprint state, dash, or wall run to perform ledge climb
+	if not is_running and not is_dashing:
 		return
 	
 	# Get collision shape for positioning raycasts
@@ -1722,28 +1736,47 @@ func _check_ledge_climb(space_state: PhysicsDirectSpaceState2D) -> void:
 	
 	# Determine which side the wall is on
 	var wall_side = -wall_normal.x  # -1 for left wall, 1 for right wall
+	if wall_normal == Vector2.ZERO:
+		# Fallback if wall_normal is zero
+		wall_side = 1.0 if velocity.x > 0 else -1.0
+	
+	# Only check when near a wall
+	if not is_on_wall:
+		# print("[LEDGE] Not on wall (is_on_wall=false)")
+		return
+
+	# Only climb if moving towards the wall or pressing towards it
+	var input_dir = Input.get_axis("move_left", "move_right")
+	if input_dir != 0 and sign(input_dir) != wall_side:
+		return
+	
 	var check_x_offset = half_width * wall_side
 	
 	# Check if there's a ledge above (wall ends within detection range)
 	var ledge_found := false
-	var ledge_height := 0.0
 	
-	# Cast multiple rays upward to find where the wall ends (optimized: check every 4 pixels instead of 2)
-	for height_offset in range(int(ledge_climb_min_height), int(ledge_climb_detection_height), 4):
-		var ray_origin = global_position + Vector2(check_x_offset, -half_height - height_offset)
-		var ray_end = ray_origin + Vector2(wall_check_distance * wall_side, 0)
+	# Increase detection range slightly if dashing/wall running for better feel
+	var detection_height = ledge_climb_detection_height
+	if is_dashing:
+		detection_height *= 1.5
+
+	# Cast multiple rays upward to find where the wall ends
+	# We check from negative offsets (below head) to detection_height (above head)
+	var start_offset = -half_height + 4 # Start just above the center
+	for height_offset in range(int(start_offset), int(detection_height), 2):
+		var ray_origin = global_position + Vector2(check_x_offset + (1.0 * wall_side), -half_height - height_offset)
+		var ray_end = ray_origin + Vector2((wall_check_distance + 4) * wall_side, 0)
 		
 		var query = PhysicsRayQueryParameters2D.create(ray_origin, ray_end)
 		query.exclude = [self]
 		var hit = space_state.intersect_ray(query)
 		
-		# If no wall detected at this height, we found the ledge top
+		# If no wall detected at this height, we found a potential ledge top
 		if not hit:
-			ledge_height = height_offset
-			
 			# Now check if there's solid ground on top of the ledge
-			var ground_check_origin = global_position + Vector2(check_x_offset + ledge_climb_forward_offset * wall_side, -half_height - height_offset)
-			var ground_check_end = ground_check_origin + Vector2(0, half_height + 4)
+			var forward_check = ledge_climb_forward_offset + 4
+			var ground_check_origin = global_position + Vector2(check_x_offset + forward_check * wall_side, -half_height - height_offset - 10)
+			var ground_check_end = ground_check_origin + Vector2(0, half_height * 3.0) # Long ray down to find the floor
 			
 			var ground_query = PhysicsRayQueryParameters2D.create(ground_check_origin, ground_check_end)
 			ground_query.exclude = [self]
@@ -1751,6 +1784,14 @@ func _check_ledge_climb(space_state: PhysicsDirectSpaceState2D) -> void:
 			
 			# If we found ground on top, this is a valid ledge
 			if ground_hit:
+				# One last check: make sure the ground we found is actually roughly at the ledge height
+				# and not way below us (which would just be the floor we are already on)
+				var ground_relative_y = ground_hit.position.y - global_position.y
+				if ground_relative_y > half_height - 2:
+					# This ground is at or below our feet, not a ledge top
+					continue
+					
+				print("[LEDGE] VALID LEDGE FOUND! Triggering climb at height: ", height_offset, " Ground at relative Y: ", ground_relative_y)
 				ledge_found = true
 				# Calculate target position on top of ledge
 				ledge_climb_target_pos = Vector2(
@@ -1758,6 +1799,10 @@ func _check_ledge_climb(space_state: PhysicsDirectSpaceState2D) -> void:
 					ground_hit.position.y - half_height - 1
 				)
 				break
+	
+	# Start the ledge climb if a valid ledge was found
+	if ledge_found:
+		_start_ledge_climb()
 	
 	# Start the ledge climb if a valid ledge was found
 	if ledge_found:
@@ -1784,7 +1829,7 @@ func _start_ledge_climb() -> void:
 
 
 func _process_ledge_climb(delta: float) -> void:
-	"""Smoothly animate the player climbing up the ledge."""
+	"""Smoothly animate the player climbing up the ledge using a two-phase movement."""
 	# Advance climb progress
 	ledge_climb_progress += delta / ledge_climb_duration
 	
@@ -1794,30 +1839,34 @@ func _process_ledge_climb(delta: float) -> void:
 	# Use ease-out curve for smooth deceleration at the end
 	var ease_progress = _ease_out_cubic(ledge_climb_progress)
 	
-	# Calculate the movement needed this frame using velocity-based approach
-	var current_target = ledge_climb_start_pos.lerp(ledge_climb_target_pos, ease_progress)
-	var movement_delta = current_target - global_position
+	# TWO-PHASE MOVEMENT: 
+	# 1. Move UP to clear the ledge height (first 60% of the ease_progress)
+	# 2. Move FORWARD onto the ledge (last 40% of the ease_progress)
+	var vertical_cutoff = 0.6
+	var current_target_pos = Vector2.ZERO
 	
-	# Convert position delta to velocity for this frame
+	if ease_progress < vertical_cutoff:
+		# PHASE 1: Vertical clearing
+		var p = ease_progress / vertical_cutoff
+		current_target_pos.y = lerp(ledge_climb_start_pos.y, ledge_climb_target_pos.y, p)
+		current_target_pos.x = ledge_climb_start_pos.x
+	else:
+		# PHASE 2: Horizontal landing
+		var p = (ease_progress - vertical_cutoff) / (1.0 - vertical_cutoff)
+		current_target_pos.y = ledge_climb_target_pos.y
+		current_target_pos.x = lerp(ledge_climb_start_pos.x, ledge_climb_target_pos.x, p)
+	
+	# CRITICAL: For QOL ledge climb, we set global_position directly to ensure 
+	# the player doesn't get stuck on the corner due to move_and_slide's collision logic.
+	# The _check_ledge_climb raycasts already verified this path is clear.
+	var new_pos = current_target_pos
 	if delta > 0:
-		velocity.y = movement_delta.y / delta
-	else:
-		velocity.y = 0.0
-	
-	# Apply horizontal momentum during climb if enabled
-	if ledge_climb_preserve_momentum and ledge_climb_apply_momentum_during:
-		# Apply retained horizontal velocity during climb
-		var applied_velocity = ledge_climb_stored_velocity * ledge_climb_momentum_retention
-		velocity.x = applied_velocity
-	else:
-		# Use the calculated horizontal movement from lerp
-		if delta > 0:
-			velocity.x = movement_delta.x / delta
-		else:
-			velocity.x = 0.0
+		velocity = (new_pos - global_position) / delta
+	global_position = new_pos
 	
 	# Finish climb when progress reaches 1.0
 	if ledge_climb_progress >= 1.0:
+		print("[LEDGE] Climb finished at: ", global_position)
 		_finish_ledge_climb()
 
 
