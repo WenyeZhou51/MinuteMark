@@ -15,9 +15,6 @@ const AfterimageScene = preload("res://afterimage.tscn")
 # REWIND SHADOW
 const ShadowScene = preload("res://shadow.tscn")
 
-# DUST PARTICLES
-const DustParticlesScene = preload("res://dust_particles.tscn")
-
 # MOVEMENT CONFIGURATION
 @export_group("Horizontal Movement")
 @export var max_speed: float = 300.0  ## Maximum horizontal movement speed
@@ -127,6 +124,11 @@ const DustParticlesScene = preload("res://dust_particles.tscn")
 @export var ground_slide_end_speed: float = 1000.0  ## Speed after slide ends
 @export var ground_slide_empowered_jump_multiplier: float = 1.5  ## Jump height multiplier when jumping out of slide
 
+@export_group("Paper Tear Effect")
+@export var tear_offset: Vector2 = Vector2.ZERO  ## Offset of the tear image relative to player
+@export var tear_width: float = 150.0  ## Vertical size (width) of the tear line
+@export var tear_v_squish: float = 0.4  ## How much to squish the image vertically (0.0 - 1.0)
+
 @export_subgroup("Air Dash")
 @export var air_dash_horizontal_impulse: float = 500.0  ## Horizontal impulse force applied at start of air dash
 @export var air_dash_vertical_impulse: float = 100.0  ## Vertical impulse force applied at start of air dash
@@ -157,7 +159,6 @@ const DustParticlesScene = preload("res://dust_particles.tscn")
 @export var parry_detection_range: float = 100.0  ## Range to detect bullets for parrying
 @export var parry_angle_cone: float = 120.0  ## Cone angle in front of player for bullet detection (degrees)
 @export var bullet_hit_grace_period: float = 0.1  ## Time window to press kick after being hit by bullet to parry instead of taking hitstun (seconds)
-@export var parry_early_grace_period: float = 0.15 ## Time window BEFORE getting hit or before bullet enters range to press kick (seconds)
 @export var parry_time_scale: float = 0.2  ## Time scale during parry (0.2 = 80% slower, 1.0 = normal speed)
 @export var parry_time_duration: float = 0.3  ## Duration of time slowdown effect during parry (seconds in real time)
 @export var parry_vertical_boost: float = 300.0  ## Upward velocity boost given to player on successful parry
@@ -258,7 +259,6 @@ var closest_bullet: Node2D = null  # Closest bullet in front of player
 var bullet_parry_indicator: Line2D = null  # Visual indicator for parryable bullet
 var bullet_grace_period_active: bool = false  # Is bullet hit grace period currently active
 var bullet_grace_period_timer: float = 0.0  # Time remaining in bullet grace period
-var early_parry_timer: float = 0.0  # Time remaining in early parry window (pressed kick before hit)
 var bullet_that_hit: Node2D = null  # Bullet that triggered grace period
 var parry_time_slowdown_active: bool = false  # Is time slowdown effect active from parry
 var parry_time_slowdown_timer: float = 0.0  # Time remaining for time slowdown effect (real time)
@@ -284,6 +284,14 @@ var air_dash_available: bool = true  # Is air dash available (resets on ground/w
 var camera_shake_intensity: float = 0.0
 var camera_shake_timer: float = 0.0
 var camera_shake_type: String = "random" # "random" or "sine"
+
+# EARLY PARRY SYSTEM
+var early_parry_timer: float = 0.0  # Time remaining in early parry window (pressed kick before hit)
+@export var parry_early_grace_period: float = 0.15 ## Time window BEFORE getting hit or before bullet enters range to press kick (seconds)
+
+# Slide tear effect
+var paper_tear_effect_script = preload("res://paper_tear_effect.gd")
+var paper_tear_effect: Node2D
 
 # Ground Slam state variables
 var is_slamming: bool = false  # Is player currently ground slamming
@@ -320,9 +328,6 @@ var rewind_target_time: float = 0.0  # Target time (2 seconds ago) for rewind
 var rewind_path_visualization: Node2D = null  # Container for ghost path visuals
 var ghost_markers: Array[Node2D] = []  # Array of ghost marker nodes
 var grayscale_overlay: ColorRect = null  # Grayscale overlay for rewind effect
-
-# Dust effect state
-var dust_spawn_timer: float = 0.0
 
 # Component references
 @onready var coyote_timer: Timer = $CoyoteTimer
@@ -365,6 +370,14 @@ func _ready() -> void:
 	
 	# Connect to enemy signals
 	_connect_to_enemies()
+	
+	# Setup paper tear effect
+	paper_tear_effect = paper_tear_effect_script.new()
+	paper_tear_effect.name = "PaperTearEffect"
+	# Add it to parent so it stays in the level
+	var parent = get_parent()
+	if parent:
+		parent.add_child.call_deferred(paper_tear_effect)
 
 
 func _exit_tree() -> void:
@@ -561,9 +574,6 @@ func _physics_process(delta: float) -> void:
 	# Update animations
 	_update_animations()
 	
-	# Handle continuous dust effects (run, slide)
-	_handle_dust_effects(delta)
-	
 	# Update facing direction based on movement
 	if input_vector.x != 0 and not is_attacking and not is_ground_sliding and not is_air_dashing:
 		facing_direction = sign(input_vector.x)
@@ -621,11 +631,6 @@ func _physics_process(delta: float) -> void:
 			if Input.is_action_just_pressed("melee_attack"):
 				# Cancel hitstun, perform parry instead!
 				_cancel_bullet_grace_period_with_parry()
-	
-	# Update early parry grace period timer
-	if early_parry_timer > 0:
-		early_parry_timer -= delta
-		# If timer just expired and we didn't hit anything, that's fine - kick animation continues as normal
 	
 	# Update parry time slowdown timer (uses unscaled delta for real-time countdown)
 	if parry_time_slowdown_active:
@@ -749,32 +754,32 @@ func _physics_process(delta: float) -> void:
 		_update_kickable_object_detection()
 		_update_kick_object_indicator()
 	
-	# 9.5. Update Bullet Parry Detection
-	if parry_enabled:
-		_update_bullet_detection()
-		_update_bullet_parry_indicator()
-	
 	# 9.6. Check for Early Parry Triggers
 	if early_parry_timer > 0 and not kick_has_fired and not is_stunned:
 		# Priority: Bullet > Object > Enemy
-		if parry_enabled and closest_bullet:
+		if parry_enabled and is_instance_valid(closest_bullet):
 			_trigger_early_parry(KickTargetType.BULLET, closest_bullet)
-		elif kick_object_enabled and closest_kickable_object:
+		elif kick_object_enabled and is_instance_valid(closest_kickable_object):
 			_trigger_early_parry(KickTargetType.OBJECT, closest_kickable_object)
 		elif attack_enabled and not nearby_enemies.is_empty():
 			# Find closest enemy
 			var closest_enemy = null
 			var closest_distance = INF
 			for enemy in nearby_enemies:
-				if not enemy or not is_instance_valid(enemy) or enemy.is_destroyed:
+				if not is_instance_valid(enemy) or enemy.is_destroyed:
 					continue
 				var distance = global_position.distance_to(enemy.global_position)
 				if distance < closest_distance:
 					closest_distance = distance
 					closest_enemy = enemy
 			
-			if closest_enemy:
+			if is_instance_valid(closest_enemy):
 				_trigger_early_parry(KickTargetType.ENEMY, closest_enemy)
+	
+	# 9.5. Update Bullet Parry Detection
+	if parry_enabled:
+		_update_bullet_detection()
+		_update_bullet_parry_indicator()
 	
 	# 10. Handle Attack/Kick Input
 	if attack_enabled or kick_object_enabled or parry_enabled:
@@ -839,7 +844,14 @@ func _physics_process(delta: float) -> void:
 	# 22. Post-Movement Updates
 	_post_movement_updates()
 	
-	# 23. Track position changes when near walls (for debugging)
+	# 23. Update camera shake
+	_process_camera_shake(delta)
+	
+	# 24. Update early parry timer
+	if early_parry_timer > 0:
+		early_parry_timer -= delta
+	
+	# 25. Track position changes when near walls (for debugging)
 	if is_on_wall:
 		var frame_end_position = global_position
 		var frame_end_velocity = velocity
@@ -858,9 +870,6 @@ func _physics_process(delta: float) -> void:
 			# print("║ is_wall_running: ", is_wall_running)
 			# print("║ is_on_wall: ", is_on_wall)
 			# print("╚═══════════════════════════════════════════════════╝")
-
-	# Update camera shake
-	_process_camera_shake(delta)
 
 
 # ====================================
@@ -1563,9 +1572,6 @@ func _perform_jump() -> void:
 			velocity.x += jump_direction * empowered_jump_horizontal_boost
 		
 		is_slide_jump_available = false
-		
-		# Big dust cloud for slide jump
-		_spawn_dust("slide_jump", Vector2(0, 32))
 	# Apply empowered jump when in sprint state
 	elif is_running:
 		# Vertical boost - jump higher
@@ -1575,18 +1581,13 @@ func _perform_jump() -> void:
 		var jump_direction = sign(velocity.x) if abs(velocity.x) > 10.0 else last_input_direction
 		if jump_direction != 0:
 			velocity.x += jump_direction * empowered_jump_horizontal_boost
-			
-		# Normal jump dust
-		_spawn_dust("jump", Vector2(0, 32))
 	else:
 		# Normal jump
 		velocity.y = jump_velocity
-		
-		# Normal jump dust
-		_spawn_dust("jump", Vector2(0, 32))
 	
 	is_jumping = true
 	coyote_timer.stop()  # Consume coyote time
+	# Could trigger jump effects here (particles, sound, animation, etc.)
 
 
 func _perform_wall_jump() -> void:
@@ -1632,10 +1633,9 @@ func _perform_wall_jump() -> void:
 	is_on_wall = false
 	is_wall_sliding = false
 	
-	# Trigger wall jump dust effect
-	# Spawn at side of player touching wall, pointing away from wall
-	var dust_offset = Vector2(-jump_wall_normal.x * 16, 0)
-	_spawn_dust("wall_jump", dust_offset, jump_wall_normal)
+	# print("[WALL JUMP DEBUG] ✓ Complete - Final velocity: ", velocity, " | Cooldown: ", "%.3f" % wall_jump_cooldown, "s")
+	
+	# Could trigger wall jump effects here (particles, sound, animation, etc.)
 
 
 func _on_jump_buffer_timeout() -> void:
@@ -1799,10 +1799,6 @@ func _check_ledge_climb(space_state: PhysicsDirectSpaceState2D) -> void:
 					ground_hit.position.y - half_height - 1
 				)
 				break
-	
-	# Start the ledge climb if a valid ledge was found
-	if ledge_found:
-		_start_ledge_climb()
 	
 	# Start the ledge climb if a valid ledge was found
 	if ledge_found:
@@ -2171,33 +2167,6 @@ func _execute_kick_effect() -> void:
 			pass
 
 
-func _trigger_early_parry(type: KickTargetType, node: Node2D) -> void:
-	"""Force an immediate parry when target enters range during early grace period."""
-	if not node or not is_instance_valid(node):
-		return
-		
-	# Consume the early parry window
-	early_parry_timer = 0.0
-	
-	# Set the target
-	current_kick_target_type = type
-	current_kick_target_node = node
-	
-	# If we are already in an attack animation, jump to the active frame
-	if is_attacking:
-		if not kick_has_fired:
-			# Jump to just before the active frame so it feels like it hit
-			animated_sprite.frame = 4
-			_execute_kick_effect()
-			kick_has_fired = true
-	else:
-		# Start a new kick and immediately trigger the effect
-		_start_kick_sequence()
-		animated_sprite.frame = 4
-		_execute_kick_effect()
-		kick_has_fired = true
-
-
 func _end_attack() -> void:
 	"""Complete the attack and preserve momentum."""
 	is_attacking = false
@@ -2322,7 +2291,7 @@ func _end_stun() -> void:
 func _on_enemy_touched(enemy: Node2D = null) -> void:
 	"""Called when player touches an enemy without attacking."""
 	# If we are already trying to parry (too early press), trigger it immediately!
-	if early_parry_timer > 0 and not kick_has_fired:
+	if early_parry_timer > 0 and not kick_has_fired and is_instance_valid(enemy):
 		_trigger_early_parry(KickTargetType.ENEMY, enemy)
 		return
 		
@@ -2339,7 +2308,7 @@ func _on_enemy_destroyed() -> void:
 func _on_bullet_hit(bullet: Node2D, shooter: Node2D = null) -> void:
 	"""Called when player is hit by a bullet - starts grace period for parry."""
 	# If we are already trying to parry (too early press), trigger it immediately!
-	if early_parry_timer > 0 and not kick_has_fired:
+	if early_parry_timer > 0 and not kick_has_fired and is_instance_valid(bullet):
 		_trigger_early_parry(KickTargetType.BULLET, bullet)
 		return
 		
@@ -2426,7 +2395,9 @@ func _start_ground_slide(input_x: float) -> void:
 		animated_sprite.play("slide")
 		animated_sprite.frame = 0
 	
-	# Could trigger slide effects here (particles, sound, animation, etc.)
+	# Start paper tear effect
+	if paper_tear_effect:
+		paper_tear_effect.start_tear(dash_direction, tear_width, tear_v_squish)
 
 
 func _process_ground_slide(delta: float) -> void:
@@ -2454,6 +2425,10 @@ func _process_ground_slide(delta: float) -> void:
 	
 	# Snap to ground
 	velocity.y = ground_snap_force
+	
+	# Update paper tear effect
+	if paper_tear_effect:
+		paper_tear_effect.add_tear_point(global_position, tear_offset)
 
 
 func _end_ground_slide() -> void:
@@ -2472,7 +2447,9 @@ func _end_ground_slide() -> void:
 	# Set horizontal speed to max speed
 	velocity.x = dash_direction * ground_slide_end_speed
 	
-	# Could trigger slide end effects here (particles fade, etc.)
+	# End paper tear effect
+	if paper_tear_effect:
+		paper_tear_effect.end_tear()
 
 
 func _start_air_dash(input_x: float) -> void:
@@ -3814,6 +3791,37 @@ func _process_camera_shake(delta: float) -> void:
 		camera.offset = Vector2.ZERO
 
 
+# ====================================
+# PARRY & ATTACK HELPERS
+# ====================================
+
+func _trigger_early_parry(type: KickTargetType, node: Node2D) -> void:
+	"""Force an immediate parry when target enters range during early grace period."""
+	if not node or not is_instance_valid(node):
+		return
+		
+	# Consume the early parry window
+	early_parry_timer = 0.0
+	
+	# Set the target
+	current_kick_target_type = type
+	current_kick_target_node = node
+	
+	# If we are already in an attack animation, jump to the active frame
+	if is_attacking:
+		if not kick_has_fired:
+			# Jump to just before the active frame (frame 5 index 4) so it feels like it hit
+			animated_sprite.frame = 4
+			_execute_kick_effect()
+			kick_has_fired = true
+	else:
+		# Start a new kick and immediately trigger the effect
+		_start_kick_sequence()
+		animated_sprite.frame = 4
+		_execute_kick_effect()
+		kick_has_fired = true
+
+
 func _update_animations() -> void:
 	if not animated_sprite or not animated_sprite.sprite_frames:
 		return
@@ -3913,28 +3921,3 @@ func _update_animations() -> void:
 	if animated_sprite.flip_h:
 		final_offset.x = -current_offset.x
 	animated_sprite.position = final_offset
-
-
-func _spawn_dust(mode: String, pos_offset: Vector2 = Vector2.ZERO, dir: Vector2 = Vector2.ZERO) -> void:
-	if not DustParticlesScene:
-		return
-	var dust = DustParticlesScene.instantiate()
-	get_parent().add_child(dust) # Spawn in world space
-	dust.global_position = global_position + pos_offset
-	dust.setup(mode, dir)
-
-
-func _handle_dust_effects(delta: float) -> void:
-	if dust_spawn_timer > 0:
-		dust_spawn_timer -= delta
-		return
-		
-	if is_on_floor():
-		if is_ground_sliding:
-			_spawn_dust("slide", Vector2(0, 32))
-			dust_spawn_timer = 0.05 # Fast puffs for sliding
-		elif is_running and abs(velocity.x) > max_speed * 0.8:
-			# Spawn slightly behind the feet
-			var dust_offset = Vector2(-facing_direction * 10, 32)
-			_spawn_dust("run", dust_offset, Vector2(-facing_direction, 0))
-			dust_spawn_timer = 0.15 # Medium puffs for running

@@ -7,7 +7,8 @@ uniform float grid = 20.0;
 uniform float dots_size = 1.5;
 uniform vec4 dots_color : source_color = vec4(0.0, 0.0, 0.0, 1.0);
 
-const float PI = 3.14159265359;
+// PI is built-in to Godot 4 shaders
+// const float PI = 3.14159265359;
 
 mat2 rotationMatrix(float angle) {
 	angle *= PI / 180.0;

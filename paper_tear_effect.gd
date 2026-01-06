@@ -1,102 +1,97 @@
 extends Node2D
 
-## Handles the paper tear effect. Positioned BEHIND the player.
+## Handles the paper tear effect.
+## Logic: Renders Line2D DIRECTLY in world space.
+## This prevents camera-sync issues because world nodes stay fixed relative to walls.
 
-@export var noise_texture: FastNoiseLite
-@export var scrap_script = preload("res://paper_scrap.gd")
+@export var tear_image: Texture2D = preload("res://Sprites/slide.png")
+@export var tear_offset: Vector2 = Vector2.ZERO
+@export var tear_width: float = 150.0
+@export var tear_v_squish: float = 0.4
 
-var mask_viewport: SubViewport
-var screen_shader_rect: ColorRect
-var stored_screenshot: Texture2D
 var active_line: Line2D
+var particles: CPUParticles2D
+var stored_screenshot: Image
 
 func _ready() -> void:
-	print("[PAPER-SYSTEM] Initializing...")
-	var screen_size = get_viewport().get_visible_rect().size
+	# Keep the manager at the world origin so its children's positions are world coordinates.
+	global_position = Vector2.ZERO
+	z_index = 200 # Above background and foreground
 	
-	# Ensure this node stays at a low Z-index to be behind the player
-	z_index = -10
-	
-	# 1. Setup Mask Viewport
-	mask_viewport = SubViewport.new()
-	mask_viewport.size = screen_size
-	mask_viewport.transparent_bg = true
-	mask_viewport.disable_3d = true
-	mask_viewport.render_target_clear_mode = SubViewport.CLEAR_MODE_ALWAYS
-	mask_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-	add_child(mask_viewport)
-	
-	# 2. Setup Post-Process Shader
-	# We use a simple Sprite2D that covers the screen instead of a CanvasLayer
-	# This keeps it in the world-space rendering order
-	screen_shader_rect = ColorRect.new()
-	screen_shader_rect.size = screen_size
-	screen_shader_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	
-	var tear_mat = ShaderMaterial.new()
-	tear_mat.shader = load("res://shaders/paper_tear.gdshader")
-	tear_mat.set_shader_parameter("mask_texture", mask_viewport.get_texture())
-	
-	if not noise_texture:
-		noise_texture = FastNoiseLite.new()
-		noise_texture.frequency = 0.05
-	
-	var noise_tex = NoiseTexture2D.new()
-	noise_tex.noise = noise_texture
-	tear_mat.set_shader_parameter("noise_texture", noise_tex)
-	
-	screen_shader_rect.material = tear_mat
-	add_child(screen_shader_rect)
-
-func _process(_delta: float) -> void:
-	# Keep the shader rect centered on the camera/view
-	var canvas_transform = get_viewport().get_canvas_transform().affine_inverse()
-	screen_shader_rect.global_position = canvas_transform.origin
+	# Setup Particles
+	particles = CPUParticles2D.new()
+	particles.emitting = false
+	particles.amount = 100
+	particles.lifetime = 1.0
+	particles.spread = 60.0
+	particles.gravity = Vector2(0, 800)
+	particles.initial_velocity_min = 150.0
+	particles.initial_velocity_max = 400.0
+	particles.scale_amount_min = 4.0
+	particles.scale_amount_max = 10.0
+	particles.z_index = 210
+	add_child(particles)
 
 func capture_screen():
+	# Ensure we capture a safe frame
 	await RenderingServer.frame_post_draw
-	var viewport = get_viewport()
-	if not viewport: return
-	var img = viewport.get_texture().get_image()
-	if img:
-		stored_screenshot = ImageTexture.create_from_image(img)
+	var vp = get_viewport()
+	if vp:
+		stored_screenshot = vp.get_texture().get_image()
 
-func start_tear():
+func start_tear(direction: float = 1.0, width: float = 150.0, squish: float = 0.4):
+	# LOGGING: Verify start
+	capture_screen()
+	
 	active_line = Line2D.new()
-	active_line.width = 75.0 # Wider for better visibility
-	active_line.default_color = Color.WHITE
-	active_line.begin_cap_mode = Line2D.LINE_CAP_ROUND
-	active_line.end_cap_mode = Line2D.LINE_CAP_ROUND
-	active_line.joint_mode = Line2D.LINE_JOINT_ROUND
-	mask_viewport.add_child(active_line)
+	active_line.width = width
+	active_line.texture = tear_image
+	active_line.texture_mode = Line2D.LINE_TEXTURE_STRETCH
+	
+	var mat = ShaderMaterial.new()
+	mat.shader = load("res://shaders/paper_tear_direct.gdshader")
+	mat.set_shader_parameter("main_texture", tear_image)
+	mat.set_shader_parameter("texture_width_px", tear_image.get_width() if tear_image else 256.0)
+	mat.set_shader_parameter("is_finished", false)
+	mat.set_shader_parameter("v_squish", squish)
+	active_line.material = mat
+	
+	add_child(active_line)
+	
+	particles.direction = Vector2(-direction, -0.5).normalized()
+	particles.emitting = true
 
-func add_tear_point(global_pos: Vector2):
+func add_tear_point(global_pos: Vector2, offset: Vector2 = Vector2.ZERO):
 	if not active_line: return
-	# Add subtle jitter to the path itself for extra jaggedness
-	var jitter = Vector2(randf_range(-2, 2), randf_range(-2, 2))
-	var screen_pos = (get_viewport().get_canvas_transform() * global_pos) + jitter
-	active_line.add_point(screen_pos)
+	
+	# Apply inspector offset
+	var final_pos = global_pos + offset
+	active_line.add_point(final_pos)
+	
+	particles.global_position = final_pos
+	
+	if stored_screenshot:
+		var screen_pos = get_viewport().get_canvas_transform() * final_pos
+		if Rect2(Vector2.ZERO, stored_screenshot.get_size()).has_point(screen_pos):
+			particles.color = stored_screenshot.get_pixelv(Vector2i(screen_pos))
+			
+	if active_line.material:
+		var length = 0.0
+		for i in range(active_line.points.size() - 1):
+			length += active_line.points[i].distance_to(active_line.points[i+1])
+		active_line.material.set_shader_parameter("line_length_px", max(length, 1.0))
 
-func end_tear(fade_duration: float = 1.5):
-	if not active_line: return
-	var line_to_fade = active_line
+func end_tear(_fade_duration: float = 0.0):
+	if active_line:
+		var line_to_fade = active_line
+		if line_to_fade.material:
+			line_to_fade.material.set_shader_parameter("is_finished", true)
+		
+		# Stay visible for a moment, then fade out over 0.5 seconds
+		var tween = create_tween()
+		tween.tween_interval(0.5) # Stay duration
+		tween.tween_property(line_to_fade, "modulate:a", 0.0, 0.5)
+		tween.tween_callback(line_to_fade.queue_free)
+	
+	particles.emitting = false
 	active_line = null
-	var tween = create_tween()
-	tween.tween_property(line_to_fade, "width", 0.0, fade_duration)\
-		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	tween.tween_callback(line_to_fade.queue_free)
-
-func spawn_scrap(global_pos: Vector2, direction: float):
-	var scrap = RigidBody2D.new()
-	scrap.set_script(scrap_script)
-	scrap.global_position = global_pos
-	scrap.z_index = 5 # Scraps should fly IN FRONT of the player
-	
-	get_tree().root.add_child(scrap)
-	
-	if stored_screenshot and scrap.has_method("set_texture_from_capture"):
-		scrap.set_texture_from_capture(stored_screenshot, global_pos)
-	
-	# Flunge them out and rotating
-	scrap.apply_impulse(Vector2(-direction * randf_range(200, 400), randf_range(-150, -300)))
-	scrap.apply_torque_impulse(randf_range(-500, 500))
