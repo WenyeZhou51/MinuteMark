@@ -2934,6 +2934,20 @@ func _record_state_snapshot() -> void:
 	if not rewind_enabled:
 		return
 	
+	# Capture animation state from animated_sprite
+	var animation_name = "run"  # Default fallback
+	var animation_frame = 0
+	var sprite_flip_h = false
+	var sprite_scale = Vector2(1.0, 1.0)
+	var sprite_offset = Vector2.ZERO
+	
+	if animated_sprite and animated_sprite.sprite_frames:
+		animation_name = animated_sprite.animation if animated_sprite.animation != "" else "run"
+		animation_frame = animated_sprite.frame
+		sprite_flip_h = animated_sprite.flip_h
+		sprite_scale = animated_sprite.scale
+		sprite_offset = animated_sprite.offset
+	
 	var snapshot = {
 		"timestamp": game_time,
 		"position": global_position,
@@ -2948,7 +2962,12 @@ func _record_state_snapshot() -> void:
 		"is_attacking": is_attacking,
 		"is_stunned": is_stunned,
 		"is_slamming": is_slamming,
-		"is_slam_frozen": is_slam_frozen
+		"is_slam_frozen": is_slam_frozen,
+		"animation_name": animation_name,
+		"animation_frame": animation_frame,
+		"sprite_flip_h": sprite_flip_h,
+		"sprite_scale": sprite_scale,
+		"sprite_offset": sprite_offset
 	}
 	
 	state_history.append(snapshot)
@@ -3073,6 +3092,9 @@ func _stop_rewind_hold() -> void:
 		else:
 			velocity = Vector2.ZERO
 		facing_direction = release_state["facing_direction"]
+		
+		# Apply animation state to player sprite
+		_apply_animation_state(release_state)
 	
 	# Shadow spawning removed - no shadow on rewind
 	
@@ -3209,6 +3231,9 @@ func _process_rewind_traceback(delta: float) -> void:
 		velocity = current_state["velocity"]
 		facing_direction = current_state["facing_direction"]
 		
+		# Apply animation state to player sprite
+		_apply_animation_state(current_state)
+		
 		# Update ghost visualization (fade out completed segments)
 		_update_ghost_path_visualization(rewind_current_progress)
 	else:
@@ -3257,7 +3282,12 @@ func _get_state_at_progress(progress: float) -> Dictionary:
 		return {
 			"position": prev_point["position"],
 			"velocity": prev_point["velocity"],
-			"facing_direction": prev_point.get("facing_direction", facing_direction)
+			"facing_direction": prev_point.get("facing_direction", facing_direction),
+			"animation_name": prev_point.get("animation_name", "run"),
+			"animation_frame": prev_point.get("animation_frame", 0),
+			"sprite_flip_h": prev_point.get("sprite_flip_h", false),
+			"sprite_scale": prev_point.get("sprite_scale", Vector2(1.0, 1.0)),
+			"sprite_offset": prev_point.get("sprite_offset", Vector2.ZERO)
 		}
 	
 	# If target_time is before oldest point, return oldest
@@ -3265,7 +3295,12 @@ func _get_state_at_progress(progress: float) -> Dictionary:
 		return {
 			"position": next_point["position"],
 			"velocity": next_point["velocity"],
-			"facing_direction": next_point.get("facing_direction", facing_direction)
+			"facing_direction": next_point.get("facing_direction", facing_direction),
+			"animation_name": next_point.get("animation_name", "run"),
+			"animation_frame": next_point.get("animation_frame", 0),
+			"sprite_flip_h": next_point.get("sprite_flip_h", false),
+			"sprite_scale": next_point.get("sprite_scale", Vector2(1.0, 1.0)),
+			"sprite_offset": next_point.get("sprite_offset", Vector2.ZERO)
 		}
 	
 	# Interpolate between the two points
@@ -3274,7 +3309,12 @@ func _get_state_at_progress(progress: float) -> Dictionary:
 		return {
 			"position": prev_point["position"],
 			"velocity": prev_point["velocity"],
-			"facing_direction": prev_point.get("facing_direction", facing_direction)
+			"facing_direction": prev_point.get("facing_direction", facing_direction),
+			"animation_name": prev_point.get("animation_name", "run"),
+			"animation_frame": prev_point.get("animation_frame", 0),
+			"sprite_flip_h": prev_point.get("sprite_flip_h", false),
+			"sprite_scale": prev_point.get("sprite_scale", Vector2(1.0, 1.0)),
+			"sprite_offset": prev_point.get("sprite_offset", Vector2.ZERO)
 		}
 	
 	var t = (prev_point["timestamp"] - target_time) / time_range
@@ -3283,11 +3323,53 @@ func _get_state_at_progress(progress: float) -> Dictionary:
 	# Smooth interpolation using smoothstep
 	t = t * t * (3.0 - 2.0 * t)
 	
+	# For animation state, use the nearest snapshot (prev_point) since animations are discrete
+	# Position and velocity can be interpolated smoothly
 	return {
 		"position": prev_point["position"].lerp(next_point["position"], t),
 		"velocity": prev_point["velocity"].lerp(next_point["velocity"], t),
-		"facing_direction": prev_point.get("facing_direction", facing_direction)
+		"facing_direction": prev_point.get("facing_direction", facing_direction),
+		"animation_name": prev_point.get("animation_name", "run"),
+		"animation_frame": prev_point.get("animation_frame", 0),
+		"sprite_flip_h": prev_point.get("sprite_flip_h", false),
+		"sprite_scale": prev_point.get("sprite_scale", Vector2(1.0, 1.0)),
+		"sprite_offset": prev_point.get("sprite_offset", Vector2.ZERO)
 	}
+
+
+func _apply_animation_state(state: Dictionary) -> void:
+	"""Apply animation state from a snapshot to the player's animated sprite."""
+	if not animated_sprite or not animated_sprite.sprite_frames:
+		return
+	
+	var animation_name = state.get("animation_name", "run")
+	var animation_frame = state.get("animation_frame", 0)
+	var sprite_flip_h = state.get("sprite_flip_h", false)
+	var sprite_scale = state.get("sprite_scale", Vector2(1.0, 1.0))
+	var sprite_offset = state.get("sprite_offset", Vector2.ZERO)
+	
+	# Validate and apply animation
+	if animated_sprite.sprite_frames.has_animation(animation_name):
+		# Set animation and frame
+		if animated_sprite.animation != animation_name:
+			animated_sprite.play(animation_name)
+			animated_sprite.stop()  # Stop so we can set frame manually
+		
+		# Clamp frame to valid range
+		var frame_count = animated_sprite.sprite_frames.get_frame_count(animation_name)
+		animation_frame = clamp(animation_frame, 0, max(0, frame_count - 1))
+		animated_sprite.frame = animation_frame
+	else:
+		# Fallback to run animation
+		if animated_sprite.animation != "run":
+			animated_sprite.play("run")
+			animated_sprite.stop()
+		animated_sprite.frame = 0
+	
+	# Apply sprite properties
+	animated_sprite.flip_h = sprite_flip_h
+	animated_sprite.scale = sprite_scale
+	animated_sprite.offset = sprite_offset
 
 
 func _complete_rewind_hold() -> void:
@@ -3306,6 +3388,9 @@ func _complete_rewind_hold() -> void:
 		else:
 			velocity = Vector2.ZERO
 		facing_direction = target_state["facing_direction"]
+		
+		# Apply animation state to player sprite
+		_apply_animation_state(target_state)
 	
 	# Shadow spawning removed - no shadow on rewind
 	
@@ -3376,13 +3461,7 @@ func _create_ghost_path_visualization() -> void:
 	get_tree().root.add_child(rewind_path_visualization)
 	
 	# Create ghost markers at evenly-spaced intervals along the path
-	# Use every 0.2 seconds of path time, or at least 10 markers
-	var path_duration = rewind_start_time - rewind_target_time
-	var marker_interval = 0.2  # seconds
-	var num_markers = max(10, int(path_duration / marker_interval))
-	
-	# Limit markers for performance (max 50)
-	num_markers = min(num_markers, 50)
+	var num_markers = 10
 	
 	# Calculate which path points to use for markers
 	var marker_indices: Array[int] = []
@@ -3393,7 +3472,7 @@ func _create_ghost_path_visualization() -> void:
 			target_index = clamp(target_index, 0, rewind_traceback_frame_data.size() - 1)
 			marker_indices.append(target_index)
 	
-	# Create ghost markers
+	# Create ghost markers with animation sprites
 	for i in range(marker_indices.size()):
 		var path_index = marker_indices[i]
 		var path_point = rewind_traceback_frame_data[path_index]
@@ -3402,15 +3481,56 @@ func _create_ghost_path_visualization() -> void:
 		var marker_progress = float(i) / float(marker_indices.size() - 1) if marker_indices.size() > 1 else 0.0
 		var alpha = 0.3 + (0.7 * (1.0 - marker_progress))  # Fade from 1.0 (current) to 0.3 (past)
 		
-		# Create ghost marker (simple colored rectangle)
-		var ghost_marker = Polygon2D.new()
-		ghost_marker.polygon = PackedVector2Array([
-			Vector2(-16, -32),
-			Vector2(16, -32),
-			Vector2(16, 32),
-			Vector2(-16, 32)
-		])
-		ghost_marker.color = Color(0.5, 0.2, 0.8, alpha)  # Purple with transparency
+		# Get animation data from path point (with fallbacks)
+		var animation_name = path_point.get("animation_name", "run")
+		var animation_frame = path_point.get("animation_frame", 0)
+		var sprite_flip_h = path_point.get("sprite_flip_h", false)
+		var sprite_scale = path_point.get("sprite_scale", Vector2(1.0, 1.0))
+		var sprite_offset = path_point.get("sprite_offset", Vector2.ZERO)
+		
+		# Create ghost marker as Sprite2D
+		var ghost_marker = Sprite2D.new()
+		
+		# Try to get texture from animated_sprite's sprite_frames
+		if animated_sprite and animated_sprite.sprite_frames:
+			# Validate animation name and frame
+			if animated_sprite.sprite_frames.has_animation(animation_name):
+				var frame_count = animated_sprite.sprite_frames.get_frame_count(animation_name)
+				animation_frame = clamp(animation_frame, 0, max(0, frame_count - 1))
+				
+				# Get the texture for this animation frame
+				var texture = animated_sprite.sprite_frames.get_frame_texture(animation_name, animation_frame)
+				if texture:
+					ghost_marker.texture = texture
+				else:
+					# Fallback: use first frame of run animation
+					if animated_sprite.sprite_frames.has_animation("run"):
+						ghost_marker.texture = animated_sprite.sprite_frames.get_frame_texture("run", 0)
+			else:
+				# Animation doesn't exist, use run animation as fallback
+				if animated_sprite.sprite_frames.has_animation("run"):
+					ghost_marker.texture = animated_sprite.sprite_frames.get_frame_texture("run", 0)
+					animation_name = "run"
+					animation_frame = 0
+		
+		# If we still don't have a texture, create a simple colored rectangle as ultimate fallback
+		if not ghost_marker.texture:
+			# Create a simple fallback texture using a ColorRect approach
+			# For now, we'll just skip this marker or use a placeholder
+			# In practice, this shouldn't happen if animated_sprite is properly set up
+			continue
+		
+		# Apply sprite properties
+		ghost_marker.flip_h = sprite_flip_h
+		ghost_marker.scale = sprite_scale
+		ghost_marker.offset = sprite_offset
+		ghost_marker.centered = true
+		
+		# Apply visual style: cyan/blue tint to differentiate from afterimages
+		# Use modulate for color tinting while preserving alpha
+		var rewind_tint = Color(0.3, 0.7, 1.0, alpha)  # Cyan/blue tint
+		ghost_marker.modulate = rewind_tint
+		
 		ghost_marker.global_position = path_point["position"]
 		
 		rewind_path_visualization.add_child(ghost_marker)
@@ -3435,17 +3555,19 @@ func _update_ghost_path_visualization(progress: float) -> void:
 		# Calculate marker progress (0.0 = current, 1.0 = past)
 		var marker_progress = float(i) / float(ghost_markers.size() - 1) if ghost_markers.size() > 1 else 0.0
 		
+		# Calculate base alpha based on progress
+		var base_alpha = 0.3 + (0.7 * (1.0 - marker_progress))
+		
 		# If marker is behind current progress, fade it out
 		if marker_progress < progress:
 			# Fade out based on how far behind
 			var fade_amount = 1.0 - ((progress - marker_progress) / progress) if progress > 0.0 else 1.0
 			fade_amount = clamp(fade_amount, 0.0, 1.0)
-			var base_alpha = 0.3 + (0.7 * (1.0 - marker_progress))
-			marker.modulate.a = base_alpha * fade_amount
-		else:
-			# Marker is ahead, keep normal transparency
-			var base_alpha = 0.3 + (0.7 * (1.0 - marker_progress))
-			marker.modulate.a = base_alpha
+			base_alpha = base_alpha * fade_amount
+		
+		# Preserve the cyan/blue tint color while updating alpha
+		var current_color = marker.modulate
+		marker.modulate = Color(0.3, 0.7, 1.0, base_alpha)  # Cyan/blue tint with updated alpha
 
 
 func _clear_ghost_path_visualization() -> void:
@@ -3618,7 +3740,12 @@ func _extract_path_from_history(start_time: float, end_time: float, end_position
 				"position": snapshot["position"],
 				"velocity": snapshot.get("velocity", Vector2.ZERO),
 				"facing_direction": snapshot.get("facing_direction", facing_direction),
-				"timestamp": timestamp
+				"timestamp": timestamp,
+				"animation_name": snapshot.get("animation_name", "run"),
+				"animation_frame": snapshot.get("animation_frame", 0),
+				"sprite_flip_h": snapshot.get("sprite_flip_h", false),
+				"sprite_scale": snapshot.get("sprite_scale", Vector2(1.0, 1.0)),
+				"sprite_offset": snapshot.get("sprite_offset", Vector2.ZERO)
 			})
 	
 	# Sort by timestamp to ensure correct order
@@ -3632,7 +3759,12 @@ func _extract_path_from_history(start_time: float, end_time: float, end_position
 				"position": start_state["position"],
 				"velocity": start_state.get("velocity", Vector2.ZERO),
 				"facing_direction": start_state.get("facing_direction", facing_direction),
-				"timestamp": start_time
+				"timestamp": start_time,
+				"animation_name": start_state.get("animation_name", "run"),
+				"animation_frame": start_state.get("animation_frame", 0),
+				"sprite_flip_h": start_state.get("sprite_flip_h", false),
+				"sprite_scale": start_state.get("sprite_scale", Vector2(1.0, 1.0)),
+				"sprite_offset": start_state.get("sprite_offset", Vector2.ZERO)
 			})
 	
 	# Always ensure we have the end position (current position before rewind)
@@ -3647,11 +3779,36 @@ func _extract_path_from_history(start_time: float, end_time: float, end_position
 		# Add current position as final point
 		# Use current state for velocity and facing_direction
 		var current_state = _find_state_at_time(end_time)
+		# Get current animation state from animated_sprite if available
+		var current_animation_name = "run"
+		var current_animation_frame = 0
+		var current_sprite_flip_h = false
+		var current_sprite_scale = Vector2(1.0, 1.0)
+		var current_sprite_offset = Vector2.ZERO
+		
+		if animated_sprite and animated_sprite.sprite_frames:
+			current_animation_name = animated_sprite.animation if animated_sprite.animation != "" else "run"
+			current_animation_frame = animated_sprite.frame
+			current_sprite_flip_h = animated_sprite.flip_h
+			current_sprite_scale = animated_sprite.scale
+			current_sprite_offset = animated_sprite.offset
+		elif not current_state.is_empty():
+			current_animation_name = current_state.get("animation_name", "run")
+			current_animation_frame = current_state.get("animation_frame", 0)
+			current_sprite_flip_h = current_state.get("sprite_flip_h", false)
+			current_sprite_scale = current_state.get("sprite_scale", Vector2(1.0, 1.0))
+			current_sprite_offset = current_state.get("sprite_offset", Vector2.ZERO)
+		
 		path_points.append({
 			"position": end_position,  # Position before rewind
 			"velocity": current_state.get("velocity", velocity) if not current_state.is_empty() else velocity,
 			"facing_direction": current_state.get("facing_direction", facing_direction) if not current_state.is_empty() else facing_direction,
-			"timestamp": end_time
+			"timestamp": end_time,
+			"animation_name": current_animation_name,
+			"animation_frame": current_animation_frame,
+			"sprite_flip_h": current_sprite_flip_h,
+			"sprite_scale": current_sprite_scale,
+			"sprite_offset": current_sprite_offset
 		})
 	
 	return path_points
@@ -3874,6 +4031,10 @@ func _trigger_early_parry(type: KickTargetType, node: Node2D) -> void:
 
 func _update_animations() -> void:
 	if not animated_sprite or not animated_sprite.sprite_frames:
+		return
+	
+	# Skip animation updates during rewind tracing (animation is controlled by rewind state)
+	if is_rewind_tracing:
 		return
 		
 	var is_moving_horizontally = abs(velocity.x) > 10.0
