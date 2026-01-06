@@ -3083,6 +3083,11 @@ func _stop_rewind_hold() -> void:
 	rewind_current_progress = 0.0
 	rewind_traceback_frame_data = []
 	
+	# Ensure slam state is reset (should not be restored during rewind)
+	is_slamming = false
+	if slam_attack_visual:
+		slam_attack_visual.visible = false
+	
 	# Set cooldown
 	rewind_cooldown_timer = rewind_cooldown
 
@@ -3310,6 +3315,11 @@ func _complete_rewind_hold() -> void:
 	is_rewind_tracing = false
 	rewind_current_progress = 0.0
 	rewind_traceback_frame_data = []
+	
+	# Ensure slam state is reset (should not be restored during rewind)
+	is_slamming = false
+	if slam_attack_visual:
+		slam_attack_visual.visible = false
 	
 	# Set cooldown
 	rewind_cooldown_timer = rewind_cooldown
