@@ -653,12 +653,14 @@ func _physics_process(delta: float) -> void:
 	_update_ground_state()
 	
 	# 3. Update Wall State
-	if wall_jump_enabled:
+	# Skip wall state updates during rewind tracing to prevent wall interactions
+	if wall_jump_enabled and not is_rewind_tracing:
 		_update_wall_state(input_vector.x, space_state)
 	
 	# QOL: Check for Ledge Climb Opportunity
 	# This is checked early so it's not skipped by early returns in dash/slide states
-	if ledge_climb_enabled and is_on_wall and not is_ledge_climbing:
+	# Don't check during rewind tracing (player should follow exact historical path)
+	if ledge_climb_enabled and is_on_wall and not is_ledge_climbing and not is_rewind_tracing:
 		_check_ledge_climb(space_state)
 	
 	# 4. Process Ground Slide (if active, skip most normal movement)
@@ -819,7 +821,8 @@ func _physics_process(delta: float) -> void:
 		return
 	
 	# 13. QOL: Ledge Climb (if enabled and active, skip normal movement)
-	if is_ledge_climbing:
+	# Don't process ledge climb during rewind tracing (player should follow exact historical path)
+	if is_ledge_climbing and not is_rewind_tracing:
 		_process_ledge_climb(delta)
 		# NOTE: We don't call move_and_slide() here because _process_ledge_climb 
 		# sets global_position directly for a guaranteed result.
@@ -1342,8 +1345,8 @@ func _end_wall_run() -> void:
 func _check_wall_run_activation() -> void:
 	"""Check for wall run activation/continuation AFTER move_and_slide() using actual collision detection."""
 	
-	# Don't activate if in states that should block wall running
-	if is_stunned or is_attacking or is_slamming or is_ledge_climbing:
+	# Don't activate if in states that should block wall running, or during rewind tracing
+	if is_stunned or is_attacking or is_slamming or is_ledge_climbing or is_rewind_tracing:
 		if is_wall_running:
 			_end_wall_run()
 		return
@@ -1749,8 +1752,8 @@ func _apply_corner_correction(space_state: PhysicsDirectSpaceState2D) -> void:
 
 func _check_ledge_climb(space_state: PhysicsDirectSpaceState2D) -> void:
 	"""QOL FEATURE: Detect if player is near a climbable ledge and initiate climb."""
-	# Don't start a new climb if already climbing or in rewind slow-mo
-	if is_ledge_climbing or is_in_rewind_slowmo:
+	# Don't start a new climb if already climbing, in rewind slow-mo, or during rewind tracing
+	if is_ledge_climbing or is_in_rewind_slowmo or is_rewind_tracing:
 		return
 	
 	# Don't allow ledge climb if on cooldown (prevents hover bug)
@@ -3061,6 +3064,9 @@ func _start_rewind_hold() -> void:
 	if is_slam_frozen:
 		is_slam_frozen = false
 		slam_freeze_timer = 0.0
+	if is_ledge_climbing:
+		is_ledge_climbing = false
+		ledge_climb_progress = 0.0
 	
 	# Enter slow-mo and create ghost path visualization
 	_enter_rewind_slowmo()
@@ -3240,7 +3246,12 @@ func _process_rewind_traceback(delta: float) -> void:
 		print("[REWIND TRACEBACK] WARNING: Could not get state at progress ", rewind_current_progress)
 	
 	# Zero out velocity to prevent physics from interfering
+	# Also clear wall states to prevent wall interactions (wall run, wall slide, etc.)
 	velocity = Vector2.ZERO
+	is_on_wall = false
+	is_wall_sliding = false
+	is_wall_running = false
+	wall_normal = Vector2.ZERO
 
 
 func _get_state_at_progress(progress: float) -> Dictionary:
