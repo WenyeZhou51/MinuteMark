@@ -520,7 +520,7 @@ func _physics_process(delta: float) -> void:
 		air_dash_cooldown_timer -= delta
 	
 	# Handle dash input (shift press takes priority over run)
-	if dash_enabled and run_input_just_pressed and not is_ground_sliding and not is_air_dashing and not is_stunned:
+	if dash_enabled and run_input_just_pressed and not is_ground_sliding and not is_air_dashing and not is_stunned and not is_in_rewind_slowmo:
 		if is_on_floor() and ground_slide_cooldown_timer <= 0:
 			# Ground slide
 			_start_ground_slide(input_vector.x)
@@ -625,7 +625,7 @@ func _physics_process(delta: float) -> void:
 			_apply_stun_after_grace_period()
 		else:
 			# Check if kick button pressed during grace period
-			if Input.is_action_just_pressed("melee_attack") and grace_period_colliding_enemy:
+			if Input.is_action_just_pressed("melee_attack") and grace_period_colliding_enemy and not is_in_rewind_slowmo:
 				# Cancel stun, perform kick attack instead!
 				_cancel_grace_period_with_kick()
 	
@@ -637,7 +637,7 @@ func _physics_process(delta: float) -> void:
 			_apply_bullet_hitstun()
 		else:
 			# Check if kick button pressed during bullet grace period
-			if Input.is_action_just_pressed("melee_attack"):
+			if Input.is_action_just_pressed("melee_attack") and not is_in_rewind_slowmo:
 				# Cancel hitstun, perform parry instead!
 				_cancel_bullet_grace_period_with_parry()
 	
@@ -664,7 +664,7 @@ func _physics_process(delta: float) -> void:
 	# 4. Process Ground Slide (if active, skip most normal movement)
 	if is_ground_sliding:
 		# Check for jump input to cancel slide with empowered jump
-		if Input.is_action_just_pressed("jump") and not is_stunned:
+		if Input.is_action_just_pressed("jump") and not is_stunned and not is_in_rewind_slowmo:
 			_perform_jump()  # Will automatically use slide jump bonus
 			velocity_before_move_and_slide = velocity
 			move_and_slide()
@@ -687,7 +687,7 @@ func _physics_process(delta: float) -> void:
 	# 5. Process Air Dash (if active, skip most normal movement)
 	if is_air_dashing:
 		# Check for down input to perform ground slam out of air dash
-		if Input.is_action_just_pressed("move_down") and not is_stunned:
+		if Input.is_action_just_pressed("move_down") and not is_stunned and not is_in_rewind_slowmo:
 			# End air dash
 			_end_air_dash()
 			# Perform ground slam
@@ -727,7 +727,7 @@ func _physics_process(delta: float) -> void:
 		
 		# Check for jump input BEFORE processing wall run
 		# This allows player to jump out of wall run
-		if Input.is_action_just_pressed("jump") and not is_stunned:
+		if Input.is_action_just_pressed("jump") and not is_stunned and not is_in_rewind_slowmo:
 			# print("[WALL RUN DEBUG] ⚠ Jump pressed during wall run, performing empowered wall jump")
 			_perform_wall_jump()
 			# After jump, is_wall_running is false, so continue with normal physics below
@@ -1532,8 +1532,8 @@ func _apply_horizontal_movement(input_direction: float, delta: float) -> void:
 
 func _handle_jump_input() -> void:
 	"""Process jump input with buffering and state tracking."""
-	# Can't jump when stunned
-	if is_stunned:
+	# Can't jump when stunned or in rewind slow-mo
+	if is_stunned or is_in_rewind_slowmo:
 		return
 	
 	# Track jump hold state
@@ -1564,6 +1564,9 @@ func _handle_jump_input() -> void:
 
 func _execute_buffered_jump() -> void:
 	"""Execute a buffered jump if player just landed."""
+	# Can't execute buffered jump in rewind slow-mo
+	if is_in_rewind_slowmo:
+		return
 	if jump_buffered and is_on_floor():
 		_perform_jump()
 		jump_buffered = false
@@ -1572,8 +1575,8 @@ func _execute_buffered_jump() -> void:
 
 func _handle_ground_slam_input() -> void:
 	"""Process ground slam input - trigger slam when pressing down while in air."""
-	# Can't ground slam when stunned or already slamming
-	if is_stunned or is_slamming:
+	# Can't ground slam when stunned, already slamming, or in rewind slow-mo
+	if is_stunned or is_slamming or is_in_rewind_slowmo:
 		return
 	
 	# Check for down input press this frame
@@ -1746,8 +1749,8 @@ func _apply_corner_correction(space_state: PhysicsDirectSpaceState2D) -> void:
 
 func _check_ledge_climb(space_state: PhysicsDirectSpaceState2D) -> void:
 	"""QOL FEATURE: Detect if player is near a climbable ledge and initiate climb."""
-	# Don't start a new climb if already climbing
-	if is_ledge_climbing:
+	# Don't start a new climb if already climbing or in rewind slow-mo
+	if is_ledge_climbing or is_in_rewind_slowmo:
 		return
 	
 	# Don't allow ledge climb if on cooldown (prevents hover bug)
@@ -2048,8 +2051,8 @@ func _update_attack_indicator() -> void:
 
 func _handle_kick_input() -> void:
 	"""Process kick input - always start kick animation, trigger effect at frame 5."""
-	# Can't kick when stunned
-	if is_stunned:
+	# Can't kick when stunned or in rewind slow-mo
+	if is_stunned or is_in_rewind_slowmo:
 		return
 	
 	# Can only kick if not on cooldown and not already attacking
