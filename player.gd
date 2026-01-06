@@ -994,20 +994,25 @@ func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceS
 	var half_width = shape.size.x / 2.0
 	var half_height = shape.size.y / 2.0
 	
-	# CRITICAL FIX: Extend raycast distance during dashes to prevent skipping walls
+	# CRITICAL FIX: Account for collision shape offset (important during slides/slams)
+	var ray_origin_offset = collision_shape.position
+	
+	# CRITICAL FIX: Extend raycast distance during dashes or wall runs to prevent skipping walls
 	# During high-speed movement, player can move 20-30 pixels per frame,
 	# but default wall_check_distance is only 8 pixels!
 	var effective_wall_check_distance = wall_check_distance
-	if is_dashing:
-		# Calculate how far player will move this frame
-		var movement_per_frame = abs(velocity.x) / 60.0  # Assume 60fps
-		# Extend raycast to at least cover this distance, plus buffer
-		effective_wall_check_distance = max(wall_check_distance, movement_per_frame * 1.5)
-		# print("[WALL DETECT DEBUG] Extended raycast distance: ", effective_wall_check_distance, " (was ", wall_check_distance, ")")
-		# print("[WALL DETECT DEBUG] velocity.x: ", velocity.x, " | movement_per_frame: ", movement_per_frame)
+	if is_dashing or is_wall_running:
+		# Use a larger distance to stay attached to walls during high-speed movement
+		# 16 pixels provides a generous buffer for physics engine fluctuations
+		effective_wall_check_distance = max(wall_check_distance, 16.0)
+		if is_dashing:
+			# Calculate how far player will move this frame
+			var movement_per_frame = abs(velocity.x) / 60.0  # Assume 60fps
+			# Extend raycast to at least cover this distance, plus buffer
+			effective_wall_check_distance = max(effective_wall_check_distance, movement_per_frame * 1.5)
 	
 	# During wall run, check at multiple heights for more accurate wall detection
-	var check_heights = [-half_height + 4, 0.0, half_height - 4]
+	var check_heights = [-half_height + 2, 0.0, half_height - 2]
 	
 	var left_hit_any = false
 	var right_hit_any = false
@@ -1015,7 +1020,7 @@ func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceS
 	# Check for walls at each height
 	for height_offset in check_heights:
 		# Check for wall on the left
-		var left_ray_origin = global_position + Vector2(-half_width, height_offset)
+		var left_ray_origin = global_position + ray_origin_offset + Vector2(-half_width, height_offset)
 		var left_ray_end = left_ray_origin + Vector2(-effective_wall_check_distance, 0)
 		var query_left = PhysicsRayQueryParameters2D.create(left_ray_origin, left_ray_end)
 		query_left.exclude = [self]
@@ -1023,7 +1028,6 @@ func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceS
 		if left_hit:
 			left_hit_any = true
 		
-		# DEBUG: Log raycast results during dash
 		if is_dashing and (left_hit or velocity.x < -100):
 			pass
 			# print("[WALL DETECT DEBUG] LEFT raycast: origin=", left_ray_origin, " end=", left_ray_end)
@@ -1031,7 +1035,7 @@ func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceS
 			# print("[WALL DETECT DEBUG] LEFT hit: ", left_hit.size() > 0, " | hit_any: ", left_hit_any)
 		
 		# Check for wall on the right
-		var right_ray_origin = global_position + Vector2(half_width, height_offset)
+		var right_ray_origin = global_position + ray_origin_offset + Vector2(half_width, height_offset)
 		var right_ray_end = right_ray_origin + Vector2(effective_wall_check_distance, 0)
 		var query_right = PhysicsRayQueryParameters2D.create(right_ray_origin, right_ray_end)
 		query_right.exclude = [self]
@@ -1050,33 +1054,34 @@ func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceS
 	if left_hit_any:
 		is_on_wall = true
 		wall_normal = Vector2.RIGHT  # Wall is on left, so push right
-		# DEBUG: Log wall detection during dash
-		if is_dashing:
-			pass
-			# print("[WALL DETECT DEBUG] ✓ LEFT WALL DETECTED! Setting is_on_wall = true")
-			# print("[WALL DETECT DEBUG] wall_normal: ", wall_normal)
 		# Reset air dash cooldown and availability when touching wall
 		air_dash_cooldown_timer = 0.0
 		air_dash_available = true
 		# Player is wall sliding if moving down and pressing toward wall
-		# BUT: Don't activate wall sliding during dashes (they should trigger wall run instead)
 		if velocity.y > 0 and input_direction < 0 and not is_ground_sliding and not is_air_dashing:
 			is_wall_sliding = true
 	elif right_hit_any:
 		is_on_wall = true
 		wall_normal = Vector2.LEFT  # Wall is on right, so push left
-		# DEBUG: Log wall detection during dash
-		if is_dashing:
-			pass
-			# print("[WALL DETECT DEBUG] ✓ RIGHT WALL DETECTED! Setting is_on_wall = true")
-			# print("[WALL DETECT DEBUG] wall_normal: ", wall_normal)
 		# Reset air dash cooldown and availability when touching wall
 		air_dash_cooldown_timer = 0.0
 		air_dash_available = true
 		# Player is wall sliding if moving down and pressing toward wall
-		# BUT: Don't activate wall sliding during dashes (they should trigger wall run instead)
 		if velocity.y > 0 and input_direction > 0 and not is_ground_sliding and not is_air_dashing:
 			is_wall_sliding = true
+	# FALLBACK: If raycasts failed but we just had a slide collision with a wall, use that
+	# This is critical for activating wall run when dashing into a wall
+	elif get_slide_collision_count() > 0:
+		for i in range(get_slide_collision_count()):
+			var collision = get_slide_collision(i)
+			var collision_normal = collision.get_normal()
+			# A wall has a mostly horizontal normal
+			if abs(collision_normal.x) > 0.7:
+				is_on_wall = true
+				wall_normal = collision_normal
+				air_dash_cooldown_timer = 0.0
+				air_dash_available = true
+				break
 	else:
 		# DEBUG: Log when no wall detected during dash
 		if is_dashing and (abs(velocity.x) > 500):
@@ -1173,7 +1178,12 @@ func _start_wall_run(horizontal_speed: float, force: bool = false) -> void:
 	velocity.y = -wall_run_speed
 	
 	# Maintain some horizontal velocity towards the wall to stay attached
-	velocity.x = velocity.x * 0.3  # Reduce horizontal speed but keep direction
+	# If we have no velocity towards wall, add a small nudge to ensure collision detection
+	var towards_wall_x = -wall_normal.x
+	if sign(velocity.x) != sign(towards_wall_x) or abs(velocity.x) < 50.0:
+		velocity.x = towards_wall_x * 100.0 # Force a nudge into the wall (100 is enough to trigger collision)
+	else:
+		velocity.x = velocity.x * 0.5 # Keep half of the existing momentum into the wall
 	
 	# Cancel other states
 	is_jumping = false
@@ -1363,16 +1373,25 @@ func _check_wall_run_activation() -> void:
 		return
 	
 	# CRITICAL: Detect wall collision by checking if:
-	# 1. Raycast detects wall (is_on_wall = true from _update_wall_state)
-	# 2. Horizontal velocity was significantly reduced by collision
-	var velocity_reduced = abs(velocity.x) < speed_before_collision * 0.5  # Velocity reduced by 50%+
+	# 1. Raycast already detected wall (from _update_wall_state)
+	# 2. We just had a slide collision that looks like a wall
 	var has_slide_collision = get_slide_collision_count() > 0
-	var raycast_detects_wall = is_on_wall  # From _update_wall_state raycast detection
+	var has_actual_wall_collision = false
+	if has_slide_collision:
+		for i in range(get_slide_collision_count()):
+			var collision = get_slide_collision(i)
+			if abs(collision.get_normal().x) > 0.7:
+				has_actual_wall_collision = true
+				# Update wall_normal if it wasn't set correctly by raycasts
+				if wall_normal == Vector2.ZERO:
+					wall_normal = collision.get_normal()
+				break
 	
-	# Wall collision is confirmed if raycast detects wall AND either:
-	# - Velocity was significantly reduced (head-on or angled collision), OR
-	# - We have slide collisions (glancing collision)
-	var has_wall_collision = raycast_detects_wall and (velocity_reduced or has_slide_collision)
+	var raycast_detects_wall = is_on_wall  # From _update_wall_state raycast detection
+	var velocity_reduced = abs(velocity.x) < speed_before_collision * 0.5  # Velocity reduced by 50%+
+	
+	# Wall collision is confirmed if we have EITHER a raycast hit OR a slide collision
+	var has_wall_collision = (raycast_detects_wall or has_actual_wall_collision) and (velocity_reduced or has_slide_collision)
 	
 	if not has_wall_collision:
 		# print("[WALL RUN COLLISION] No wall collision detected")
