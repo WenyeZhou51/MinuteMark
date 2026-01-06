@@ -41,8 +41,8 @@ func setup(mode: String, direction_vec: Vector2 = Vector2.ZERO) -> void:
 			spread = 30.0
 			initial_velocity_min = 20.0
 			initial_velocity_max = 50.0
-			scale_amount_min = 4.0
-			scale_amount_max = 8.0
+			scale_amount_min = 4.8
+			scale_amount_max = 9.6
 		"slide":
 			amount = 8
 			lifetime = 0.5

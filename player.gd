@@ -15,6 +15,9 @@ const AfterimageScene = preload("res://afterimage.tscn")
 # REWIND SHADOW
 const ShadowScene = preload("res://shadow.tscn")
 
+# DUST PARTICLES
+const DustParticlesScene = preload("res://dust_particles.tscn")
+
 # MOVEMENT CONFIGURATION
 @export_group("Horizontal Movement")
 @export var max_speed: float = 300.0  ## Maximum horizontal movement speed
@@ -329,6 +332,9 @@ var rewind_path_visualization: Node2D = null  # Container for ghost path visuals
 var ghost_markers: Array[Node2D] = []  # Array of ghost marker nodes
 var grayscale_overlay: ColorRect = null  # Grayscale overlay for rewind effect
 
+# Dust effect state
+var dust_spawn_timer: float = 0.0
+
 # Component references
 @onready var coyote_timer: Timer = $CoyoteTimer
 @onready var jump_buffer_timer: Timer = $JumpBufferTimer
@@ -573,6 +579,9 @@ func _physics_process(delta: float) -> void:
 	
 	# Update animations
 	_update_animations()
+	
+	# Handle continuous dust effects (run, slide)
+	_handle_dust_effects(delta)
 	
 	# Update facing direction based on movement
 	if input_vector.x != 0 and not is_attacking and not is_ground_sliding and not is_air_dashing:
@@ -1591,6 +1600,9 @@ func _perform_jump() -> void:
 			velocity.x += jump_direction * empowered_jump_horizontal_boost
 		
 		is_slide_jump_available = false
+		
+		# Big dust cloud for slide jump
+		_spawn_dust("slide_jump", Vector2(0, 32))
 	# Apply empowered jump when in sprint state
 	elif is_running:
 		# Vertical boost - jump higher
@@ -1600,13 +1612,18 @@ func _perform_jump() -> void:
 		var jump_direction = sign(velocity.x) if abs(velocity.x) > 10.0 else last_input_direction
 		if jump_direction != 0:
 			velocity.x += jump_direction * empowered_jump_horizontal_boost
+			
+		# Normal jump dust
+		_spawn_dust("jump", Vector2(0, 32))
 	else:
 		# Normal jump
 		velocity.y = jump_velocity
+		
+		# Normal jump dust
+		_spawn_dust("jump", Vector2(0, 32))
 	
 	is_jumping = true
 	coyote_timer.stop()  # Consume coyote time
-	# Could trigger jump effects here (particles, sound, animation, etc.)
 
 
 func _perform_wall_jump() -> void:
@@ -1652,9 +1669,10 @@ func _perform_wall_jump() -> void:
 	is_on_wall = false
 	is_wall_sliding = false
 	
-	# print("[WALL JUMP DEBUG] ✓ Complete - Final velocity: ", velocity, " | Cooldown: ", "%.3f" % wall_jump_cooldown, "s")
-	
-	# Could trigger wall jump effects here (particles, sound, animation, etc.)
+	# Trigger wall jump dust effect
+	# Spawn at side of player touching wall, pointing away from wall
+	var dust_offset = Vector2(-jump_wall_normal.x * 16, 0)
+	_spawn_dust("wall_jump", dust_offset, jump_wall_normal)
 
 
 func _on_jump_buffer_timeout() -> void:
@@ -3940,3 +3958,28 @@ func _update_animations() -> void:
 	if animated_sprite.flip_h:
 		final_offset.x = -current_offset.x
 	animated_sprite.position = final_offset
+
+
+func _spawn_dust(mode: String, pos_offset: Vector2 = Vector2.ZERO, dir: Vector2 = Vector2.ZERO) -> void:
+	if not DustParticlesScene:
+		return
+	var dust = DustParticlesScene.instantiate()
+	get_parent().add_child(dust) # Spawn in world space
+	dust.global_position = global_position + pos_offset
+	dust.setup(mode, dir)
+
+
+func _handle_dust_effects(delta: float) -> void:
+	if dust_spawn_timer > 0:
+		dust_spawn_timer -= delta
+		return
+		
+	if is_on_floor():
+		if is_ground_sliding:
+			_spawn_dust("slide", Vector2(0, 32))
+			dust_spawn_timer = 0.05 # Fast puffs for sliding
+		elif is_running and abs(velocity.x) > max_speed * 0.8:
+			# Spawn slightly behind the feet
+			var dust_offset = Vector2(-facing_direction * 10, 32)
+			_spawn_dust("run", dust_offset, Vector2(-facing_direction, 0))
+			dust_spawn_timer = 0.11 # Increased frequency for running
