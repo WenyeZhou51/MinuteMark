@@ -1,8 +1,8 @@
 extends Control
 
-@onready var label: RichTextLabel = $DialoguePanel/HBoxContainer/VBoxContainer/DialogueLabel
-@onready var speaker_label: Label = $DialoguePanel/HBoxContainer/VBoxContainer/SpeakerLabel
-@onready var portrait: TextureRect = $DialoguePanel/HBoxContainer/PortraitContainer/Portrait
+@onready var label: RichTextLabel = $MainLayout/ContentHBox/DialoguePanel/TextMargin/VBoxContainer/DialogueLabel
+@onready var speaker_label: Label = $MainLayout/ContentHBox/DialoguePanel/TextMargin/VBoxContainer/SpeakerLabel
+@onready var portrait: TextureRect = $MainLayout/ContentHBox/PortraitContainer/Portrait
 @onready var interrupt_indicator: Button = $InterruptIndicator
 
 @export var style_red: StyleBoxFlat
@@ -17,10 +17,10 @@ var indicator_tween: Tween
 # Map speaker names to textures
 # In a real game, you'd have different images for each character
 var portraits = {
-	"Boss": preload("res://Sprites/New bob.png"),
-	"Player": preload("res://Sprites/New bob.png"), 
-	"Stranger": preload("res://Sprites/New bob.png"),
-	"???": preload("res://Sprites/New bob.png")
+	"Boss": preload("res://dialogue/protag.jpg"),
+	"Player": preload("res://dialogue/protag.jpg"), 
+	"Stranger": preload("res://dialogue/protag.jpg"),
+	"???": preload("res://dialogue/protag.jpg")
 }
 
 func _ready():
@@ -36,6 +36,9 @@ func _ready():
 	DialogueManager.start("intro")
 
 func _on_line_changed(line: Dictionary) -> void:
+	if not line:
+		return
+		
 	label.text = line.get("text", "")
 	var speaker = line.get("speaker", "???")
 	
