@@ -219,6 +219,7 @@ var trail_afterimage_timer: float = 0.0
 
 # Wall jump state variables
 var is_on_wall: bool = false  # Is player touching a wall
+var wall_persistence_timer: int = 0  # Frame buffer to prevent flickering on TileMap seams
 var wall_normal: Vector2 = Vector2.ZERO  # Direction pointing away from the wall
 var is_wall_sliding: bool = false  # Is player currently sliding down a wall
 
@@ -275,6 +276,7 @@ var parry_time_slowdown_timer: float = 0.0  # Time remaining for time slowdown e
 var is_ground_sliding: bool = false  # Is player currently ground sliding
 var is_air_dashing: bool = false  # Is player currently air dashing
 var ground_slide_timer: float = 0.0  # Time elapsed in current ground slide
+var ground_slide_air_buffer: int = 0  # Frame buffer for being off-floor during slide
 var air_dash_timer: float = 0.0  # Time elapsed in current air dash
 var ground_slide_cooldown_timer: float = 0.0  # Cooldown timer for ground slide
 var air_dash_cooldown_timer: float = 0.0  # Cooldown timer for air dash
@@ -512,7 +514,7 @@ func _physics_process(delta: float) -> void:
 	if is_slam_frozen:
 		velocity = Vector2.ZERO  # No movement during freeze
 		move_and_slide()
-		_post_movement_updates()
+		_post_movement_updates(space_state)
 		return
 	
 	# Track if run input was just pressed this frame (for dash detection)
@@ -661,12 +663,12 @@ func _physics_process(delta: float) -> void:
 	# Skip wall state updates during rewind tracing to prevent wall interactions
 	if wall_jump_enabled and not is_rewind_tracing:
 		_update_wall_state(input_vector.x, space_state)
-	
-	# QOL: Check for Ledge Climb Opportunity
-	# This is checked early so it's not skipped by early returns in dash/slide states
-	# Don't check during rewind tracing (player should follow exact historical path)
-	if ledge_climb_enabled and is_on_wall and not is_ledge_climbing and not is_rewind_tracing:
-		_check_ledge_climb(space_state)
+	else:
+		# Ensure wall state is reset when disabled or during rewind
+		is_on_wall = false
+		is_wall_sliding = false
+		wall_normal = Vector2.ZERO
+		wall_persistence_timer = 0
 	
 	# 4. Process Ground Slide (if active, skip most normal movement)
 	if is_ground_sliding:
@@ -693,7 +695,7 @@ func _physics_process(delta: float) -> void:
 			
 			velocity_before_move_and_slide = velocity
 			move_and_slide()
-			_post_movement_updates()
+			_post_movement_updates(space_state)
 			return
 		
 		# Wall run activation moved to _check_wall_run_activation() which runs AFTER move_and_slide()
@@ -706,7 +708,7 @@ func _physics_process(delta: float) -> void:
 			# Skip normal physics when sliding
 			velocity_before_move_and_slide = velocity  # Store for wall collision detection
 			move_and_slide()
-			_post_movement_updates()
+			_post_movement_updates(space_state)
 			return
 	
 	# 5. Process Air Dash (if active, skip most normal movement)
@@ -719,7 +721,7 @@ func _physics_process(delta: float) -> void:
 			if slam_enabled:
 				_start_slam(input_vector)
 			move_and_slide()
-			_post_movement_updates()
+			_post_movement_updates(space_state)
 			return
 		
 		# Wall run activation moved to _check_wall_run_activation() which runs AFTER move_and_slide()
@@ -732,7 +734,7 @@ func _physics_process(delta: float) -> void:
 			# Skip normal physics when air dashing
 			velocity_before_move_and_slide = velocity  # Store for wall collision detection
 			move_and_slide()
-			_post_movement_updates()
+			_post_movement_updates(space_state)
 			return
 	
 	# 6. Process Ground Slam (if active, skip most normal movement)
@@ -740,7 +742,7 @@ func _physics_process(delta: float) -> void:
 		_process_slam(delta)
 		# Skip normal physics when slamming
 		move_and_slide()
-		_post_movement_updates()
+		_post_movement_updates(space_state)
 		return
 	
 	# 7. Process Wall Run (if active, skip most normal movement)
@@ -775,7 +777,7 @@ func _physics_process(delta: float) -> void:
 			var movement_this_frame = pos_after_frame - pos_before_frame
 			# print("[WALL RUN DEBUG] Position AFTER move_and_slide(): ", pos_after_frame)
 			# print("[WALL RUN DEBUG] Movement this frame: ", movement_this_frame, " (distance: ", "%.2f" % movement_this_frame.length(), ")")
-			_post_movement_updates()
+			_post_movement_updates(space_state)
 			return
 	
 	# 8. Update Enemy Detection
@@ -824,7 +826,7 @@ func _physics_process(delta: float) -> void:
 		_process_attack(delta)
 		# Skip normal physics when attacking
 		move_and_slide()
-		_post_movement_updates()
+		_post_movement_updates(space_state)
 		return
 	
 	# 11.5. Process Rewind Traceback (if active, skip normal movement)
@@ -832,7 +834,7 @@ func _physics_process(delta: float) -> void:
 		_process_rewind_traceback(delta)
 		# Skip normal physics when tracing
 		move_and_slide()
-		_post_movement_updates()
+		_post_movement_updates(space_state)
 		return
 	
 	# 12. Process Stun (if stunned, skip normal movement)
@@ -840,7 +842,7 @@ func _physics_process(delta: float) -> void:
 		_process_stun(delta)
 		# Skip normal physics when stunned
 		move_and_slide()
-		_post_movement_updates()
+		_post_movement_updates(space_state)
 		return
 	
 	# 13. QOL: Ledge Climb (if enabled and active, skip normal movement)
@@ -849,7 +851,7 @@ func _physics_process(delta: float) -> void:
 		_process_ledge_climb(delta)
 		# NOTE: We don't call move_and_slide() here because _process_ledge_climb 
 		# sets global_position directly for a guaranteed result.
-		_post_movement_updates()
+		_post_movement_updates(space_state)
 		return
 	
 	# 15. Apply Gravity
@@ -877,7 +879,7 @@ func _physics_process(delta: float) -> void:
 		_apply_corner_correction(space_state)
 	
 	# 22. Post-Movement Updates
-	_post_movement_updates()
+	_post_movement_updates(space_state)
 	
 	# 23. Update camera shake
 	_process_camera_shake(delta)
@@ -995,27 +997,14 @@ func _on_left_ground() -> void:
 # ====================================
 
 func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceState2D) -> void:
-	"""Detect walls and update wall sliding state."""
-	# Save previous wall state for wall run detection
+	"""Detect walls and update wall sliding state with TileMap seam robustness."""
+	# Save previous wall state for persistence logic
 	var was_on_wall = is_on_wall
 	var was_wall_normal = wall_normal
 	
-	# DEBUG: Track dash state at start of wall detection
-	var is_dashing = is_ground_sliding or is_air_dashing
-	if is_dashing:
-		pass
-		# print("[WALL DETECT DEBUG] ═══════════════════════════════════════")
-		# print("[WALL DETECT DEBUG] Starting wall detection DURING DASH")
-		# print("[WALL DETECT DEBUG] Ground sliding: ", is_ground_sliding, " | Air dashing: ", is_air_dashing)
-		# print("[WALL DETECT DEBUG] Current position: ", global_position)
-		# print("[WALL DETECT DEBUG] Current velocity: ", velocity)
-		# print("[WALL DETECT DEBUG] was_on_wall: ", was_on_wall)
-	
-	# Always reset wall state - we'll re-detect it below
-	# This ensures is_on_wall accurately reflects current wall contact
-	is_on_wall = false
-	is_wall_sliding = false
-	wall_normal = Vector2.ZERO
+	# Reset detection flags for this frame
+	var current_frame_wall_detected = false
+	var current_frame_wall_normal = Vector2.ZERO
 	
 	# Get collision shape for positioning raycasts
 	var collision_shape = $CollisionShape2D
@@ -1028,26 +1017,20 @@ func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceS
 	
 	var half_width = shape.size.x / 2.0
 	var half_height = shape.size.y / 2.0
-	
-	# CRITICAL FIX: Account for collision shape offset (important during slides/slams)
 	var ray_origin_offset = collision_shape.position
 	
-	# CRITICAL FIX: Extend raycast distance during dashes or wall runs to prevent skipping walls
-	# During high-speed movement, player can move 20-30 pixels per frame,
-	# but default wall_check_distance is only 8 pixels!
+	# CRITICAL FIX: Account for movement speed in raycast distance
+	var is_dashing = is_ground_sliding or is_air_dashing
 	var effective_wall_check_distance = wall_check_distance
 	if is_dashing or is_wall_running:
-		# Use a larger distance to stay attached to walls during high-speed movement
-		# 16 pixels provides a generous buffer for physics engine fluctuations
 		effective_wall_check_distance = max(wall_check_distance, 16.0)
 		if is_dashing:
-			# Calculate how far player will move this frame
-			var movement_per_frame = abs(velocity.x) / 60.0  # Assume 60fps
-			# Extend raycast to at least cover this distance, plus buffer
+			var movement_per_frame = abs(velocity.x) / 60.0
 			effective_wall_check_distance = max(effective_wall_check_distance, movement_per_frame * 1.5)
 	
-	# During wall run, check at multiple heights for more accurate wall detection
-	var check_heights = [-half_height + 2, 0.0, half_height - 2]
+	# Start raycasts slightly INSIDE the body (2 pixels) to avoid missing surface-aligned walls
+	var ray_inset = 2.0
+	var check_heights = [-half_height + 4, 0.0, half_height - 4]
 	
 	var left_hit_any = false
 	var right_hit_any = false
@@ -1055,91 +1038,71 @@ func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceS
 	# Check for walls at each height
 	for height_offset in check_heights:
 		# Check for wall on the left
-		var left_ray_origin = global_position + ray_origin_offset + Vector2(-half_width, height_offset)
-		var left_ray_end = left_ray_origin + Vector2(-effective_wall_check_distance, 0)
+		var left_ray_origin = global_position + ray_origin_offset + Vector2(-half_width + ray_inset, height_offset)
+		var left_ray_end = left_ray_origin + Vector2(-effective_wall_check_distance - ray_inset, 0)
 		var query_left = PhysicsRayQueryParameters2D.create(left_ray_origin, left_ray_end)
 		query_left.exclude = [self]
 		var left_hit = space_state.intersect_ray(query_left)
 		if left_hit:
 			left_hit_any = true
 		
-		if is_dashing and (left_hit or velocity.x < -100):
-			pass
-			# print("[WALL DETECT DEBUG] LEFT raycast: origin=", left_ray_origin, " end=", left_ray_end)
-			# print("[WALL DETECT DEBUG] LEFT raycast distance: ", effective_wall_check_distance)
-			# print("[WALL DETECT DEBUG] LEFT hit: ", left_hit.size() > 0, " | hit_any: ", left_hit_any)
-		
 		# Check for wall on the right
-		var right_ray_origin = global_position + ray_origin_offset + Vector2(half_width, height_offset)
-		var right_ray_end = right_ray_origin + Vector2(effective_wall_check_distance, 0)
+		var right_ray_origin = global_position + ray_origin_offset + Vector2(half_width - ray_inset, height_offset)
+		var right_ray_end = right_ray_origin + Vector2(effective_wall_check_distance + ray_inset, 0)
 		var query_right = PhysicsRayQueryParameters2D.create(right_ray_origin, right_ray_end)
 		query_right.exclude = [self]
 		var right_hit = space_state.intersect_ray(query_right)
 		if right_hit:
 			right_hit_any = true
-		
-		# DEBUG: Log raycast results during dash
-		if is_dashing and (right_hit or velocity.x > 100):
-			pass
-			# print("[WALL DETECT DEBUG] RIGHT raycast: origin=", right_ray_origin, " end=", right_ray_end)
-			# print("[WALL DETECT DEBUG] RIGHT raycast distance: ", effective_wall_check_distance)
-			# print("[WALL DETECT DEBUG] RIGHT hit: ", right_hit.size() > 0, " | hit_any: ", right_hit_any)
 	
-	# Determine if player is on a wall
+	# Determine if player is on a wall this frame
 	if left_hit_any:
-		is_on_wall = true
-		wall_normal = Vector2.RIGHT  # Wall is on left, so push right
-		# Reset air dash cooldown and availability when touching wall
-		air_dash_cooldown_timer = 0.0
-		air_dash_available = true
-		# Player is wall sliding if moving down and pressing toward wall
-		if velocity.y > 0 and input_direction < 0 and not is_ground_sliding and not is_air_dashing:
-			is_wall_sliding = true
+		current_frame_wall_detected = true
+		current_frame_wall_normal = Vector2.RIGHT
 	elif right_hit_any:
-		is_on_wall = true
-		wall_normal = Vector2.LEFT  # Wall is on right, so push left
-		# Reset air dash cooldown and availability when touching wall
-		air_dash_cooldown_timer = 0.0
-		air_dash_available = true
-		# Player is wall sliding if moving down and pressing toward wall
-		if velocity.y > 0 and input_direction > 0 and not is_ground_sliding and not is_air_dashing:
-			is_wall_sliding = true
-	# FALLBACK: If raycasts failed but we just had a slide collision with a wall, use that
-	# This is critical for activating wall run when dashing into a wall
-	elif get_slide_collision_count() > 0:
+		current_frame_wall_detected = true
+		current_frame_wall_normal = Vector2.LEFT
+	
+	# FALLBACK: If raycasts failed but we have a slide collision (helps with TileMap seams)
+	if not current_frame_wall_detected and get_slide_collision_count() > 0:
 		for i in range(get_slide_collision_count()):
 			var collision = get_slide_collision(i)
 			var collision_normal = collision.get_normal()
 			# A wall has a mostly horizontal normal
-			if abs(collision_normal.x) > 0.7:
-				is_on_wall = true
-				wall_normal = collision_normal
-				air_dash_cooldown_timer = 0.0
-				air_dash_available = true
+			if abs(collision_normal.x) > 0.6:
+				current_frame_wall_detected = true
+				# CRITICAL: Always use a strictly horizontal normal for wall mechanics
+				current_frame_wall_normal = Vector2(sign(collision_normal.x), 0)
 				break
+	
+	# PERSISTENCE LOGIC: If we detected a wall, reset buffer. If not, check if we're in buffer period.
+	if current_frame_wall_detected:
+		is_on_wall = true
+		wall_normal = current_frame_wall_normal
+		wall_persistence_timer = 2 # Stay "on wall" for 2 frames after losing contact
 	else:
-		# DEBUG: Log when no wall detected during dash
-		if is_dashing and (abs(velocity.x) > 500):
-			pass
-			# print("[WALL DETECT DEBUG] ✗ NO WALL DETECTED (moving fast: ", velocity.x, ")")
-			# print("[WALL DETECT DEBUG] left_hit_any: ", left_hit_any, " | right_hit_any: ", right_hit_any)
+		if wall_persistence_timer > 0:
+			wall_persistence_timer -= 1
+			is_on_wall = true
+			# Keep previous normal during persistence
+		else:
+			is_on_wall = false
+			wall_normal = Vector2.ZERO
 	
-	# DEBUG: Summary of wall detection during dash
-	if is_dashing:
-		pass
-		# print("[WALL DETECT DEBUG] ═══════════════════════════════════════")
-		# print("[WALL DETECT DEBUG] FINAL RESULT: is_on_wall = ", is_on_wall)
-		# print("[WALL DETECT DEBUG] wall_normal: ", wall_normal)
-		# print("[WALL DETECT DEBUG] is_wall_sliding: ", is_wall_sliding)
-		# print("[WALL DETECT DEBUG] Dash will now proceed with is_on_wall = ", is_on_wall)
-		# print("[WALL DETECT DEBUG] ═══════════════════════════════════════")
+	# Update wall sliding state (only if actually touching and moving down)
+	is_wall_sliding = false
+	if is_on_wall and velocity.y > 0 and not is_ground_sliding and not is_air_dashing:
+		# Only wall slide if pressing TOWARD the wall
+		if (wall_normal.x > 0 and input_direction < 0) or (wall_normal.x < 0 and input_direction > 0):
+			is_wall_sliding = true
+			# Reset air dash on wall touch/slide
+			air_dash_cooldown_timer = 0.0
+			air_dash_available = true
 	
-	# Debug wall detection changes
-	if is_on_wall != was_on_wall:
-		pass
-		# print("[WALL DETECT] Wall state changed - is_on_wall: ", is_on_wall, " wall_normal: ", wall_normal, " cooldown: ", "%.3f" % wall_jump_cooldown)
-		# print("[WALL DETECT] was_on_wall: ", was_on_wall, " -> is_on_wall: ", is_on_wall)
-		# print("[WALL DETECT] is_wall_running: ", is_wall_running)
+	# Air dash reset also happens on any wall touch
+	if is_on_wall:
+		air_dash_cooldown_timer = 0.0
+		air_dash_available = true
 	
 	# NOTE: Wall run activation moved to _check_wall_run_activation() 
 	# which runs AFTER move_and_slide() to ensure actual collision
@@ -2431,6 +2394,7 @@ func _start_ground_slide(input_x: float) -> void:
 	# Start ground slide
 	is_ground_sliding = true
 	ground_slide_timer = 0.0
+	ground_slide_air_buffer = 0
 	ground_slide_cooldown_timer = ground_slide_cooldown
 	is_slide_jump_available = true
 	is_invulnerable = true  # Player is invulnerable during slide
@@ -2485,10 +2449,16 @@ func _process_ground_slide(delta: float) -> void:
 	# Maintain slide velocity (horizontal only)
 	velocity.x = dash_direction * ground_slide_speed
 	
-	# If player leaves ground during slide, end it
+	# If player leaves ground during slide, use a small buffer before ending
+	# This prevents the slide from ending immediately when hitting walls or tiny bumps
 	if not is_on_floor():
-		_end_ground_slide()
-		return
+		ground_slide_air_buffer += 1
+		if ground_slide_air_buffer > 5: # Allow 5 frames of "air time" during slide
+			# print("[DEBUG-SLIDE] Air buffer exceeded, ending slide")
+			_end_ground_slide()
+			return
+	else:
+		ground_slide_air_buffer = 0
 	
 	# Snap to ground
 	velocity.y = ground_snap_force
@@ -2771,10 +2741,15 @@ func _end_slam_freeze() -> void:
 # POST-MOVEMENT
 # ====================================
 
-func _post_movement_updates() -> void:
+func _post_movement_updates(space_state: PhysicsDirectSpaceState2D) -> void:
 	"""Handle any post-movement state updates."""
-	# Check for wall run activation AFTER move_and_slide() to ensure actual collision
+	# 1. Check for wall run activation AFTER move_and_slide() to ensure actual collision
 	_check_wall_run_activation()
+	
+	# 2. QOL: Check for Ledge Climb Opportunity
+	# Checked AFTER wall run activation so wall run takes priority during high-speed impact
+	if ledge_climb_enabled and is_on_wall and not is_ledge_climbing and not is_wall_running and not is_rewind_tracing:
+		_check_ledge_climb(space_state)
 	
 	# Handle ceiling collision (stop upward movement)
 	if is_on_ceiling() and velocity.y < 0:
