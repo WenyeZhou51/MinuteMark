@@ -1,6 +1,6 @@
 [gd_scene load_steps=10 format=3 uid="uid://b756hnxt8gukc"]
 
-[ext_resource type="Script" path="res://dialogue/dialogue_ui.gd" id="1_60r3g"]
+[ext_resource type="Script" uid="uid://y41shuqje1hx" path="res://dialogue/dialogue_ui.gd" id="1_60r3g"]
 [ext_resource type="FontFile" uid="uid://baaiikv2041fb" path="res://Fonts/Funkrocker.otf" id="3_funk"]
 [ext_resource type="Texture2D" uid="uid://x6mkifqrqlwb" path="res://dialogue/protag.png" id="4_bob"]
 [ext_resource type="Texture2D" uid="uid://bl8u6o5marepj" path="res://dialogue/dialogue.png" id="4_dialogue_bg"]
@@ -45,22 +45,6 @@ shadow_offset = Vector2(2, 2)
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_dialogue"]
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn_hover"]
-content_margin_left = 12.0
-content_margin_top = 4.0
-content_margin_right = 12.0
-content_margin_bottom = 4.0
-bg_color = Color(1, 0.2, 0.2, 1)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color(0, 0, 0, 1)
-corner_radius_top_left = 4
-corner_radius_top_right = 4
-corner_radius_bottom_right = 4
-corner_radius_bottom_left = 4
-
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn_pressed"]
 content_margin_left = 12.0
 content_margin_top = 4.0
@@ -77,7 +61,24 @@ corner_radius_top_right = 4
 corner_radius_bottom_right = 4
 corner_radius_bottom_left = 4
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn_hover"]
+content_margin_left = 12.0
+content_margin_top = 4.0
+content_margin_right = 12.0
+content_margin_bottom = 4.0
+bg_color = Color(1, 0.2, 0.2, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0, 0, 0, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
 [node name="DialogueUI" type="Control"]
+process_mode = 3
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -200,6 +201,6 @@ theme_override_constants/outline_size = 4
 theme_override_fonts/font = ExtResource("3_funk")
 theme_override_font_sizes/font_size = 36
 theme_override_styles/normal = SubResource("StyleBoxFlat_btn")
-theme_override_styles/hover = SubResource("StyleBoxFlat_btn_hover")
 theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_pressed")
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_hover")
 text = "INTERRUPT!"

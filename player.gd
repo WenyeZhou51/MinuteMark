@@ -1,5 +1,7 @@
 extends CharacterBody2D
 
+var first_kick_dialogue_triggered: bool = false
+
 # ====================================
 # 2D PLATFORMER CONTROLLER
 # ====================================
@@ -2134,6 +2136,12 @@ func _execute_enemy_kick(enemy: Node2D) -> void:
 		# Kick enemy in direction away from player
 		var enemy_knockback_direction = direction_to_enemy  # Enemy flies away from player
 		enemy.kick(enemy_knockback_direction, attack_enemy_knockback_force)
+
+		if not first_kick_dialogue_triggered:
+			first_kick_dialogue_triggered = true
+			# Wait a tiny bit so the kick frame processes before we pause
+			get_tree().create_timer(0.1).timeout.connect(func(): DialogueManager.start("intro"))
+
 	
 	# Hide attack indicator
 	attack_visual.visible = false

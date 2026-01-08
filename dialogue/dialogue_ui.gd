@@ -13,6 +13,7 @@ var was_interruptable := false
 var typewriter_tween: Tween
 var portrait_tween: Tween
 var indicator_tween: Tween
+var current_line: Dictionary = {}
 
 # Map speaker names to textures
 # In a real game, you'd have different images for each character
@@ -26,19 +27,28 @@ var portraits = {
 func _ready():
 	DialogueManager.load_dialogue("res://dialogue/dialogue.json")
 	DialogueManager.line_changed.connect(_on_line_changed)
+	DialogueManager.dialogue_started.connect(_on_dialogue_started)
+	DialogueManager.dialogue_finished.connect(_on_dialogue_finished)
 	interrupt_indicator.pressed.connect(_on_interrupt_indicator_pressed)
 	
 	# Initial hide
 	modulate.a = 0.0
+
+func _on_dialogue_started(_id: String) -> void:
+	visible = true
 	var tween = create_tween()
 	tween.tween_property(self, "modulate:a", 1.0, 0.5)
 
-	DialogueManager.start("intro")
+func _on_dialogue_finished() -> void:
+	var tween = create_tween()
+	tween.tween_property(self, "modulate:a", 0.0, 0.5)
+	# tween.finished.connect(queue_free) # Don't free, we might need it again
 
 func _on_line_changed(line: Dictionary) -> void:
 	if not line:
 		return
 		
+	current_line = line
 	var text = line.get("text", "")
 	var speaker = line.get("speaker", "???")
 	
@@ -77,22 +87,22 @@ func _on_line_changed(line: Dictionary) -> void:
 	var duration = label.get_total_character_count() * 0.05
 	
 	# Force show interrupt button immediately for new line
+	interrupt_indicator.visible = true
+	# If it was hidden or fading out, bring it back
+	if interrupt_indicator.modulate.a < 1.0:
+		var fade_in = create_tween()
+		fade_in.tween_property(interrupt_indicator, "modulate:a", 1.0, 0.2)
 	
 	if speaker == "Boss":
-		interrupt_indicator.visible = true
-		# If it was hidden or fading out, bring it back
-		if interrupt_indicator.modulate.a < 1.0:
-			var fade_in = create_tween()
-			fade_in.tween_property(interrupt_indicator, "modulate:a", 1.0, 0.2)
-		
 		interrupt_indicator.text = "F OFF"
 		interrupt_indicator.add_theme_stylebox_override("normal", style_red)
 		interrupt_indicator.add_theme_stylebox_override("hover", style_red) # Keep red on hover while in F OFF
-		
 		indicator_faded_in = true # Mark as visible so pulse can start if needed
 	else:
-		interrupt_indicator.visible = false
-		indicator_faded_in = false
+		interrupt_indicator.text = "..."
+		interrupt_indicator.add_theme_stylebox_override("normal", style_red) # Use red for "busy/typing"
+		interrupt_indicator.add_theme_stylebox_override("hover", style_red)
+		indicator_faded_in = true
 
 	# Slight delay before typing starts if speaker changed, for clarity
 	if speaker_changed:
@@ -106,12 +116,22 @@ func _on_line_changed(line: Dictionary) -> void:
 	)
 	
 	# Update button text when typing finishes
-	typewriter_tween.finished.connect(func(): 
-		if speaker == "Boss":
-			interrupt_indicator.text = "THANK YOU"
-			interrupt_indicator.add_theme_stylebox_override("normal", style_green)
-			interrupt_indicator.add_theme_stylebox_override("hover", style_green)
-	)
+	typewriter_tween.finished.connect(_on_typing_finished)
+
+func _on_typing_finished() -> void:
+	var speaker = current_line.get("speaker", "???")
+	var next_id = current_line.get("next")
+	
+	interrupt_indicator.add_theme_stylebox_override("normal", style_green)
+	interrupt_indicator.add_theme_stylebox_override("hover", style_green)
+	
+	if speaker == "Boss":
+		interrupt_indicator.text = "THANK YOU"
+	else:
+		if next_id == null:
+			interrupt_indicator.text = "LEAVE"
+		else:
+			interrupt_indicator.text = "NEXT"
 
 func _animate_portrait_switch(new_texture: Texture2D):
 	if portrait_tween:
@@ -180,30 +200,40 @@ func _reset_indicator():
 
 
 func _unhandled_input(event):
-	if event.is_action_pressed("ui_accept"):
-		if label.visible_ratio < 1.0:
-			# Skip typewriter if pressed while typing
-			if typewriter_tween:
-				typewriter_tween.kill()
-			label.visible_ratio = 1.0
-			
-			if speaker_label.text == "Boss":
-				interrupt_indicator.text = "THANK YOU" # Ensure text updates on skip
-				interrupt_indicator.add_theme_stylebox_override("normal", style_green)
-				interrupt_indicator.add_theme_stylebox_override("hover", style_green)
-		else:
-			_reset_indicator()
-			DialogueManager.advance()
+	# Disabled enter key advancing
+	# if event.is_action_pressed("ui_accept"):
+	# 	if label.visible_ratio < 1.0:
+	# 		# Skip typewriter if pressed while typing
+	# 		if typewriter_tween:
+	# 			typewriter_tween.kill()
+	# 		label.visible_ratio = 1.0
+	# 		
+	# 		if speaker_label.text == "Boss":
+	# 			interrupt_indicator.text = "THANK YOU" # Ensure text updates on skip
+	# 			interrupt_indicator.add_theme_stylebox_override("normal", style_green)
+	# 			interrupt_indicator.add_theme_stylebox_override("hover", style_green)
+	# 	else:
+	# 		_reset_indicator()
+	# 		DialogueManager.advance()
+	pass
 
 func _on_interrupt_indicator_pressed() -> void:
 	# "F OFF" state (typing not done) -> Interrupt
 	if label.visible_ratio < 1.0:
-		_reset_indicator()
-		DialogueManager.do_interrupt()
-	# "THANK YOU" state (typing done) -> Interrupt (also)
+		if speaker_label.text == "Boss":
+			_reset_indicator()
+			DialogueManager.do_interrupt()
+		else:
+			# Skip typing for non-boss
+			if typewriter_tween:
+				typewriter_tween.kill()
+			label.visible_ratio = 1.0
+			_on_typing_finished()
+			
+	# "THANK YOU" / "NEXT" / "LEAVE" state (typing done) -> Advance normally
 	else:
 		_reset_indicator()
-		DialogueManager.do_interrupt()
+		DialogueManager.advance()
 
 func _start_indicator_pulse():
 	if indicator_tween:

@@ -1,6 +1,8 @@
 extends Node
 
 signal line_changed(line: Dictionary)
+signal dialogue_started(id: String)
+signal dialogue_finished
 
 var dialogue_data: Dictionary = {}
 var current_id: String = ""
@@ -39,6 +41,7 @@ func start(id: String) -> void:
 	current_id = id
 	dialogue_start_time = Time.get_ticks_msec() / 1000.0
 	interrupt_unlocked = false
+	emit_signal("dialogue_started", id)
 	_emit_current()
 
 
@@ -54,6 +57,8 @@ func advance() -> void:
 	if next_id != null:
 		current_id = next_id
 		_emit_current()
+	else:
+		end_conversation()
 
 		
 func _reset() -> void:
@@ -120,3 +125,4 @@ func end_conversation() -> void:
 	dialogue_start_time = 0.0
 	interrupt_unlocked = false
 	interrupt_consumed = false
+	emit_signal("dialogue_finished")
