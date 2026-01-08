@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://deitana5qk1wi"
-path="res://.godot/imported/protag.jpg-caa6592df0596e9bd942b50e9f6309ea.ctex"
+uid="uid://deqfeh7bc6cv3"
+path="res://.godot/imported/Run new 复制_01.png-839ee6e843008b39ffb76b86ef4ea12c.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://dialogue/protag.jpg"
-dest_files=["res://.godot/imported/protag.jpg-caa6592df0596e9bd942b50e9f6309ea.ctex"]
+source_file="res://Animation/Idle/Run new 复制_01.png"
+dest_files=["res://.godot/imported/Run new 复制_01.png-839ee6e843008b39ffb76b86ef4ea12c.ctex"]
 
 [params]
 

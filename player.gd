@@ -102,6 +102,10 @@ const DustParticlesScene = preload("res://dust_particles.tscn")
 @export var dash_enabled: bool = true  ## Enable dash mechanics
 
 @export_group("Animations")
+@export_subgroup("Idle")
+@export var idle_scale: float = 0.03
+@export var idle_fps: float = 12.0
+@export var idle_offset: Vector2 = Vector2.ZERO
 @export_subgroup("Run")
 @export var run_scale: float = 0.03
 @export var run_fps: float = 24.0
@@ -122,6 +126,7 @@ const DustParticlesScene = preload("res://dust_particles.tscn")
 @export var ground_slide_offset: Vector2 = Vector2.ZERO
 @export var ground_slide_speed: float = 1500.0  ## Speed during ground slide
 @export var ground_slide_duration: float = 0.5  ## Duration of ground slide in seconds
+@export var ground_slide_min_duration: float = 0.1  ## Minimum time player must slide before they can jump cancel
 @export var ground_slide_height_reduction: float = 0.5  ## Height reduction during slide (0.5 = 50% height)
 @export var ground_slide_cooldown: float = 1.0  ## Cooldown between ground slides
 @export var ground_slide_end_speed: float = 1000.0  ## Speed after slide ends
@@ -665,9 +670,27 @@ func _physics_process(delta: float) -> void:
 	
 	# 4. Process Ground Slide (if active, skip most normal movement)
 	if is_ground_sliding:
-		# Check for jump input to cancel slide with empowered jump
-		if Input.is_action_just_pressed("jump") and not is_stunned and not is_in_rewind_slowmo:
+		# Check for jump input during slide
+		if Input.is_action_just_pressed("jump"):
+			var too_early = ground_slide_timer < ground_slide_min_duration
+			if too_early:
+				print("[DEBUG-SLIDE] Jump pressed too early (%.3f < %.3f). Buffering jump." % [ground_slide_timer, ground_slide_min_duration])
+				jump_buffered = true
+				jump_buffer_timer.start()
+			else:
+				print("[DEBUG-SLIDE] Jump cancel triggered at %.3f" % ground_slide_timer)
+		
+		# Allow buffered jump to trigger if min duration passed
+		var can_jump_cancel = (Input.is_action_just_pressed("jump") or jump_buffered) and ground_slide_timer >= ground_slide_min_duration
+		
+		if can_jump_cancel and not is_stunned and not is_in_rewind_slowmo:
+			if jump_buffered:
+				print("[DEBUG-SLIDE] Executing buffered jump cancel at %.3f" % ground_slide_timer)
+			
 			_perform_jump()  # Will automatically use slide jump bonus
+			jump_buffered = false
+			jump_buffer_timer.stop()
+			
 			velocity_before_move_and_slide = velocity
 			move_and_slide()
 			_post_movement_updates()
@@ -1595,6 +1618,7 @@ func _perform_jump() -> void:
 	# Check if jumping out of ground slide (empowered jump)
 	if is_slide_jump_available:
 		# End the slide first
+		print("[DEBUG-SLIDE] JUMPING OUT OF SLIDE. timer: %.3f" % ground_slide_timer)
 		_end_ground_slide()
 		
 		# Empowered slide jump - even better than sprint jump
@@ -2397,7 +2421,7 @@ func _cancel_bullet_grace_period_with_parry() -> void:
 
 func _start_ground_slide(input_x: float) -> void:
 	"""Initiate a ground slide with reduced height."""
-	print("[DEBUG-SLIDE] Starting Slide")
+	print("[DEBUG-SLIDE] STARTING SLIDE. input_x: %.2f, time: %.2f" % [input_x, Time.get_ticks_msec() / 1000.0])
 	# Determine slide direction
 	if abs(input_x) > 0.1:
 		dash_direction = sign(input_x)
@@ -2479,6 +2503,7 @@ func _end_ground_slide() -> void:
 	if not is_ground_sliding:
 		return
 	
+	print("[DEBUG-SLIDE] ENDING SLIDE. Timer: %.3f, duration: %.3f, time: %.2f" % [ground_slide_timer, ground_slide_duration, Time.get_ticks_msec() / 1000.0])
 	is_ground_sliding = false
 	ground_slide_timer = 0.0
 	is_slide_jump_available = false
@@ -3956,6 +3981,7 @@ func _setup_animations() -> void:
 	var sf := SpriteFrames.new()
 	
 	# Load animation sequences with their specific FPS
+	_load_animation_sequence(sf, "idle", "res://Animation/Idle/", "Run new 复制_", 7, idle_fps, true, 2)
 	_load_animation_sequence(sf, "run", "res://Animation/Run/", "Run 复制_", 23, run_fps)
 	_load_animation_sequence(sf, "jump", "res://Animation/jump/", "jump_", 28, jump_fps)
 	_load_animation_sequence(sf, "wall_run", "res://Animation/Wall run 复制/", "Wall run 复制_", 18, wall_run_fps)
@@ -3963,15 +3989,15 @@ func _setup_animations() -> void:
 	_load_animation_sequence(sf, "kick", "res://Animation/Kick/", "Kick_", 14, kick_fps, false)
 	
 	animated_sprite.sprite_frames = sf
-	animated_sprite.play("run") # Default animation
+	animated_sprite.play("idle") # Default animation to idle instead of run
 
-func _load_animation_sequence(sf: SpriteFrames, anim_name: String, folder: String, prefix: String, count: int, fps: float, loop: bool = true) -> void:
+func _load_animation_sequence(sf: SpriteFrames, anim_name: String, folder: String, prefix: String, count: int, fps: float, loop: bool = true, padding: int = 3) -> void:
 	if not sf.has_animation(anim_name):
 		sf.add_animation(anim_name)
 	
 	var frames_added = 0
 	for i in range(1, count + 1):
-		var frame_num = str(i).pad_zeros(3)
+		var frame_num = str(i).pad_zeros(padding)
 		var path = folder + prefix + frame_num + ".png"
 		if ResourceLoader.exists(path):
 			var tex = load(path)
@@ -4082,21 +4108,21 @@ func _update_animations() -> void:
 		
 		animated_sprite.speed_scale = 1.0
 	elif is_on_floor():
-		current_scale = run_scale
-		current_offset = run_offset
 		if is_moving_horizontally:
+			current_scale = run_scale
+			current_offset = run_offset
 			# FIX: Ensure animation plays if it was previously stopped (e.g. from idle)
 			if animated_sprite.animation != "run" or not animated_sprite.is_playing():
 				animated_sprite.play("run")
 				print("[DEBUG-ANIM] Playing Run (moving horizontally)")
 			animated_sprite.speed_scale = max(0.5, abs(velocity.x) / max_speed)
 		else:
-			# If stopped on floor, stay on first frame of run as idle
-			if animated_sprite.animation != "run" or animated_sprite.is_playing() or animated_sprite.frame != 0:
-				animated_sprite.play("run")
-				animated_sprite.stop()
-				animated_sprite.frame = 0
-				print("[DEBUG-ANIM] Set Idle (run frame 0)")
+			# If stopped on floor, play idle animation
+			current_scale = idle_scale
+			current_offset = idle_offset
+			if animated_sprite.animation != "idle" or not animated_sprite.is_playing():
+				animated_sprite.play("idle")
+				print("[DEBUG-ANIM] Playing Idle")
 			animated_sprite.speed_scale = 1.0
 	elif is_wall_running:
 		current_scale = wall_run_scale
