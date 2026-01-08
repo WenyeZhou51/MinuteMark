@@ -17,10 +17,10 @@ var indicator_tween: Tween
 # Map speaker names to textures
 # In a real game, you'd have different images for each character
 var portraits = {
-	"Boss": preload("res://dialogue/protag.jpg"),
-	"Player": preload("res://dialogue/protag.jpg"), 
-	"Stranger": preload("res://dialogue/protag.jpg"),
-	"???": preload("res://dialogue/protag.jpg")
+	"Boss": preload("res://dialogue/protag.png"),
+	"Player": preload("res://dialogue/protag.png"), 
+	"Stranger": preload("res://dialogue/protag.png"),
+	"???": preload("res://dialogue/protag.png")
 }
 
 func _ready():
@@ -39,20 +39,30 @@ func _on_line_changed(line: Dictionary) -> void:
 	if not line:
 		return
 		
-	label.text = line.get("text", "")
+	var text = line.get("text", "")
 	var speaker = line.get("speaker", "???")
 	
+	# Determine if speaker changed
+	var speaker_changed = (speaker != speaker_label.text)
+	
+	# Update text content immediately (it's hidden by visible_ratio anyway)
+	label.text = text
 	if speaker_label:
 		speaker_label.text = speaker
 		
-	# Update portrait
+	# Update portrait with transition
 	if portrait:
+		var target_texture = portraits["???"]
 		if portraits.has(speaker):
-			portrait.texture = portraits[speaker]
-		else:
-			portrait.texture = portraits["???"]
+			target_texture = portraits[speaker]
 			
-		_animate_portrait()
+		if speaker_changed:
+			_animate_portrait_switch(target_texture)
+		else:
+			# Same speaker, maybe just ensure texture is right and small bounce
+			if portrait.texture != target_texture:
+				portrait.texture = target_texture
+			_animate_portrait_pop() # Just the pop
 	
 	# _reset_indicator() # Don't reset, we want it to stay for the new line or transition
 
@@ -84,6 +94,10 @@ func _on_line_changed(line: Dictionary) -> void:
 		interrupt_indicator.visible = false
 		indicator_faded_in = false
 
+	# Slight delay before typing starts if speaker changed, for clarity
+	if speaker_changed:
+		typewriter_tween.tween_interval(0.15)
+
 	typewriter_tween.tween_property(
 		label,
 		"visible_ratio",
@@ -99,20 +113,37 @@ func _on_line_changed(line: Dictionary) -> void:
 			interrupt_indicator.add_theme_stylebox_override("hover", style_green)
 	)
 
-func _animate_portrait():
+func _animate_portrait_switch(new_texture: Texture2D):
 	if portrait_tween:
 		portrait_tween.kill()
-	
+		
 	# Center pivot for scaling
 	portrait.pivot_offset = portrait.size / 2
 	
+	portrait_tween = create_tween()
+	
+	# Fade out
+	portrait_tween.tween_property(portrait, "modulate:a", 0.0, 0.1).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	
+	# Swap texture
+	portrait_tween.tween_callback(func(): portrait.texture = new_texture)
+	
+	# Fade in and pop
 	portrait.scale = Vector2(0.9, 0.9)
-	portrait.modulate = Color(0.8, 0.8, 0.8, 1.0)
+	portrait_tween.parallel().tween_property(portrait, "modulate:a", 1.0, 0.2).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	portrait_tween.parallel().tween_property(portrait, "scale", Vector2(1.0, 1.0), 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+func _animate_portrait_pop():
+	if portrait_tween:
+		portrait_tween.kill()
+	
+	portrait.pivot_offset = portrait.size / 2
+	portrait.scale = Vector2(0.95, 0.95)
 	
 	portrait_tween = create_tween()
-	portrait_tween.set_parallel(true)
-	portrait_tween.tween_property(portrait, "scale", Vector2(1.0, 1.0), 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	portrait_tween.tween_property(portrait, "modulate", Color(1, 1, 1, 1), 0.3)
+	portrait_tween.tween_property(portrait, "scale", Vector2(1.0, 1.0), 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+# Removed old _animate_portrait
 
 func _process(_delta):
 	# Removed interrupt check here to manually control visibility

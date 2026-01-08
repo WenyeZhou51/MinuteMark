@@ -2,8 +2,8 @@
 
 [ext_resource type="Script" path="res://dialogue/dialogue_ui.gd" id="1_60r3g"]
 [ext_resource type="FontFile" uid="uid://baaiikv2041fb" path="res://Fonts/Funkrocker.otf" id="3_funk"]
-[ext_resource type="Texture2D" uid="uid://c7fvf1qlxm4dn" path="res://Sprites/New bob.png" id="4_bob"]
-[ext_resource type="Texture2D" uid="uid://wwjrjfk6ho51" path="res://dialogue/dialogue.jpg" id="4_dialogue_bg"]
+[ext_resource type="Texture2D" uid="uid://x6mkifqrqlwb" path="res://dialogue/protag.png" id="4_bob"]
+[ext_resource type="Texture2D" uid="uid://bl8u6o5marepj" path="res://dialogue/dialogue.png" id="4_dialogue_bg"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn"]
 content_margin_left = 12.0
@@ -43,13 +43,7 @@ shadow_color = Color(0, 0, 0, 0.3)
 shadow_size = 4
 shadow_offset = Vector2(2, 2)
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel_border"]
-bg_color = Color(0.6, 0.6, 0.6, 0)
-border_width_left = 4
-border_width_top = 4
-border_width_right = 4
-border_width_bottom = 4
-border_color = Color(0, 0, 0, 1)
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_dialogue"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn_hover"]
 content_margin_left = 12.0
@@ -111,10 +105,10 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/margin_left = 40
-theme_override_constants/margin_top = 40
-theme_override_constants/margin_right = 40
-theme_override_constants/margin_bottom = 40
+theme_override_constants/margin_left = 150
+theme_override_constants/margin_top = 250
+theme_override_constants/margin_right = 150
+theme_override_constants/margin_bottom = 250
 
 [node name="ContentHBox" type="HBoxContainer" parent="MainLayout"]
 layout_mode = 2
@@ -140,7 +134,7 @@ stretch_mode = 6
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_stretch_ratio = 1.2
-theme_override_styles/panel = SubResource("StyleBoxFlat_panel_border")
+theme_override_styles/panel = SubResource("StyleBoxEmpty_dialogue")
 
 [node name="BackgroundTexture" type="TextureRect" parent="MainLayout/ContentHBox/DialoguePanel"]
 layout_mode = 2
@@ -149,9 +143,9 @@ expand_mode = 1
 
 [node name="TextMargin" type="MarginContainer" parent="MainLayout/ContentHBox/DialoguePanel"]
 layout_mode = 2
-theme_override_constants/margin_left = 100
+theme_override_constants/margin_left = 140
 theme_override_constants/margin_top = 80
-theme_override_constants/margin_right = 60
+theme_override_constants/margin_right = 100
 theme_override_constants/margin_bottom = 60
 
 [node name="VBoxContainer" type="VBoxContainer" parent="MainLayout/ContentHBox/DialoguePanel/TextMargin"]
@@ -187,21 +181,25 @@ size_flags_vertical = 3
 [node name="InterruptIndicator" type="Button" parent="."]
 visible = false
 layout_mode = 1
-anchors_preset = 3
-anchor_left = 1.0
-anchor_top = 1.0
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -220.0
-offset_top = -100.0
-offset_right = -100.0
-offset_bottom = -60.0
-grow_horizontal = 0
-grow_vertical = 0
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = 300.0
+offset_top = 180.0
+offset_right = 500.0
+offset_bottom = 260.0
+grow_horizontal = 2
+grow_vertical = 2
+rotation = -0.1
+pivot_offset = Vector2(100, 40)
 theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 4
 theme_override_fonts/font = ExtResource("3_funk")
-theme_override_font_sizes/font_size = 24
+theme_override_font_sizes/font_size = 36
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn")
 theme_override_styles/hover = SubResource("StyleBoxFlat_btn_hover")
 theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_pressed")
-theme_override_styles/normal = SubResource("StyleBoxFlat_btn")
 text = "INTERRUPT!"
