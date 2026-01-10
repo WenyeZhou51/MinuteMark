@@ -1,14 +1,15 @@
 [gd_resource type="TileSet" load_steps=4 format=3 uid="uid://e2ocjnnc6tiu"]
 
 [sub_resource type="Gradient" id="Gradient_h7v8x"]
-offsets = PackedFloat32Array(0)
-colors = PackedColorArray(1, 1, 1, 1)
+offsets = PackedFloat32Array(0, 0.60487807)
+colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 1)
 
-[sub_resource type="GradientTexture2D" id="GradientTexture2D_v7x8x"]
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_fh51i"]
 gradient = SubResource("Gradient_h7v8x")
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_w7v8x"]
-texture = SubResource("GradientTexture2D_v7x8x")
+resource_name = "ground"
+texture = SubResource("GradientTexture2D_fh51i")
 texture_region_size = Vector2i(64, 64)
 0:0/0 = 0
 0:0/0/physics_layer_0/polygon_0/points = PackedVector2Array(-32, -32, 32, -32, 32, 32, -32, 32)
