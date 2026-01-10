@@ -1,9 +1,9 @@
-[gd_scene load_steps=10 format=3 uid="uid://b756hnxt8gukc"]
+[gd_scene load_steps=11 format=3 uid="uid://b756hnxt8gukc"]
 
 [ext_resource type="Script" path="res://dialogue/dialogue_ui.gd" id="1_60r3g"]
 [ext_resource type="FontFile" uid="uid://baaiikv2041fb" path="res://Fonts/Funkrocker.otf" id="3_funk"]
 [ext_resource type="Texture2D" uid="uid://x6mkifqrqlwb" path="res://dialogue/protag.png" id="4_bob"]
-[ext_resource type="Texture2D" path="res://dialogue/dialogue2.png" id="4_dialogue_bg"]
+[ext_resource type="Texture2D" uid="uid://bgsg7kswc2ky6" path="res://dialogue/dialogue2.png" id="4_dialogue_bg"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn"]
 content_margin_left = 12.0

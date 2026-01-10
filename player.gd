@@ -127,12 +127,13 @@ const DustParticlesScene = preload("res://dust_particles.tscn")
 @export var ground_slide_scale: float = 0.03
 @export var ground_slide_fps: float = 24.0
 @export var ground_slide_offset: Vector2 = Vector2.ZERO
-@export var ground_slide_speed: float = 1500.0  ## Speed during ground slide
+@export var ground_slide_speed: float = 1800.0  ## Speed during ground slide
 @export var ground_slide_duration: float = 0.5  ## Duration of ground slide in seconds
 @export var ground_slide_min_duration: float = 0.1  ## Minimum time player must slide before they can jump cancel
 @export var ground_slide_height_reduction: float = 0.5  ## Height reduction during slide (0.5 = 50% height)
 @export var ground_slide_cooldown: float = 1.0  ## Cooldown between ground slides
-@export var ground_slide_end_speed: float = 1000.0  ## Speed after slide ends
+@export var ground_slide_end_speed: float = 1200.0  ## Speed after slide ends
+@export var ground_slide_slowdown_rate: float = 700.0 ## Slowdown per second during slide (70 per 0.1s)
 @export var ground_slide_empowered_jump_multiplier: float = 1.5  ## Jump height multiplier when jumping out of slide
 
 @export_group("Paper Tear Effect")
@@ -688,8 +689,8 @@ func _physics_process(delta: float) -> void:
 		# Remove all state-based coloring
 		modulate = Color.WHITE
 	
-	# Update animations
-	_update_animations()
+	# Update animations is now handled in _post_movement_updates
+	# to ensure it uses the final velocity and collision state
 	
 	# Handle continuous dust effects (run, slide)
 	_handle_dust_effects(delta)
@@ -1666,6 +1667,10 @@ func _handle_jump_input() -> void:
 			# Check if we can jump immediately
 			var can_jump: bool = is_on_floor() or not coyote_timer.is_stopped() or infinite_jumps
 			
+			# NEW: If sliding, only allow jump if we can stand up
+			if can_jump and is_ground_sliding and not _can_stand_up():
+				can_jump = false
+			
 			if can_jump:
 				_perform_jump()
 			else:
@@ -1680,6 +1685,10 @@ func _execute_buffered_jump() -> void:
 	if is_in_rewind_slowmo:
 		return
 	if jump_buffered and is_on_floor():
+		# NEW: If sliding, only allow buffered jump if we can stand up
+		if is_ground_sliding and not _can_stand_up():
+			return # Keep jump buffered until we can stand up
+			
 		_perform_jump()
 		jump_buffered = false
 		jump_buffer_timer.stop()
@@ -2249,6 +2258,9 @@ func _execute_enemy_kick(enemy: Node2D) -> void:
 		
 	attack_target_enemy = enemy
 	
+	# Spawn time bonus effect
+	_spawn_time_bonus(enemy.global_position)
+	
 	# Calculate direction to enemy and knockback direction (AWAY from enemy)
 	var direction_to_enemy = (enemy.global_position - global_position).normalized()
 	attack_direction = -direction_to_enemy  # Player flies AWAY from enemy
@@ -2588,21 +2600,29 @@ func _process_ground_slide(delta: float) -> void:
 	
 	# Check if slide duration has elapsed
 	if ground_slide_timer >= ground_slide_duration:
-		print("[DEBUG-SLIDE] Duration finished, ending slide")
-		_end_ground_slide()
-		return
+		if _can_stand_up():
+			print("[DEBUG-SLIDE] Duration finished, ending slide")
+			_end_ground_slide()
+			return
+		else:
+			# If we can't stand up, keep sliding
+			if Engine.get_frames_drawn() % 60 == 0:
+				print("[DEBUG-SLIDE] Slide duration finished but can't stand up - continuing slide")
 	
-	# Maintain slide velocity (horizontal only)
-	velocity.x = dash_direction * ground_slide_speed
+	# Maintain slide velocity (horizontal only) with linear slowdown
+	var current_slide_speed = ground_slide_speed - (ground_slide_slowdown_rate * ground_slide_timer)
+	current_slide_speed = max(current_slide_speed, ground_slide_end_speed)
+	velocity.x = dash_direction * current_slide_speed
 	
 	# If player leaves ground during slide, use a small buffer before ending
 	# This prevents the slide from ending immediately when hitting walls or tiny bumps
 	if not is_on_floor():
 		ground_slide_air_buffer += 1
 		if ground_slide_air_buffer > 5: # Allow 5 frames of "air time" during slide
-			# print("[DEBUG-SLIDE] Air buffer exceeded, ending slide")
-			_end_ground_slide()
-			return
+			if _can_stand_up():
+				# print("[DEBUG-SLIDE] Air buffer exceeded, ending slide")
+				_end_ground_slide()
+				return
 	else:
 		ground_slide_air_buffer = 0
 	
@@ -2612,6 +2632,38 @@ func _process_ground_slide(delta: float) -> void:
 	# Update paper tear effect
 	if paper_tear_effect:
 		paper_tear_effect.add_tear_point(global_position, tear_offset)
+
+
+func _can_stand_up() -> bool:
+	"""Check if there is enough space above the player to stand up."""
+	var collision_shape = $CollisionShape2D
+	if not collision_shape or not collision_shape.shape:
+		return true
+		
+	var shape = collision_shape.shape as RectangleShape2D
+	if not shape:
+		return true
+		
+	var space_state = get_world_2d().direct_space_state
+	if not space_state:
+		return true
+		
+	# Create a temporary shape for the query to match standing height
+	# We use the original standing height stored in _ready
+	var standing_shape = RectangleShape2D.new()
+	standing_shape.size = Vector2(shape.size.x, original_collision_shape_height)
+	
+	var query = PhysicsShapeQueryParameters2D.new()
+	query.shape = standing_shape
+	
+	# When standing, the collision shape's relative position is 0
+	# So its global transform is just the body's global transform
+	query.transform = global_transform
+	query.collision_mask = collision_mask
+	query.exclude = [self.get_rid()] # Exclude self from the check
+	
+	var results = space_state.intersect_shape(query, 1)
+	return results.is_empty()
 
 
 func _end_ground_slide() -> void:
@@ -2818,6 +2870,9 @@ func _process_slam(delta: float) -> void:
 
 func _perform_slam_kill(enemy: Node2D) -> void:
 	"""Kill an enemy during ground slam - enemy is in kill radius."""
+	# Spawn time bonus effect
+	_spawn_time_bonus(enemy.global_position)
+	
 	# Kick the enemy downwards (destroy it)
 	if enemy.has_method("kick"):
 		# Kick enemy downwards with slam attack knockback speed
@@ -2851,6 +2906,9 @@ func _perform_slam_landing_aoe() -> void:
 				if offset.y >= -aoe_half_height and offset.y <= aoe_half_height:
 					# Enemy is in landing AOE! Destroy them
 					if enemy.has_method("kick"):
+						# Spawn time bonus effect
+						_spawn_time_bonus(enemy.global_position)
+						
 						# Kick enemy away from player horizontally
 						var knock_direction = Vector2(sign(offset.x) if offset.x != 0 else 1.0, 0.5).normalized()
 						enemy.kick(knock_direction, slam_attack_knockback_speed)
@@ -2911,6 +2969,9 @@ func _post_movement_updates(space_state: PhysicsDirectSpaceState2D) -> void:
 		)
 		# Apply shake to position (will be removed at start of next frame)
 		global_position += stun_shake_offset
+	
+	# Final step: Update animations based on latest state and movement
+	_update_animations()
 
 
 # ====================================
@@ -4062,6 +4123,9 @@ func _execute_bullet_parry(bullet: Node2D) -> void:
 	if not bullet.has_method("parry"):
 		return
 	
+	# Spawn time bonus effect
+	_spawn_time_bonus(bullet.global_position)
+	
 	# Calculate parry direction (towards enemy or reverse bullet direction)
 	var parry_direction = (bullet.global_position - global_position).normalized()
 	
@@ -4142,6 +4206,39 @@ func _load_animation_sequence(sf: SpriteFrames, anim_name: String, folder: Strin
 # VISUAL EFFECTS & CAMERA
 # ====================================
 
+func _spawn_time_bonus(world_pos: Vector2) -> void:
+	"""Spawn a floating +1 text that moves to the timer and adds time."""
+	if not timer_ui_instance:
+		return
+		
+	var camera = $Camera2D
+	if not camera:
+		return
+		
+	var screen_pos = get_viewport().get_canvas_transform() * world_pos
+	
+	# Target the timer's position at top middle
+	var viewport_size = get_viewport_rect().size
+	var target_pos = Vector2(viewport_size.x / 2.0, 80.0)
+	
+	# Try to get more accurate timer position if possible
+	var timer_bg = timer_ui_instance.get_node_or_null("Control/TimerBackground")
+	if timer_bg:
+		# Center of the timer background
+		target_pos = timer_bg.global_position + (timer_bg.size * timer_bg.scale / 2.0)
+	
+	var TimeBonusEffectScript = load("res://time_bonus_effect.gd")
+	var effect = Label.new()
+	effect.set_script(TimeBonusEffectScript)
+	timer_ui_instance.add_child(effect)
+	effect.setup(screen_pos, target_pos, func(): 
+		current_game_time += 1.0
+		# The timer UI will update in the next _physics_process call, 
+		# but we can force it for immediate feedback
+		if timer_ui_instance.has_method("update_display"):
+			timer_ui_instance.update_display(current_game_time)
+	)
+
 func apply_camera_shake(intensity: float, duration: float) -> void:
 	"""Apply a screen shake effect."""
 	camera_shake_intensity = intensity
@@ -4203,6 +4300,14 @@ func _update_animations() -> void:
 		return
 		
 	var is_moving_horizontally = abs(velocity.x) > 10.0
+	
+	# BUG FIX: If player is moving at low speed against a wall, transition to idle
+	# This prevents animation flickering when velocity is non-zero but player is blocked
+	if is_on_wall and is_on_floor():
+		var wall_norm = wall_normal
+		# If pushing into the wall, don't consider it "moving horizontally" for animation
+		if (wall_norm.x > 0 and velocity.x < -0.1) or (wall_norm.x < 0 and velocity.x > 0.1):
+			is_moving_horizontally = false
 	
 	# Determine which animation to play and its scale/offset
 	var current_scale = run_scale

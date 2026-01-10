@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3 uid="uid://clfclx5p38xkv"]
+[gd_scene load_steps=10 format=3 uid="uid://clfclx5p38xkv"]
 
 [ext_resource type="Script" path="res://level_manager.gd" id="1_manager"]
 [ext_resource type="PackedScene" uid="uid://vv3m4nx6g3jo" path="res://player.tscn" id="1_qj3g4"]
@@ -8,7 +8,6 @@
 [ext_resource type="TileSet" uid="uid://e2ocjnnc6tiu" path="res://tileset.tres" id="5_tileset"]
 [ext_resource type="PackedScene" uid="uid://b7q8n5ck2wh0e" path="res://pause_menu.tscn" id="8_b0gwe"]
 [ext_resource type="PackedScene" uid="uid://b756hnxt8gukc" path="res://dialogue/DialogueUI.tscn" id="9_dialogue"]
-[ext_resource type="Script" uid="uid://bev7civrw5tfd" path="res://dialogue_trigger.gd" id="10_trigger"]
 
 [sub_resource type="Environment" id="Environment_bg"]
 background_mode = 1
@@ -16,9 +15,6 @@ background_color = Color(0.529412, 0.745098, 0.878431, 1)
 ambient_light_source = 2
 ambient_light_color = Color(1, 1, 1, 1)
 ambient_light_energy = 0.5
-
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_trigger"]
-size = Vector2(1021, 163.5)
 
 [node name="Level" type="Node2D"]
 script = ExtResource("1_manager")
@@ -72,7 +68,8 @@ jump_peak_threshold = 20.0
 turnaround_multiplier = 3.0
 corner_correction_distance = 30.0
 ledge_climb_enabled = true
-ledge_climb_detection_height = 30.0
+ledge_climb_detection_height = 15.0
+ledge_climb_duration = 0.5
 grace_period_duration = 0.05
 wall_check_distance = 4.0
 wall_slide_speed = 400.0
@@ -104,11 +101,12 @@ air_dash_horizontal_impulse = 1700.0
 air_dash_vertical_impulse = 0.0
 kick_scale = 0.07
 kick_fps = 40.0
+kick_offset = Vector2(10, -30)
 attack_detection_range = 200.0
 attack_knockback_speed = 2000.0
 attack_knockback_friction = 1000.0
 attack_knockback_friction_growth = 30000.0
-kick_post_gravity_multiplier = 0.4
+kick_post_gravity_multiplier = 0.5
 kick_post_boost_duration = 0.3
 attack_momentum_retention = 0.2
 attack_cooldown = 0.1
@@ -153,13 +151,3 @@ visible = false
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
 
 [node name="DialogueUI" parent="CanvasLayer" instance=ExtResource("9_dialogue")]
-offset_left = 1.0
-offset_right = 1.0
-
-[node name="DialogueTrigger" type="Area2D" parent="."]
-position = Vector2(1000, 325)
-script = ExtResource("10_trigger")
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="DialogueTrigger"]
-position = Vector2(406.5, 291.75)
-shape = SubResource("RectangleShape2D_trigger")
