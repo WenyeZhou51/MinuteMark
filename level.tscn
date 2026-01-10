@@ -141,9 +141,11 @@ position = Vector2(2965, 568)
 
 [node name="KickableObject1" parent="KickableObjects" instance=ExtResource("4_kickable")]
 position = Vector2(3352, 573)
+fragment_count = 3
 
 [node name="KickableObject5" parent="KickableObjects" instance=ExtResource("4_kickable")]
 position = Vector2(1836, 913)
+fragment_count = 3
 
 [node name="PauseMenu" parent="." instance=ExtResource("8_b0gwe")]
 visible = false

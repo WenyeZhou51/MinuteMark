@@ -14,7 +14,8 @@ extends Area2D
 @export var rotation_speed_max: float = 10.0  ## Maximum rotation speed when kicked
 
 @export_group("Collision Response")
-@export var physics_duration: float = 0.5  ## Time as physics object before despawning
+@export var fragment_count: int = 8  ## Number of fragments when destroyed
+@export var fragment_lifetime: float = 1.0  ## How long fragments last
 @export var bounce_damping: float = 0.4  ## Velocity retention after bounce (0.0-1.0)
 @export var gravity_strength: float = 2000.0  ## Gravity applied as physics object
 
@@ -26,7 +27,6 @@ var is_kicked: bool = false
 var kick_velocity: Vector2 = Vector2.ZERO
 var rotation_speed: float = 0.0
 var has_collided: bool = false
-var physics_timer: float = 0.0
 var raycast: RayCast2D = null
 
 # Visual references
@@ -77,37 +77,20 @@ func _update_visual() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if is_kicked and not has_collided:
-		# Flying in straight line - check for collisions ahead
-		raycast.target_position = kick_velocity.normalized() * kick_velocity.length() * delta * 1.5
-		raycast.force_raycast_update()
+	if not is_kicked or has_collided:
+		return
 		
-		if raycast.is_colliding():
-			var collider = raycast.get_collider()
-			_handle_collision(collider)
-		else:
-			# Keep flying in straight line
-			global_position += kick_velocity * delta
-			rotation += rotation_speed * delta
+	# Flying in straight line - check for collisions ahead
+	raycast.target_position = kick_velocity.normalized() * kick_velocity.length() * delta * 1.5
+	raycast.force_raycast_update()
 	
-	elif has_collided:
-		# Physics object behavior - apply gravity and slow down
-		physics_timer += delta
-		
-		# Apply gravity
-		kick_velocity.y += gravity_strength * delta
-		
-		# Move
+	if raycast.is_colliding():
+		var collider = raycast.get_collider()
+		_handle_collision(collider)
+	else:
+		# Keep flying in straight line
 		global_position += kick_velocity * delta
 		rotation += rotation_speed * delta
-		
-		# Fade out
-		var fade_progress = physics_timer / physics_duration
-		modulate.a = 1.0 - fade_progress
-		
-		# Despawn after duration
-		if physics_timer >= physics_duration:
-			queue_free()
 
 
 func kick(direction: Vector2, speed: float = 0.0) -> void:
@@ -153,8 +136,6 @@ func _handle_collision(collider: Node) -> void:
 
 func _collide_with_enemy(enemy: Node) -> void:
 	"""Both object and enemy become physics objects for 0.5s then disappear."""
-	# print("[KICKABLE] Hit enemy! Both becoming physics objects")
-	
 	# Make enemy also become physics object
 	if enemy.has_method("become_physics_object"):
 		enemy.become_physics_object(kick_velocity.normalized(), kick_velocity.length())
@@ -162,28 +143,73 @@ func _collide_with_enemy(enemy: Node) -> void:
 		# Fallback: use existing kick method
 		enemy.kick(kick_velocity.normalized(), kick_velocity.length())
 	
-	# Turn self into physics object
-	_become_physics_object()
+	# Explode into fragments
+	_explode()
 
 
 func _collide_with_wall() -> void:
-	"""Hit a wall - become physics object for 0.5s then disappear."""
-		# print("[KICKABLE] Hit wall! Becoming physics object")
-	_become_physics_object()
+	"""Hit a wall - explode into fragments."""
+	_explode()
 
 
-func _become_physics_object() -> void:
-	"""Convert to physics object behavior - bounce and fall with gravity."""
+func _explode() -> void:
+	"""Spawn fragments and remove self."""
+	if has_collided:
+		return
 	has_collided = true
-	physics_timer = 0.0
-	raycast.enabled = false
 	
-	# Reduce velocity (bounce damping)
-	kick_velocity *= bounce_damping
+	var half_size = object_size / 2.0
+	var fragment_script = load("res://kickable_fragment.gd")
+	var center = Vector2.ZERO
 	
-	# Add some randomness to bounce direction
-	var bounce_angle = randf_range(-0.3, 0.3)
-	kick_velocity = kick_velocity.rotated(bounce_angle)
+	# To ensure the fragments form the exact square, we slice it into triangles
+	# from the center to points on the perimeter.
+	var perimeter_points = []
+	
+	# Add the 4 corners explicitly to maintain the square shape
+	var corners = [
+		Vector2(-half_size.x, -half_size.y), # TL
+		Vector2(half_size.x, -half_size.y),  # TR
+		Vector2(half_size.x, half_size.y),   # BR
+		Vector2(-half_size.x, half_size.y)   # BL
+	]
+	
+	# Determine how many additional points to add per side to reach fragment_count
+	# Total fragments = corners (4) + extra points
+	var extra_points_total = max(0, fragment_count - 4)
+	var points_per_side = extra_points_total / 4
+	var remainder = extra_points_total % 4
+	
+	for i in range(4):
+		var start_corner = corners[i]
+		var end_corner = corners[(i + 1) % 4]
+		perimeter_points.append(start_corner)
+		
+		var points_on_this_side = points_per_side + (1 if i < remainder else 0)
+		for j in range(1, points_on_this_side + 1):
+			var t = float(j) / (points_on_this_side + 1)
+			perimeter_points.append(start_corner.lerp(end_corner, t))
+	
+	# Final color is Polygon2D color combined with node modulate
+	var final_color = visual.color * modulate
+	
+	for i in range(perimeter_points.size()):
+		var p1 = perimeter_points[i]
+		var p2 = perimeter_points[(i + 1) % perimeter_points.size()]
+		var fragment_points = PackedVector2Array([center, p1, p2])
+		
+		# Calculate explosion velocity
+		var edge_midpoint = (p1 + p2) / 2.0
+		var explode_dir = edge_midpoint.normalized()
+		var explode_vel = explode_dir * randf_range(300.0, 700.0)
+		var start_vel = (kick_velocity * 0.4) + explode_vel
+		
+		var fragment = fragment_script.new()
+		get_parent().add_child(fragment)
+		fragment.life_time = fragment_lifetime
+		fragment.setup(fragment_points, global_position, rotation, start_vel, final_color, gravity_strength)
+	
+	queue_free()
 
 
 func _on_body_entered(body: Node2D) -> void:
@@ -205,4 +231,3 @@ func _on_area_entered(area: Area2D) -> void:
 func can_be_kicked() -> bool:
 	"""Check if this object can currently be kicked."""
 	return not is_kicked
-
