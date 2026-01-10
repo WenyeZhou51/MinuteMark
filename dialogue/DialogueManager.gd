@@ -3,6 +3,7 @@ extends Node
 signal line_changed(line: Dictionary)
 signal dialogue_started(id: String)
 signal dialogue_finished
+signal interrupt_triggered
 
 var dialogue_data: Dictionary = {}
 var current_id: String = ""
@@ -84,24 +85,31 @@ func can_interrupt() -> bool:
 
 	return false
 
-func do_interrupt(id: String = "interrupt") -> void:
+func do_interrupt(_id: String = "interrupt") -> void:
 	# Force interrupt without checking time delay
 	interrupt_consumed = true
 	
-	if not dialogue_data.has(id):
-		return
-		
-	var requested_priority = dialogue_data[id].get("priority", 0)
+	emit_signal("interrupt_triggered")
+	end_conversation()
 	
-	# Still respect priority? Usually interrupt has higher priority anyway
-	if _is_active() and requested_priority < current_priority:
-		return
+	# The rest of the old logic is skipped because we want to kick immediately
+	# and end the text flow.
+	return
 
-	current_priority = requested_priority
-	current_id = id
-	dialogue_start_time = Time.get_ticks_msec() / 1000.0
-	interrupt_unlocked = false
-	_emit_current()
+#	if not dialogue_data.has(id):
+#		return
+#		
+#	var requested_priority = dialogue_data[id].get("priority", 0)
+#	
+#	# Still respect priority? Usually interrupt has higher priority anyway
+#	if _is_active() and requested_priority < current_priority:
+#		return
+#
+#	current_priority = requested_priority
+#	current_id = id
+#	dialogue_start_time = Time.get_ticks_msec() / 1000.0
+#	interrupt_unlocked = false
+#	_emit_current()
 
 func _can_interrupt() -> bool:
 	var now = Time.get_ticks_msec() / 1000.0

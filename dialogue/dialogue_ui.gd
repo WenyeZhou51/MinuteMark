@@ -1,7 +1,7 @@
 extends Control
 
 @onready var label: RichTextLabel = $MainLayout/ContentHBox/DialoguePanel/TextMargin/VBoxContainer/DialogueLabel
-@onready var speaker_label: Label = $MainLayout/ContentHBox/DialoguePanel/TextMargin/VBoxContainer/SpeakerLabel
+@onready var speaker_label: Label = $MainLayout/ContentHBox/DialoguePanel/SpeakerContainer/SpeakerBox/SpeakerLabel
 @onready var portrait: TextureRect = $MainLayout/ContentHBox/PortraitContainer/Portrait
 @onready var interrupt_indicator: Button = $InterruptIndicator
 
