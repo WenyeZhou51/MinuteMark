@@ -1,5 +1,7 @@
 extends Node2D
 
+signal story_finished
+
 # Inspector-adjustable properties
 @export var bob_radius: float = 120.0
 @export var bob_sprite_scale_multiplier: float = 2.25
@@ -8,10 +10,18 @@ extends Node2D
 @export_range(0.0, 90.0, 1.0) var max_swing_angle: float = 60.0  # Degrees from vertical
 @export_range(0.0, 90.0, 1.0) var cutoff_angle: float = 50.0  # Degrees from vertical - when reached, show complete image
 
-@export_range(0.0, 1.0, 0.01) var transition_threshold: float = 0.9  # 0.9 = 90% of total swing (~60° past center if max_swing is 75°)
+@export_range(0.0, 1.0, 0.01) var transition_threshold: float = 0.98  # Trigger transition at 98% of swing
+@export_range(0.0, 90.0, 1.0) var reveal_start_angle_offset: float = -10.0  # Start reveal earlier
 
-@export_group("Paint Splatter Shader")
-@export_range(0.0, 90.0, 1.0) var reveal_start_angle_offset: float = 30.0  # Degrees past vertical center to start reveal
+@export_group("Physics")
+@export var gravity: float = 980.0
+@export var damping: float = 0.995 # Air resistance
+@export var drag_stiffness: float = 10.0 # How fast it follows mouse
+
+# Variables
+var smoothed_reveal_progress: float = 0.0
+var is_transitioning: bool = false
+
 @export_range(0.0, 1.0, 0.01) var center_reveal_size: float = 0.4  # Inner area that reveals instantly
 @export_range(0.0, 0.2, 0.001) var outline_thickness: float = 0.03
 @export_range(0.0, 0.5, 0.01) var glow_softness: float = 0.05
@@ -41,15 +51,94 @@ var sound_played_this_swing: bool = false
 var pivot_point: Vector2
 var is_dragging: bool = false
 var current_angle: float = 0.0  # Angle from vertical (0 = pointing down)
+var angular_velocity: float = 0.0
 var start_angle: float = 0.0  # Left side (pointing to bottom-left)
 var end_angle: float = 0.0  # Right side (pointing to bottom-right)
+
+var frame_border: Sprite2D
 
 func _ready():
 	# Get viewport size
 	var viewport_size = get_viewport_rect().size
+	print("DEBUG: Viewport size: ", viewport_size)
 	
 	# Initialize meta for debug tracking
 	set_meta("last_progress_shown", -1)
+	
+	# --- BACKGROUND SETUP ---
+	# We're already inside a CanvasLayer from the trigger (layer 100).
+	# To ensure the background covers the game (layer 0) but is behind the pendulum (z=0),
+	# we add these background nodes as children of THIS node (PendulumStory)
+	# and use negative z_index to push them behind the other children (images/pendulum).
+	
+	# 1. Solid White Base
+	var solid_bg = ColorRect.new()
+	solid_bg.name = "SolidBackground"
+	solid_bg.color = Color.WHITE
+	# Since we are in a Node2D, anchors don't automatically fill parent unless parent is Control.
+	# But we can set size manually to viewport size.
+	solid_bg.size = viewport_size
+	solid_bg.position = Vector2.ZERO
+	solid_bg.z_index = -100 # Put behind everything else in this scene
+	add_child(solid_bg)
+	
+	# 2. Static Pocket Watch Background (semi-transparent)
+	var sprite_frames = SpriteFrames.new()
+	var frames_loaded = 0
+	for i in range(11): # frames 0000 to 0010
+		var frame_path = "res://Sprites/pocket_watch_frames/frame_%04d.png" % i
+		var tex = load(frame_path)
+		if tex:
+			sprite_frames.add_frame("default", tex)
+			frames_loaded += 1
+	
+	if frames_loaded > 0:
+		var static_bg = TextureRect.new()
+		static_bg.name = "BackgroundStatic"
+		static_bg.texture = sprite_frames.get_frame_texture("default", 0) # Use frame 0
+		static_bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		static_bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		static_bg.modulate = Color(1, 1, 1, 0.5)
+		static_bg.size = viewport_size
+		static_bg.position = Vector2.ZERO
+		static_bg.z_index = -99 # Slightly above solid bg
+		add_child(static_bg)
+		print("DEBUG: Loaded pocket watch background frame")
+	else:
+		print("WARNING: Could not load pocket watch frames for background!")
+
+	# 3. Texture Overlay
+	var bg_tex = load("res://Sprites/Bg white overlay .png")
+	if bg_tex:
+		var bg_overlay = TextureRect.new()
+		bg_overlay.name = "BackgroundOverlay"
+		bg_overlay.texture = bg_tex
+		bg_overlay.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		bg_overlay.stretch_mode = TextureRect.STRETCH_SCALE
+		bg_overlay.size = viewport_size
+		bg_overlay.position = Vector2.ZERO
+		bg_overlay.z_index = -98 # Above static bg
+		# Ensure it blends nicely (multiply if possible, or just normal with alpha)
+		# Assuming the texture is a paper grain/texture
+		bg_overlay.modulate = Color(0.9, 0.9, 0.9, 1.0) 
+		add_child(bg_overlay)
+		print("DEBUG: Loaded background overlay")
+	# ------------------------
+	
+	# Create border frame
+	var border_tex = load("res://Sprites/Border.png")
+	if border_tex:
+		frame_border = Sprite2D.new()
+		frame_border.texture = border_tex
+		frame_border.name = "FrameBorder"
+		add_child(frame_border)
+		# Ensure it's above images but below pendulum
+		# Pendulum is a separate node, images are separate nodes. 
+		# We need to check scene tree order.
+		# ImageBottom and ImageTop are direct children. Pendulum is direct child.
+		# We want order: BG -> Images -> Border -> Pendulum
+		# Currently: BG (0,1), ImageBottom, ImageTop, Pendulum
+		# So we can move border to be after ImageTop
 	
 	# Set pivot at TOP CENTER of screen
 	pivot_point = Vector2(viewport_size.x / 2, 0)
@@ -72,6 +161,15 @@ func _ready():
 	
 	# Generate bob polygons based on bob_radius
 	update_bob_visuals()
+	
+	# Debug: Print pendulum children and remove potential ghost shadows
+	print("Checking Pendulum children:")
+	for child in pendulum.get_children():
+		print("- ", child.name, " (", child.get_class(), ")")
+		# Remove any Sprite2D that isn't the Bob (e.g. leftover shadows)
+		if child is Sprite2D and child != bob:
+			print("Removing rogue sprite: ", child.name)
+			child.queue_free()
 	
 	# Set swing angles based on max_swing_angle
 	# 0 degrees = horizontal right, 90 degrees = vertical down
@@ -105,6 +203,13 @@ func _ready():
 	
 	# Ensure images are correctly sized and positioned
 	setup_images()
+	
+	# Center the image transform
+	# var viewport_w = viewport_size.x
+	# var viewport_h = viewport_size.y
+	
+	# Hide the debug transform guide
+	image_transform.visible = false
 	
 	# Load and set up the paint splatter reveal shader
 	var splatter_shader = load("res://shaders/paint_splatter_reveal.gdshader")
@@ -148,7 +253,83 @@ func _ready():
 		print("Index ", i, ": ", story_textures[i].resource_path)
 	print("=================================\n")
 
-func _process(_delta):
+func _process(delta):
+	# Don't update physics if we are in the middle of a transition pause
+	if is_transitioning:
+		return
+
+	# Physics simulation
+	if is_dragging:
+		# When dragging, we don't simulate full gravity, but we calculate velocity based on drag
+		# This makes it feel heavy when released
+		# Actually, let's just use simple following for now to avoid complexity, but track velocity?
+		# No, let's make it follow the mouse with some springiness
+		var mouse_pos = get_global_mouse_position()
+		var mouse_vector = mouse_pos - pivot_point
+		if mouse_vector.y > 0:
+			var target_angle = atan2(mouse_vector.y, mouse_vector.x)
+			
+			# Calculate torque towards mouse
+			var angle_diff = target_angle - current_angle
+			
+			# Correct for wrapping if necessary (though with clamp it might not be needed)
+			while angle_diff > PI: angle_diff -= 2 * PI
+			while angle_diff < -PI: angle_diff += 2 * PI
+			
+			# Spring force
+			var spring_accel = angle_diff * drag_stiffness
+			
+			# Damping
+			angular_velocity *= 0.9 # Heavy damping while dragging
+			angular_velocity += spring_accel * delta
+			
+			current_angle += angular_velocity * delta
+			
+			# Hard limits still apply? Maybe softer limits?
+			# Let's keep hard limits for the game logic
+			var min_angle = min(start_angle, end_angle)
+			var max_angle = max(start_angle, end_angle)
+			
+			if current_angle < min_angle:
+				current_angle = min_angle
+				angular_velocity = 0
+			elif current_angle > max_angle:
+				current_angle = max_angle
+				angular_velocity = 0
+				
+	else:
+		# Free swing with gravity
+		# Gravity torque = -g/L * sin(theta - PI/2)
+		# Angle is 0 at right, PI/2 at down
+		# We want 0 torque at PI/2.
+		# Torque = - (g / length) * sin(angle - PI/2)
+		# sin(angle - PI/2) = -cos(angle)
+		
+		# Pendulum physics: alpha = - (g / L) * sin(theta)
+		# BUT our theta 0 is Horizontal Right.
+		# Real pendulum theta 0 is usually straight down.
+		# Let's convert: real_theta = current_angle - PI/2
+		# alpha = - (g / L) * sin(current_angle - PI/2)
+		
+		var angular_accel = - (gravity / pendulum_length) * cos(current_angle)
+		
+		angular_velocity += angular_accel * delta
+		angular_velocity *= damping
+		
+		current_angle += angular_velocity * delta
+		
+		# Bounce off limits?
+		var min_angle = min(start_angle, end_angle)
+		var max_angle = max(start_angle, end_angle)
+		
+		# Simple bounce
+		if current_angle < min_angle:
+			current_angle = min_angle
+			angular_velocity *= -0.5
+		elif current_angle > max_angle:
+			current_angle = max_angle
+			angular_velocity *= -0.5
+
 	update_pendulum()
 
 func _input(event):
@@ -165,6 +346,7 @@ func _input(event):
 		elif event.keycode == KEY_R:
 			# Reset to start position
 			current_angle = start_angle
+			angular_velocity = 0
 			print("DEBUG: Reset pendulum to start position")
 	
 	if event is InputEventMouseButton:
@@ -179,26 +361,16 @@ func _input(event):
 				var closest_point = Geometry2D.get_closest_point_to_segment(event.position, pivot_point, bob_pos)
 				var distance = event.position.distance_to(closest_point)
 				
-				if distance < 80.0:  # Click within 80px of line or bob
+				if distance < max(80.0, bob_radius):  # Click within 80px of line or within bob radius
 					is_dragging = true
+					angular_velocity = 0 # Reset velocity on grab
 					var current_deg = rad_to_deg(current_angle)
 					var start_deg = rad_to_deg(start_angle)
 					print("Started dragging | Current angle: %.1f° | Start angle: %.1f°" % [current_deg, start_deg])
 			else:
 				is_dragging = false
 	
-	elif event is InputEventMouseMotion and is_dragging:
-		# Calculate angle from pivot to mouse
-		var mouse_vector = event.position - pivot_point
-		
-		# Only process if mouse is below the pivot (can't swing upward)
-		if mouse_vector.y > 0:
-			var target_angle = atan2(mouse_vector.y, mouse_vector.x)
-			
-			# Clamp between start and end angles
-			var min_angle = min(start_angle, end_angle)
-			var max_angle = max(start_angle, end_angle)
-			current_angle = clamp(target_angle, min_angle, max_angle)
+	# Mouse motion handled in _process now
 
 func get_pendulum_end() -> Vector2:
 	return pivot_point + Vector2(cos(current_angle), sin(current_angle)) * pendulum_length
@@ -209,8 +381,10 @@ func update_pendulum():
 	line.points = PackedVector2Array([pivot_point, pendulum_end])
 	
 	# Update bob position (the weight at the end) and rotation
-	bob.position = pendulum_end
 	bob.rotation = current_angle - PI/2 # Point the top of the sprite towards the pivot
+	
+	# Position bob directly at the end of the line
+	bob.position = pendulum_end
 	
 	# Update mask
 	update_mask()
@@ -253,8 +427,11 @@ func update_mask():
 	# Update shader parameters for paint splatter reveal
 	var shader_material = image_top.material as ShaderMaterial
 	if shader_material != null:
+		# Smooth the reveal progress
+		smoothed_reveal_progress = lerp(smoothed_reveal_progress, reveal_progress, 5.0 * get_process_delta_time())
+		
 		# Update progress
-		shader_material.set_shader_parameter("reveal_progress", reveal_progress)
+		shader_material.set_shader_parameter("reveal_progress", smoothed_reveal_progress)
 		
 		# Allow real-time tweaking in the inspector
 		shader_material.set_shader_parameter("center_position", reveal_center)
@@ -304,19 +481,16 @@ func load_story_textures():
 		print("Error: Could not open story frames directory")
 
 func setup_images():
-	# Calculate the base rect size (before scale)
+	# Use the viewport center instead of the ImageTransform guide
+	var viewport_size = get_viewport_rect().size
+	var actual_center = Vector2(viewport_size.x / 2.0, viewport_size.y / 2.0 + 50.0) # Slightly lower than center
+	
+	# Calculate target size (use ImageTransform scale as a reference for size)
 	var base_width = image_transform.offset_right - image_transform.offset_left
 	var base_height = image_transform.offset_bottom - image_transform.offset_top
-	
-	# Apply the ColorRect's scale to get the actual visual size
-	var actual_width = base_width * image_transform.scale.x
-	var actual_height = base_height * image_transform.scale.y
-	
-	# The actual top-left corner position is just the offset values
-	var actual_top_left = Vector2(image_transform.offset_left, image_transform.offset_top)
-	
-	# Calculate the actual center
-	var actual_center = actual_top_left + Vector2(actual_width / 2, actual_height / 2)
+	# Reduce scale to 60% of original
+	var actual_width = base_width * image_transform.scale.x * 0.6
+	var actual_height = base_height * image_transform.scale.y * 0.6
 	
 	# Position images at the center
 	image_bottom.position = actual_center
@@ -333,6 +507,24 @@ func setup_images():
 		var tex_size = image_top.texture.get_size()
 		image_top.scale = Vector2(actual_width / tex_size.x, actual_height / tex_size.y)
 
+	# Update border scale/position
+	if frame_border and frame_border.texture:
+		frame_border.position = actual_center
+		var border_size = frame_border.texture.get_size()
+		# Scale border to be slightly larger than the images
+		# Assuming border texture has some thickness and inner transparent area
+		# We want the inner area to match actual_width/height roughly
+		# Let's just match the outer dimensions plus a bit of padding if needed, 
+		# or scale to fit exactly if it's a frame.
+		# Let's scale it to be slightly larger than the image (e.g. 1.05x)
+		var scale_x = (actual_width / border_size.x) * 1.05
+		var scale_y = (actual_height / border_size.y) * 1.05
+		frame_border.scale = Vector2(scale_x, scale_y)
+		
+		# Move border in scene tree to be above images
+		if frame_border.get_parent() == self:
+			move_child(frame_border, image_top.get_index() + 1)
+			
 func update_bob_visuals():
 	# Load and set the sprite texture
 	bob.texture = load("res://Sprites/New bob.png")
@@ -355,7 +547,27 @@ func complete_transition():
 		return
 
 	print("DEBUG: complete_transition() triggered automatically at end of swing")
+	
+	# Start transition pause
+	is_transitioning = true
+	# Stop momentum
+	angular_velocity = 0.0
+	
+	# Wait for a moment to let the user see the full image
+	await get_tree().create_timer(0.4).timeout
+	
 	print("DEBUG: Transitioning from index %d to %d" % [current_story_index, current_story_index + 1])
+	
+	# Play transition sound if available
+	var transition_sound = load("res://audio/menu transition.wav")
+	if transition_sound:
+		var audio_player = AudioStreamPlayer.new()
+		audio_player.stream = transition_sound
+		audio_player.bus = "Master"
+		add_child(audio_player)
+		audio_player.play()
+		# Auto-cleanup
+		audio_player.finished.connect(func(): audio_player.queue_free())
 	
 	current_story_index += 1
 	
@@ -372,6 +584,8 @@ func complete_transition():
 		var shader_material = image_top.material as ShaderMaterial
 		if shader_material:
 			shader_material.set_shader_parameter("reveal_progress", 0.0)
+			smoothed_reveal_progress = 0.0 # Reset smoothing
+			
 			if image_top.texture:
 				var tex_size = image_top.texture.get_size()
 				shader_material.set_shader_parameter("aspect_ratio", tex_size.x / tex_size.y)
@@ -386,6 +600,7 @@ func complete_transition():
 		
 		# Force update current_angle to the new start so we don't trigger again immediately
 		current_angle = start_angle
+		angular_velocity = 0
 		
 		# Reset sound flag for the next swing
 		sound_played_this_swing = false
@@ -401,4 +616,10 @@ func complete_transition():
 		if shader_material:
 			shader_material.set_shader_parameter("reveal_progress", 1.0)
 		is_dragging = false # Finished the whole thing
-
+		
+		# Emit finished signal after a short delay
+		await get_tree().create_timer(1.0).timeout
+		story_finished.emit()
+	
+	# End transition pause
+	is_transitioning = false

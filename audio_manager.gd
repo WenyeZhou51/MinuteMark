@@ -83,6 +83,19 @@ func stop_music():
 	if music_player:
 		music_player.stop()
 
+func pause_music():
+	if music_player:
+		music_player.stream_paused = true
+
+func resume_music():
+	if music_player:
+		music_player.stream_paused = false
+
+func fade_music(target_db: float, duration: float):
+	if music_player:
+		var tween = create_tween()
+		tween.tween_property(music_player, "volume_db", target_db, duration)
+
 func play_music(new_stream: AudioStream):
 	if music_player:
 		music_player.stop()

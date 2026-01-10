@@ -1,13 +1,13 @@
 [gd_scene load_steps=2 format=3 uid="uid://c11axlg6fqkg"]
 
-[ext_resource type="Script" path="res://pendulum_story.gd" id="1_script"]
+[ext_resource type="Script" uid="uid://yxbklcr67sqt" path="res://pendulum_story.gd" id="1_script"]
 
 [node name="PendulumStory" type="Node2D"]
 script = ExtResource("1_script")
-bob_radius = 500.0
-pendulum_line_width = 20.0
-pendulum_length = 1200.0
-max_swing_angle = 75.0
+bob_radius = 150.0
+pendulum_line_width = 8.0
+pendulum_length = 550.0
+max_swing_angle = 40.0
 noise_detail = 5.0
 noise_roughness = 0.56
 noise_softness = 0.25

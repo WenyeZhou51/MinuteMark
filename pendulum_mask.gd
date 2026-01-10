@@ -69,4 +69,3 @@ func reset_splatters():
 	if splatter_mode and material != null:
 		material.set_shader_parameter("accumulation_progress", 0.0)
 		material.set_shader_parameter("pendulum_position", Vector2(0.0, 0.5))
-
