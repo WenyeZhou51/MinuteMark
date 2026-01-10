@@ -1210,6 +1210,45 @@ func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceS
 			# Reset air dash on wall touch/slide
 			air_dash_cooldown_timer = 0.0
 			air_dash_available = true
+
+
+func _is_wall_at_lower_quarter() -> bool:
+	"""Check if there is a wall next to the player in the lower 25% of their hitbox."""
+	var space_state = get_world_2d().direct_space_state
+	var collision_shape = $CollisionShape2D
+	if not collision_shape or not collision_shape.shape:
+		return false
+	
+	var shape = collision_shape.shape as RectangleShape2D
+	if not shape:
+		return false
+	
+	var half_width = shape.size.x / 2.0
+	var half_height = shape.size.y / 2.0
+	var ray_origin_offset = collision_shape.position
+	
+	# Lower 25% point: 75% down from top
+	# Top is -half_height, Bottom is half_height
+	# Center is 0
+	# Point = Top + 0.75 * (2 * half_height) = -half_height + 1.5 * half_height = 0.5 * half_height
+	var lower_quarter_y = half_height * 0.5
+	
+	# Direction to check is opposite to wall_normal (which points AWAY from wall)
+	var wall_side = 0.0
+	if wall_normal.x != 0:
+		wall_side = -sign(wall_normal.x)
+	else:
+		return false
+		
+	# Start ray slightly inside (2px) and extend outside (10px)
+	var ray_start = global_position + ray_origin_offset + Vector2(0, lower_quarter_y)
+	var ray_end = ray_start + Vector2(wall_side * (half_width + 10.0), 0)
+	
+	var query = PhysicsRayQueryParameters2D.create(ray_start, ray_end)
+	query.exclude = [self]
+	var result = space_state.intersect_ray(query)
+	
+	return not result.is_empty()
 	
 	# Air dash reset also happens on any wall touch
 	if is_on_wall:
@@ -1452,10 +1491,9 @@ func _check_wall_run_activation() -> void:
 	# Check if wall run should END (lost wall contact during wall run)
 	if is_wall_running:
 		# During wall run, use raycast detection to check if still on wall
-		if not is_on_wall:
-			# print("[WALL RUN COLLISION] ⚠ Lost wall contact (raycast) - ending wall run")
-			# print("[WALL RUN COLLISION] Position: ", global_position)
-			# print("[WALL RUN COLLISION] Velocity: ", velocity)
+		# NEW: Also end if hit head or lost wall contact at the lower quarter point
+		if not is_on_wall or is_on_ceiling() or not _is_wall_at_lower_quarter():
+			# print("[WALL RUN COLLISION] ⚠ Lost wall contact, hit ceiling, or wall ended - ending wall run")
 			_end_wall_run()
 		return  # Don't check for activation if already running
 	
@@ -1503,10 +1541,8 @@ func _check_wall_run_activation() -> void:
 	# Wall collision is confirmed if we have EITHER a raycast hit OR a slide collision
 	var has_wall_collision = (raycast_detects_wall or has_actual_wall_collision) and (velocity_reduced or has_slide_collision)
 	
-	if not has_wall_collision:
-		# print("[WALL RUN COLLISION] No wall collision detected")
-		# print("[WALL RUN COLLISION] - raycast:", raycast_detects_wall, " | velocity_reduced:", velocity_reduced, " | slides:", has_slide_collision)
-		# print("[WALL RUN COLLISION] - speed_before:", "%.1f" % speed_before_collision, " | speed_after:", "%.1f" % abs(velocity.x))
+	if not has_wall_collision or not _is_wall_at_lower_quarter():
+		# print("[WALL RUN COLLISION] No wall collision detected or lower quarter check failed")
 		return
 	
 	# print("[WALL RUN CHECK] ═══════════════════════════════════════")
