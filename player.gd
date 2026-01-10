@@ -200,6 +200,14 @@ const DustParticlesScene = preload("res://dust_particles.tscn")
 @export var rewind_enabled: bool = true  ## Enable rewind mechanics
 @export var rewind_time: float = 2.0  ## Seconds to rewind back in time
 @export var rewind_cooldown: float = 3.0  ## Cooldown between rewinds (seconds)
+
+# TIMER CONFIGURATION
+@export_group("Timer System")
+@export var game_timer_duration: float = 60.0  ## Initial time on the clock
+@export var timer_ui_scene: PackedScene = preload("res://TimerUI.tscn")
+
+var current_game_time: float = 60.0
+var timer_ui_instance: Node = null
 @export var rewind_history_duration: float = 3.0  ## How long to keep state history (seconds)
 @export var rewind_traceback_speed: float = 2.0  ## Speed of traceback while holding in slow-mo (2.0 = 2x relative to slow-mo time)
 @export var rewind_slowmo_scale: float = 0.25  ## Time scale for slow-mo (0.25 = quarter speed)
@@ -391,6 +399,12 @@ func _ready() -> void:
 	# Connect to enemy signals
 	_connect_to_enemies()
 	
+	# Setup timer system
+	current_game_time = game_timer_duration
+	if timer_ui_scene:
+		timer_ui_instance = timer_ui_scene.instantiate()
+		add_child(timer_ui_instance)
+
 	# Setup paper tear effect
 	paper_tear_effect = paper_tear_effect_script.new()
 	paper_tear_effect.name = "PaperTearEffect"
@@ -504,6 +518,18 @@ func _create_kick_object_indicator() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	# Update timer system (only when not paused)
+	if not get_tree().paused and current_game_time > 0:
+		current_game_time -= delta
+		if current_game_time <= 0:
+			current_game_time = 0
+			if timer_ui_instance:
+				timer_ui_instance.update_display(current_game_time)
+			die()
+		else:
+			if timer_ui_instance:
+				timer_ui_instance.update_display(current_game_time)
+
 	# Track position at start of frame
 	var frame_start_position = global_position
 	var frame_start_velocity = velocity
@@ -3902,6 +3928,13 @@ func _create_bullet_parry_indicator() -> void:
 	bullet_parry_indicator.default_color = Color(0.2, 1.0, 1.0, 0.9)  # Bright cyan
 	bullet_parry_indicator.visible = false
 	add_child(bullet_parry_indicator)
+
+func die() -> void:
+	"""Kill the player and restart the level."""
+	print("[PLAYER] DIED! Restarting level...")
+	# Reset time scale just in case
+	Engine.time_scale = 1.0
+	get_tree().reload_current_scene()
 
 func _update_bullet_detection() -> void:
 	"""Detect bullets near the player that can be parried."""
