@@ -1,7 +1,5 @@
 extends CharacterBody2D
 
-var first_kick_dialogue_triggered: bool = false
-
 # ====================================
 # 2D PLATFORMER CONTROLLER
 # ====================================
@@ -157,11 +155,30 @@ const DustParticlesScene = preload("res://dust_particles.tscn")
 @export var kick_offset: Vector2 = Vector2.ZERO
 @export var attack_enabled: bool = true  ## Enable kick attack mechanics
 @export var attack_detection_range: float = 80.0  ## Range to detect enemies for attack (smaller range)
-@export var attack_knockback_speed: float = 700.0  ## Speed at which player is knocked back from enemy
-@export var attack_duration: float = 0.2  ## Duration of the attack knockback (seconds)
-@export var attack_momentum_retention: float = 0.6  ## How much momentum is kept after attack (0.0-1.0)
+@export var attack_knockback_speed: float = 1200.0  ## Initial burst speed when kicking an enemy
+@export var attack_knockback_friction: float = 3000.0  ## Base constant friction applied immediately
+@export var attack_knockback_friction_growth: float = 50000.0 ## Linear friction increase per second (Friction = Base + Time * Growth)
+@export var attack_knockback_threshold_velocity: float = 500.0 ## Velocity below which post-kick boost activates
+@export var kick_post_air_control_multiplier: float = 1.5 ## Air control multiplier during post-kick boost
+@export var kick_post_gravity_multiplier: float = 0.7 ## Further gravity reduction multiplier (0.7 = 30% reduction)
+@export var kick_post_boost_duration: float = 0.5 ## Duration of the post-kick boost
+@export var attack_trigger_frame: int = 4 ## Animation frame when the kick hits
+@export var attack_gravity_scale: float = 0.2 ## Gravity during the high-speed part of the kick
+@export var attack_anticipation_slowdown: float = 800.0 ## Slowdown before the hit
+@export var attack_safety_timeout: float = 1.0 ## Auto-end attack if stuck
+@export var attack_indicator_length: float = 0.2  ## Controls visual arrow length only
+@export var attack_momentum_retention: float = 0.5  ## How much momentum is kept after attack ends (0.0-1.0)
 @export var attack_cooldown: float = 0.2  ## Cooldown between attacks
 @export var attack_enemy_knockback_force: float = 2500.0  ## Force applied to enemy when kicked
+
+@export_group("Kick Visuals")
+@export var kick_indicator_width: float = 3.0 ## Width of the object kick indicator line
+@export var kick_indicator_color: Color = Color(0.2, 1.0, 0.2, 0.8) ## Color of the object kick indicator (Green)
+@export var parry_indicator_width: float = 4.0 ## Width of the bullet parry indicator line
+@export var parry_indicator_color: Color = Color(0.2, 1.0, 1.0, 0.9) ## Color of the bullet parry indicator (Cyan)
+@export var slam_indicator_color: Color = Color(1.0, 0.2, 0.2, 0.4) ## Color of the ground slam range circle (Red)
+@export var enemy_attack_indicator_width: float = 2.0 ## Width of the enemy attack knockback indicator
+@export var enemy_attack_indicator_color: Color = Color(1.0, 1.0, 1.0, 0.6) ## Color of the enemy attack knockback indicator
 
 # BULLET PARRY CONFIGURATION
 @export_group("Bullet Parry")
@@ -172,6 +189,7 @@ const DustParticlesScene = preload("res://dust_particles.tscn")
 @export var parry_time_scale: float = 0.2  ## Time scale during parry (0.2 = 80% slower, 1.0 = normal speed)
 @export var parry_time_duration: float = 0.3  ## Duration of time slowdown effect during parry (seconds in real time)
 @export var parry_vertical_boost: float = 300.0  ## Upward velocity boost given to player on successful parry
+@export var parry_flash_duration: float = 0.05 ## Duration of the visual flash effect on successful parry
 
 # KICK OBJECT CONFIGURATION
 @export_group("Kick Object")
@@ -179,7 +197,8 @@ const DustParticlesScene = preload("res://dust_particles.tscn")
 @export var kick_object_detection_range: float = 60.0  ## Range to detect kickable objects
 @export var kick_object_speed: float = 2500.0  ## Speed at which kicked objects fly
 @export var kick_object_cone_angle: float = 90.0  ## Cone angle in front of player for detection (degrees)
-@export var kick_object_knockback_force: float = 100.0  ## Horizontal knockback force applied to player when kicking an object
+@export var kick_object_knockback_force: float = 1200.0  ## Initial horizontal knockback velocity applied to player when kicking an object
+@export var kick_object_knockback_vertical: float = -200.0 ## Initial vertical knockback velocity (negative is up)
 
 # GROUND SLAM CONFIGURATION
 @export_group("Ground Slam")
@@ -245,6 +264,8 @@ var wall_run_frame_count: int = 0  # Number of frames wall run has been active
 
 # Ledge climb state variables
 var is_ledge_climbing: bool = false  # Is player currently climbing a ledge
+var kick_time_elapsed: float = 0.0  # Time passed since kick fired
+var kick_post_boost_timer: float = 0.0  # Timer for post-kick air control/gravity boost
 var ledge_climb_progress: float = 0.0  # Progress through climb animation (0.0 to 1.0)
 var ledge_climb_start_pos: Vector2 = Vector2.ZERO  # Starting position of climb
 var ledge_climb_target_pos: Vector2 = Vector2.ZERO  # Target position on top of ledge
@@ -257,6 +278,7 @@ enum KickTargetType { NONE, ENEMY, OBJECT, BULLET }
 var current_kick_target_type: KickTargetType = KickTargetType.NONE
 var current_kick_target_node: Node2D = null
 var kick_has_fired: bool = false
+var kick_boost_available: bool = false # Can the post-kick boost be triggered
 var is_attacking: bool = false  # Is player currently performing an attack
 var attack_timer: float = 0.0  # Time elapsed in current attack
 var attack_cooldown_timer: float = 0.0  # Time remaining until next attack can be performed
@@ -379,6 +401,11 @@ func _ready() -> void:
 		if shape:
 			original_collision_shape_height = shape.size.y
 	
+	# Apply visual indicator settings from inspector
+	if attack_indicator:
+		attack_indicator.width = enemy_attack_indicator_width
+		attack_indicator.default_color = enemy_attack_indicator_color
+	
 	# Create ground slam attack visual indicator
 	_create_slam_attack_visual()
 	
@@ -474,15 +501,15 @@ func _update_slam_attack_visual() -> void:
 		points.append(point)
 	
 	slam_range_circle.polygon = points
-	slam_range_circle.color = Color(1.0, 0.2, 0.2, 0.4)  # Red with transparency (ground slam)
+	slam_range_circle.color = slam_indicator_color
 
 
 func _create_kick_object_indicator() -> void:
 	"""Create the visual indicator for kick object direction."""
 	object_kick_indicator = Line2D.new()
 	object_kick_indicator.name = "ObjectKickIndicator"
-	object_kick_indicator.width = 3.0
-	object_kick_indicator.default_color = Color(0.2, 1.0, 0.2, 0.8)  # Green
+	object_kick_indicator.width = kick_indicator_width
+	object_kick_indicator.default_color = kick_indicator_color
 	object_kick_indicator.visible = false
 	add_child(object_kick_indicator)
 
@@ -553,6 +580,8 @@ func _physics_process(delta: float) -> void:
 		ground_slide_cooldown_timer -= delta
 	if air_dash_cooldown_timer > 0:
 		air_dash_cooldown_timer -= delta
+	if kick_post_boost_timer > 0:
+		kick_post_boost_timer -= delta
 	
 	# Handle dash input (shift press takes priority over run)
 	if dash_enabled and run_input_just_pressed and not is_ground_sliding and not is_air_dashing and not is_stunned and not is_in_rewind_slowmo:
@@ -849,10 +878,17 @@ func _physics_process(delta: float) -> void:
 	if attack_enabled or kick_object_enabled or parry_enabled:
 		_handle_kick_input()
 	
-	# 11. Process Attack (if active, skip normal movement)
+	# 11. Process Attack (if active)
 	if is_attacking:
 		_process_attack(delta)
-		# Skip normal physics when attacking
+	
+	# NEW: Reliable Boost Trigger - always checks if boost is available
+	if kick_boost_available and velocity.length() < attack_knockback_threshold_velocity:
+		kick_post_boost_timer = kick_post_boost_duration
+		kick_boost_available = false # Consume the trigger
+	
+	# Skip normal movement ONLY during the initial high-speed burst of the kick
+	if is_attacking and kick_post_boost_timer <= 0:
 		move_and_slide()
 		_post_movement_updates(space_state)
 		return
@@ -1473,14 +1509,22 @@ func _apply_gravity(delta: float) -> void:
 		else:
 			var gravity_multiplier := 1.0
 			
+			# Apply attack gravity scale if currently kicking
+			if is_attacking:
+				gravity_multiplier *= attack_gravity_scale
+			
+			# If post-kick boost is active, reduce gravity further
+			if kick_post_boost_timer > 0:
+				gravity_multiplier *= kick_post_gravity_multiplier
+			
 			# QOL FEATURE: Jump peak hangtime - reduce gravity at peak of jump
 			# Creates a more floaty, controlled feel at the apex
 			if abs(velocity.y) < jump_peak_threshold and is_jumping:
-				gravity_multiplier = jump_peak_hangtime_multiplier
+				gravity_multiplier *= jump_peak_hangtime_multiplier
 			# Apply stronger gravity for variable jump height
 			# If player released jump during ascent, fall faster
 			elif velocity.y < 0 and not is_jump_held and is_jumping:
-				gravity_multiplier = jump_early_release_multiplier
+				gravity_multiplier *= jump_early_release_multiplier
 			
 			velocity.y += gravity * gravity_multiplier * delta
 			
@@ -1518,6 +1562,10 @@ func _apply_horizontal_movement(input_direction: float, delta: float) -> void:
 	else:
 		acceleration = air_acceleration
 		deceleration = air_deceleration
+		# Apply post-kick air control boost
+		if kick_post_boost_timer > 0:
+			acceleration *= kick_post_air_control_multiplier
+			deceleration *= kick_post_air_control_multiplier
 	
 	# QOL FEATURE: Turnaround multiplier - detect direction change for snappier turns
 	var is_turning_around := false
@@ -2044,8 +2092,8 @@ func _update_attack_indicator() -> void:
 		var direction_to_enemy = (closest_enemy.global_position - global_position).normalized()
 		var knockback_direction = -direction_to_enemy  # Opposite direction
 		
-		# Calculate knockback distance based on speed and duration
-		var knockback_distance = attack_knockback_speed * attack_duration
+		# Calculate knockback distance based on speed and length setting
+		var knockback_distance = attack_knockback_speed * attack_indicator_length
 		var knockback_end_pos = global_position + knockback_direction * knockback_distance
 		
 		# Convert global positions to local coordinates for Line2D
@@ -2087,6 +2135,8 @@ func _start_kick_sequence() -> void:
 	is_attacking = true
 	attack_timer = 0.0
 	kick_has_fired = false
+	kick_time_elapsed = 0.0
+	kick_post_boost_timer = 0.0
 	early_parry_timer = parry_early_grace_period
 	current_kick_target_type = KickTargetType.NONE
 	current_kick_target_node = null
@@ -2120,6 +2170,9 @@ func _start_kick_sequence() -> void:
 		var dir_to_target = (current_kick_target_node.global_position - global_position).normalized()
 		if dir_to_target.x != 0:
 			facing_direction = sign(dir_to_target.x)
+	
+	kick_boost_available = true # Make boost available for trigger
+	kick_time_elapsed = 0.0 # Reset friction timer
 	
 	# Reset air dash availability (kick animation counts as a reset)
 	air_dash_available = true
@@ -2163,40 +2216,43 @@ func _execute_enemy_kick(enemy: Node2D) -> void:
 		var enemy_knockback_direction = direction_to_enemy  # Enemy flies away from player
 		enemy.kick(enemy_knockback_direction, attack_enemy_knockback_force)
 
-		if not first_kick_dialogue_triggered:
-			first_kick_dialogue_triggered = true
-			# Wait a tiny bit so the kick frame processes before we pause
-			get_tree().create_timer(0.1).timeout.connect(func(): DialogueManager.start("intro"))
-
-	
 	# Hide attack indicator
 	attack_visual.visible = false
 
 
 func _process_attack(delta: float) -> void:
-	"""Update attack state - trigger effect at frame 5 and wait for animation to complete."""
+	"""Update attack state - trigger effect and wait for animation to complete."""
 	attack_timer += delta
 	
-	# Check for kick execution at frame 5 (index 4)
-	if not kick_has_fired and animated_sprite.animation == "kick" and animated_sprite.frame >= 4:
+	# Check for kick execution at the specified frame
+	if not kick_has_fired and animated_sprite.animation == "kick" and animated_sprite.frame >= attack_trigger_frame:
 		_execute_kick_effect()
 		kick_has_fired = true
 	
 	# Movement logic - only apply knockback velocity AFTER the kick has fired
 	if kick_has_fired:
-		# Maintain knockback velocity (allow slight gravity to make it feel more natural)
-		if not is_on_floor():
-			velocity.y += gravity * 0.3 * delta
-			velocity.y = min(velocity.y, max_fall_speed)
+		kick_time_elapsed += delta
 		
-		# Only override horizontal velocity if we actually hit a target
-		if current_kick_target_type != KickTargetType.NONE:
+		# Calculate current friction: Base + Time * Growth
+		var current_friction = attack_knockback_friction + (kick_time_elapsed * attack_knockback_friction_growth)
+		
+		# Apply friction to the attack knockback velocity (both horizontal and vertical)
+		attack_velocity = attack_velocity.move_toward(Vector2.ZERO, current_friction * delta)
+		
+		# Only override velocity if we actually hit a target AND post-kick boost is not active
+		if current_kick_target_type != KickTargetType.NONE and kick_post_boost_timer <= 0:
 			velocity.x = attack_velocity.x
+			# If there's still vertical force from the kick, apply it
+			if abs(attack_velocity.y) > 0.01:
+				velocity.y = attack_velocity.y
+		
+		# NOTE: Gravity is now handled by the main _apply_gravity function 
+		# even during attacks, to ensure consistent behavior and boost application.
 	else:
 		# Before kick - only slow down if we HAVE a target (anticipation)
 		# If no target, just maintain current momentum
 		if current_kick_target_type != KickTargetType.NONE:
-			velocity.x = move_toward(velocity.x, 0, 500.0 * delta)
+			velocity.x = move_toward(velocity.x, 0, attack_anticipation_slowdown * delta)
 		
 		if not is_on_floor():
 			_apply_gravity(delta)
@@ -2210,8 +2266,8 @@ func _process_attack(delta: float) -> void:
 		# Safety fallback if animation somehow changed
 		_end_attack()
 	
-	# Absolute safety timeout (2 seconds) to prevent getting stuck
-	if attack_timer > 2.0:
+	# Absolute safety timeout to prevent getting stuck
+	if attack_timer > attack_safety_timeout:
 		_end_attack()
 
 
@@ -2239,9 +2295,12 @@ func _end_attack() -> void:
 	attack_target_enemy = null
 	
 	# PRESERVE MOMENTUM: Keep knockback velocity with retention multiplier
-	# This makes the attack feel like it flows into your movement
-	if current_kick_target_type != KickTargetType.NONE:
+	# Only apply if boost isn't already managing the velocity
+	if current_kick_target_type != KickTargetType.NONE and kick_post_boost_timer <= 0:
 		velocity.x = attack_velocity.x * attack_momentum_retention
+	elif kick_post_boost_timer > 0:
+		# If boost is active, we don't want to suddenly snap to a lower retention speed
+		pass
 	
 	# If on ground, maintain more horizontal velocity
 	# If in air, gravity will naturally take over for vertical
@@ -2877,7 +2936,7 @@ func _execute_object_kick(obj: Node2D) -> void:
 	obj.kick(kick_direction, kick_object_speed)
 	
 	# Apply knockback to player in opposite direction
-	attack_velocity = Vector2(-facing_direction * kick_object_knockback_force, -100.0)
+	attack_velocity = Vector2(-facing_direction * kick_object_knockback_force, kick_object_knockback_vertical)
 	velocity = attack_velocity
 	
 	# Set cooldown
@@ -3878,8 +3937,8 @@ func _create_bullet_parry_indicator() -> void:
 	"""Create the visual indicator for parryable bullets."""
 	bullet_parry_indicator = Line2D.new()
 	bullet_parry_indicator.name = "BulletParryIndicator"
-	bullet_parry_indicator.width = 4.0
-	bullet_parry_indicator.default_color = Color(0.2, 1.0, 1.0, 0.9)  # Bright cyan
+	bullet_parry_indicator.width = parry_indicator_width
+	bullet_parry_indicator.default_color = parry_indicator_color
 	bullet_parry_indicator.visible = false
 	add_child(bullet_parry_indicator)
 
@@ -3969,7 +4028,7 @@ func _execute_bullet_parry(bullet: Node2D) -> void:
 	
 	# Visual feedback - brief flash
 	animated_sprite.visible = false
-	get_tree().create_timer(0.05, true, false, true).timeout.connect(func(): 
+	get_tree().create_timer(parry_flash_duration, true, false, true).timeout.connect(func(): 
 		if is_instance_valid(self) and not is_stunned: 
 			animated_sprite.visible = true
 	)
