@@ -93,14 +93,24 @@ func _ready():
 			frames_loaded += 1
 	
 	if frames_loaded > 0:
-		var static_bg = TextureRect.new()
+		# Use Sprite2D for better positioning control
+		var static_bg = Sprite2D.new()
 		static_bg.name = "BackgroundStatic"
-		static_bg.texture = sprite_frames.get_frame_texture("default", 0) # Use frame 0
-		static_bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		static_bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		var tex = sprite_frames.get_frame_texture("default", 0)
+		static_bg.texture = tex
+		
+		# Calculate scale to cover viewport
+		var tex_size = tex.get_size()
+		var scale_x = viewport_size.x / tex_size.x
+		var scale_y = viewport_size.y / tex_size.y
+		var final_scale = max(scale_x, scale_y)
+		static_bg.scale = Vector2(final_scale, final_scale)
+		
+		# Position at center + offset to move the "shadow" watch to the right
+		# Moving right by 250px
+		static_bg.position = Vector2(viewport_size.x / 2.0 + 250.0, viewport_size.y / 2.0)
+		
 		static_bg.modulate = Color(1, 1, 1, 0.5)
-		static_bg.size = viewport_size
-		static_bg.position = Vector2.ZERO
 		static_bg.z_index = -99 # Slightly above solid bg
 		add_child(static_bg)
 		print("DEBUG: Loaded pocket watch background frame")
