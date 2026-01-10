@@ -1,13 +1,14 @@
-[gd_scene load_steps=8 format=3 uid="uid://clfclx5p38xkv"]
+[gd_scene load_steps=12 format=3 uid="uid://clfclx5p38xkv"]
 
+[ext_resource type="Script" uid="uid://b4i78xyv03saw" path="res://level_manager.gd" id="1_manager"]
 [ext_resource type="PackedScene" uid="uid://vv3m4nx6g3jo" path="res://player.tscn" id="1_qj3g4"]
-[ext_resource type="Script" path="res://level_manager.gd" id="1_manager"]
 [ext_resource type="PackedScene" uid="uid://b8x7lam2n4p5q" path="res://enemy.tscn" id="2_enemy"]
 [ext_resource type="Script" uid="uid://c7arfnsgtuaut" path="res://background_camera_3d.gd" id="3_bg_cam"]
 [ext_resource type="PackedScene" uid="uid://c4k3l8m5n2qar" path="res://kickable_object.tscn" id="4_kickable"]
 [ext_resource type="TileSet" uid="uid://e2ocjnnc6tiu" path="res://tileset.tres" id="5_tileset"]
 [ext_resource type="PackedScene" uid="uid://b7q8n5ck2wh0e" path="res://pause_menu.tscn" id="8_b0gwe"]
 [ext_resource type="PackedScene" uid="uid://b756hnxt8gukc" path="res://dialogue/DialogueUI.tscn" id="9_dialogue"]
+[ext_resource type="Script" uid="uid://bev7civrw5tfd" path="res://dialogue_trigger.gd" id="10_trigger"]
 
 [sub_resource type="Environment" id="Environment_bg"]
 background_mode = 1
@@ -15,6 +16,9 @@ background_color = Color(0.529412, 0.745098, 0.878431, 1)
 ambient_light_source = 2
 ambient_light_color = Color(1, 1, 1, 1)
 ambient_light_energy = 0.5
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_trigger"]
+size = Vector2(1021, 163.5)
 
 [node name="Level" type="Node2D"]
 script = ExtResource("1_manager")
@@ -146,3 +150,13 @@ visible = false
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
 
 [node name="DialogueUI" parent="CanvasLayer" instance=ExtResource("9_dialogue")]
+offset_left = 1.0
+offset_right = 1.0
+
+[node name="DialogueTrigger" type="Area2D" parent="."]
+position = Vector2(1000, 325)
+script = ExtResource("10_trigger")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="DialogueTrigger"]
+position = Vector2(406.5, 291.75)
+shape = SubResource("RectangleShape2D_trigger")

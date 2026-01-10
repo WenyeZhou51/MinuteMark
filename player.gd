@@ -1,6 +1,8 @@
 extends CharacterBody2D
 
 var first_kick_dialogue_triggered: bool = false
+var auto_kick_active: bool = false
+var auto_kick_target: Node2D = null
 
 # ====================================
 # 2D PLATFORMER CONTROLLER
@@ -354,6 +356,9 @@ var dust_spawn_timer: float = 0.0
 
 
 func _ready() -> void:
+	# Connect to dialogue interrupt signal for kick
+	DialogueManager.interrupt_triggered.connect(_on_dialogue_interrupt_kick)
+
 	# Ensure time scale is normal on start
 	Engine.time_scale = 1.0
 	
@@ -394,6 +399,31 @@ func _ready() -> void:
 	if parent:
 		parent.add_child.call_deferred(paper_tear_effect)
 
+
+func _on_dialogue_interrupt_kick() -> void:
+	# Force kick action immediately when interrupt is triggered
+	# Wait a tiny bit for the pause state to clear (unpause happens in level_manager)
+	get_tree().create_timer(0.05).timeout.connect(func():
+		# Find closest enemy to auto-move towards
+		var enemies = get_tree().get_nodes_in_group("enemies")
+		var closest_enemy = null
+		var closest_dist = INF
+		
+		for enemy in enemies:
+			if not is_instance_valid(enemy) or enemy.is_destroyed:
+				continue
+			var dist = global_position.distance_to(enemy.global_position)
+			if dist < closest_dist:
+				closest_dist = dist
+				closest_enemy = enemy
+		
+		if closest_enemy:
+			auto_kick_target = closest_enemy
+			auto_kick_active = true
+		else:
+			# Fallback if no enemy found
+			_start_kick_sequence()
+	)
 
 func _exit_tree() -> void:
 	"""Ensure time scale is reset when player is removed from scene."""
@@ -506,6 +536,22 @@ func _physics_process(delta: float) -> void:
 	
 	# 1. Process Input
 	var input_vector := _get_input_vector()
+	
+	# Auto-kick Override: Move towards target enemy
+	if auto_kick_active:
+		if is_instance_valid(auto_kick_target) and not auto_kick_target.is_destroyed:
+			var dir_to_target = auto_kick_target.global_position.x - global_position.x
+			input_vector.x = sign(dir_to_target)
+			
+			# If close enough, kick and stop auto-move
+			if abs(dir_to_target) < 100.0: # Kick range
+				auto_kick_active = false
+				input_vector.x = 0
+				_start_kick_sequence()
+		else:
+			# Target gone or invalid, cancel
+			auto_kick_active = false
+			input_vector.x = 0
 	
 	# Wall Jump Override: Force movement away from wall during wall jump cooldown
 	# regardless of actual player input
@@ -2137,10 +2183,10 @@ func _execute_enemy_kick(enemy: Node2D) -> void:
 		var enemy_knockback_direction = direction_to_enemy  # Enemy flies away from player
 		enemy.kick(enemy_knockback_direction, attack_enemy_knockback_force)
 
-		if not first_kick_dialogue_triggered:
-			first_kick_dialogue_triggered = true
-			# Wait a tiny bit so the kick frame processes before we pause
-			get_tree().create_timer(0.1).timeout.connect(func(): DialogueManager.start("intro"))
+		# if not first_kick_dialogue_triggered:
+		# 	first_kick_dialogue_triggered = true
+		# 	# Wait a tiny bit so the kick frame processes before we pause
+		# 	get_tree().create_timer(0.1).timeout.connect(func(): DialogueManager.start("intro"))
 
 	
 	# Hide attack indicator
