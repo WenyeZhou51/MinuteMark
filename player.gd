@@ -3279,6 +3279,10 @@ func _start_rewind_hold() -> void:
 	_enter_rewind_slowmo()
 	_create_ghost_path_visualization()
 	
+	# Play music backwards during rewind
+	if AudioManager:
+		AudioManager.start_rewind(rewind_traceback_speed)
+	
 	# Start hold-to-rewind
 	is_rewind_holding = true
 	is_rewind_tracing = true
@@ -3314,6 +3318,10 @@ func _stop_rewind_hold() -> void:
 	# Exit slow-mo and clear ghost path visualization
 	_exit_rewind_slowmo()
 	_clear_ghost_path_visualization()
+	
+	# Resume music forward playback
+	if AudioManager:
+		AudioManager.stop_rewind()
 	
 	# End rewind
 	is_rewind_holding = false
@@ -3615,6 +3623,10 @@ func _complete_rewind_hold() -> void:
 	# Exit slow-mo and clear ghost path visualization
 	_exit_rewind_slowmo()
 	_clear_ghost_path_visualization()
+	
+	# Resume music forward playback
+	if AudioManager:
+		AudioManager.stop_rewind()
 	
 	# End rewind
 	is_rewind_holding = false
