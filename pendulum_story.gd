@@ -526,9 +526,9 @@ func setup_images():
 		# We want the inner area to match actual_width/height roughly
 		# Let's just match the outer dimensions plus a bit of padding if needed, 
 		# or scale to fit exactly if it's a frame.
-		# Let's scale it to be slightly larger than the image (e.g. 1.05x)
-		var scale_x = (actual_width / border_size.x) * 1.05
-		var scale_y = (actual_height / border_size.y) * 1.05
+		# Let's scale it to be slightly larger than the image (e.g. 1.15x)
+		var scale_x = (actual_width / border_size.x) * 1.15
+		var scale_y = (actual_height / border_size.y) * 1.15
 		frame_border.scale = Vector2(scale_x, scale_y)
 		
 		# Move border in scene tree to be above images

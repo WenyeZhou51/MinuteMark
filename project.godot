@@ -25,6 +25,7 @@ DialogueManager="*res://dialogue/DialogueManager.gd"
 window/size/viewport_width=2560
 window/size/viewport_height=1600
 window/size/mode=3
+window/stretch/mode="canvas_items"
 window/dpi/allow_hidpi=false
 
 [input]
