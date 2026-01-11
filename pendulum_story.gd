@@ -17,6 +17,7 @@ signal story_finished
 @export var gravity: float = 980.0
 @export var damping: float = 0.995 # Air resistance
 @export var drag_stiffness: float = 10.0 # How fast it follows mouse
+@export var keyboard_force: float = 8.0 # Force applied by keyboard controls
 
 # Variables
 var smoothed_reveal_progress: float = 0.0
@@ -56,6 +57,8 @@ var start_angle: float = 0.0  # Left side (pointing to bottom-left)
 var end_angle: float = 0.0  # Right side (pointing to bottom-right)
 
 var frame_border: Sprite2D
+var instruction_label: Label
+var instructions_faded: bool = false
 
 func _ready():
 	# Get viewport size
@@ -194,6 +197,7 @@ func _ready():
 	print("Bob radius: ", bob_radius)
 	print("Pendulum line width: ", pendulum_line_width)
 	print("Pendulum length: ", pendulum_length)
+	print("Keyboard force: ", keyboard_force)
 	print("Max swing angle: ", max_swing_angle, "°")
 	print("Cutoff angle: ", cutoff_angle, "° (auto-complete at this angle)")
 	print("Start angle: ", rad_to_deg(start_angle), " degrees (", max_swing_angle, "° left of vertical)")
@@ -256,6 +260,9 @@ func _ready():
 	
 	# Initialize mask
 	update_pendulum()
+	
+	# Setup instructions
+	setup_instructions()
 	
 	# Debug print all loaded textures
 	print("\n=== All Story Textures Loaded ===")
@@ -322,6 +329,13 @@ func _process(delta):
 		# alpha = - (g / L) * sin(current_angle - PI/2)
 		
 		var angular_accel = - (gravity / pendulum_length) * cos(current_angle)
+		
+		# Keyboard/Gamepad Input
+		# move_left (negative axis) -> we want positive angle change (towards left/PI)
+		# move_right (positive axis) -> we want negative angle change (towards right/0)
+		var input_axis = Input.get_axis("move_left", "move_right")
+		if input_axis != 0:
+			angular_accel -= input_axis * keyboard_force
 		
 		angular_velocity += angular_accel * delta
 		angular_velocity *= damping
@@ -398,6 +412,15 @@ func update_pendulum():
 	
 	# Update mask
 	update_mask()
+	
+	# Check for instruction fade out
+	if !instructions_faded and instruction_label:
+		# If moving significantly or dragging or using keys
+		var is_moving = abs(angular_velocity) > 0.5
+		var input_active = Input.get_axis("move_left", "move_right") != 0
+		
+		if is_dragging or (is_moving and input_active):
+			fade_out_instructions()
 
 func update_mask():
 	# Paint splatter reveal that begins when pendulum swings reveal_start_angle_offset PAST vertical center
@@ -550,6 +573,43 @@ func update_bob_visuals():
 	var sound_stream = load("res://audio/pendulum sound.wav")
 	if sound_stream:
 		pendulum_sound.stream = sound_stream
+
+func setup_instructions():
+	instruction_label = Label.new()
+	instruction_label.text = "Hold [A][D] / [←][→] or Drag Mouse to Swing"
+	
+	# Style the label
+	instruction_label.add_theme_font_size_override("font_size", 64)
+	instruction_label.add_theme_color_override("font_color", Color.BLACK)
+	# instruction_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	# instruction_label.add_theme_constant_override("outline_size", 12)
+	# instruction_label.add_theme_constant_override("shadow_offset_x", 4)
+	# instruction_label.add_theme_constant_override("shadow_offset_y", 4)
+	# instruction_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.5))
+	
+	# Try to load custom font
+	var font = load("res://Fonts/Funkrocker.otf")
+	if font:
+		instruction_label.add_theme_font_override("font", font)
+	
+	# Center at bottom
+	instruction_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	instruction_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	
+	var viewport_size = get_viewport_rect().size
+	instruction_label.size = Vector2(viewport_size.x, 100)
+	instruction_label.position = Vector2(0, viewport_size.y - 300)
+	instruction_label.z_index = 10 # Ensure it's on top
+	
+	add_child(instruction_label)
+
+func fade_out_instructions():
+	if instructions_faded: return
+	instructions_faded = true
+	
+	var tween = create_tween()
+	tween.tween_property(instruction_label, "modulate:a", 0.0, 2.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	tween.tween_callback(instruction_label.queue_free)
 
 func complete_transition():
 	# Check if we have more images before proceeding

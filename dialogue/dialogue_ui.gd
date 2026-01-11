@@ -94,7 +94,7 @@ func _on_line_changed(line: Dictionary) -> void:
 		fade_in.tween_property(interrupt_indicator, "modulate:a", 1.0, 0.2)
 	
 	if speaker == "Boss":
-		interrupt_indicator.text = "F OFF"
+		interrupt_indicator.text = "F OFF [Enter]"
 		interrupt_indicator.add_theme_stylebox_override("normal", style_red)
 		interrupt_indicator.add_theme_stylebox_override("hover", style_red) # Keep red on hover while in F OFF
 		indicator_faded_in = true # Mark as visible so pulse can start if needed
@@ -126,12 +126,12 @@ func _on_typing_finished() -> void:
 	interrupt_indicator.add_theme_stylebox_override("hover", style_green)
 	
 	if speaker == "Boss":
-		interrupt_indicator.text = "THANK YOU"
+		interrupt_indicator.text = "THANK YOU [Enter]"
 	else:
 		if next_id == null:
-			interrupt_indicator.text = "LEAVE"
+			interrupt_indicator.text = "LEAVE [Enter]"
 		else:
-			interrupt_indicator.text = "NEXT"
+			interrupt_indicator.text = "NEXT [Enter]"
 
 func _animate_portrait_switch(new_texture: Texture2D):
 	if portrait_tween:
@@ -200,22 +200,11 @@ func _reset_indicator():
 
 
 func _unhandled_input(event):
-	# Disabled enter key advancing
-	# if event.is_action_pressed("ui_accept"):
-	# 	if label.visible_ratio < 1.0:
-	# 		# Skip typewriter if pressed while typing
-	# 		if typewriter_tween:
-	# 			typewriter_tween.kill()
-	# 		label.visible_ratio = 1.0
-	# 		
-	# 		if speaker_label.text == "Boss":
-	# 			interrupt_indicator.text = "THANK YOU" # Ensure text updates on skip
-	# 			interrupt_indicator.add_theme_stylebox_override("normal", style_green)
-	# 			interrupt_indicator.add_theme_stylebox_override("hover", style_green)
-	# 	else:
-	# 		_reset_indicator()
-	# 		DialogueManager.advance()
-	pass
+	# Allow keyboard interaction same as clicking the button (Enter only)
+	if visible and indicator_faded_in and interrupt_indicator.visible:
+		if event.is_action_pressed("ui_accept"):
+			_on_interrupt_indicator_pressed()
+			get_viewport().set_input_as_handled()
 
 func _on_interrupt_indicator_pressed() -> void:
 	# "F OFF" state (typing not done) -> Interrupt
