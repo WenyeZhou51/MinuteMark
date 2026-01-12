@@ -299,7 +299,6 @@ func _connect_to_enemies() -> void:
 				enemy.enemy_touched_by_player.connect(_on_enemy_touched)
 			if not enemy.enemy_destroyed.is_connected(_on_enemy_destroyed):
 				enemy.enemy_destroyed.connect(_on_enemy_destroyed)
-			print("Connected to enemy: ", enemy.name, " - reset state")
 
 
 func _create_dive_attack_visual() -> void:
@@ -367,7 +366,6 @@ func _create_kick_object_indicator() -> void:
 func _physics_process(delta: float) -> void:
 	# Debug: Check if physics process is running
 	if Engine.get_process_frames() % 300 == 0:  # Print every 300 frames (5 seconds at 60fps)
-		print("Physics process running - attack_enabled: ", attack_enabled)
 	
 	# Update afterimage timer and spawn afterimages
 	if afterimage_enabled:
@@ -555,7 +553,6 @@ func _physics_process(delta: float) -> void:
 		# Check for jump input BEFORE processing wall run
 		# This allows player to jump out of wall run
 		if Input.is_action_just_pressed("jump") and not is_stunned:
-			print("[WALL RUN] Jump pressed during wall run, performing empowered wall jump")
 			_perform_wall_jump()
 			# After jump, is_wall_running is false, so continue with normal physics below
 		
@@ -564,7 +561,6 @@ func _physics_process(delta: float) -> void:
 			# wall_normal points AWAY from the wall
 			# If player is pressing in the direction of wall_normal, they're pushing away from wall
 			if (wall_normal.x > 0 and input_vector.x > 0.1) or (wall_normal.x < 0 and input_vector.x < -0.1):
-				print("[WALL RUN] Player pushing away from wall, ending wall run")
 				_end_wall_run()
 		
 		# Only process wall run if still wall running (jump or input might have cancelled it)
@@ -797,21 +793,17 @@ func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceS
 	
 	# Debug wall detection changes
 	if is_on_wall != was_on_wall:
-		print("[WALL DETECT] Wall state changed - is_on_wall: ", is_on_wall, " wall_normal: ", wall_normal, " cooldown: ", wall_jump_cooldown)
 	
 	# Check for wall run activation (only if not on cooldown from wall jump)
 	if wall_run_enabled and is_on_wall and not was_on_wall and not is_wall_running and wall_jump_cooldown <= 0:
 		# Check if horizontal velocity is high enough to start a wall run
 		var horizontal_speed = abs(velocity.x)
 		if horizontal_speed >= wall_run_min_velocity:
-			print("[WALL RUN] Activating wall run - horizontal_speed: ", horizontal_speed, " wall_normal: ", wall_normal)
 			_start_wall_run(horizontal_speed)
 	elif wall_run_enabled and is_on_wall and not was_on_wall and not is_wall_running and wall_jump_cooldown > 0:
-		print("[WALL RUN] Wall run blocked by cooldown: ", "%.2f" % wall_jump_cooldown, "s remaining")
 	
 	# End wall run if wall ends
 	if is_wall_running and not is_on_wall:
-		print("[WALL RUN] Wall ended, stopping wall run")
 		_end_wall_run()
 
 
@@ -828,7 +820,6 @@ func _start_wall_run(horizontal_speed: float) -> void:
 	# Clamp between min and max wall run speed
 	wall_run_speed = clamp(horizontal_speed, wall_run_min_speed, wall_run_max_speed)
 	
-	print("[WALL RUN] Started - Speed: ", wall_run_speed, " Wall normal: ", wall_normal, " Position: ", global_position)
 	
 	# Set upward velocity
 	velocity.y = -wall_run_speed
@@ -860,7 +851,6 @@ func _process_wall_run(delta: float) -> void:
 	
 	# Check if max duration reached
 	if wall_run_timer >= wall_run_max_duration:
-		print("[WALL RUN] Max duration reached (", wall_run_max_duration, "s)")
 		_end_wall_run()
 		return
 	
@@ -869,7 +859,6 @@ func _process_wall_run(delta: float) -> void:
 	
 	# Check if speed dropped below minimum
 	if wall_run_speed < wall_run_min_speed:
-		print("[WALL RUN] Speed dropped below minimum (", wall_run_speed, " < ", wall_run_min_speed, ")")
 		_end_wall_run()
 		return
 	
@@ -882,7 +871,6 @@ func _process_wall_run(delta: float) -> void:
 	
 	# Debug output every 0.5 seconds
 	if int(wall_run_timer * 2) != int((wall_run_timer - delta) * 2):
-		print("[WALL RUN] Running - timer: ", "%.2f" % wall_run_timer, "s, speed: ", "%.1f" % wall_run_speed, ", velocity: ", velocity)
 
 
 func _end_wall_run() -> void:
@@ -891,7 +879,6 @@ func _end_wall_run() -> void:
 		return
 	
 	var velocity_before = velocity
-	print("[WALL RUN] Ending - Velocity before: ", velocity_before, " | Position: ", global_position)
 		
 	is_wall_running = false
 	wall_run_timer = 0.0
@@ -900,7 +887,6 @@ func _end_wall_run() -> void:
 	# Allow gravity to take over
 	# Velocity is maintained but wall run state is cleared
 	
-	print("[WALL RUN] Ended - Velocity after: ", velocity, " | Changed: ", velocity != velocity_before)
 	
 	# Could trigger wall run end effects here (particles fade, etc.)
 
@@ -1007,7 +993,6 @@ func _handle_jump_input() -> void:
 	
 	# Check for jump button press this frame
 	if Input.is_action_just_pressed("jump"):
-		print("[JUMP INPUT] Jump pressed - is_on_wall: ", is_on_wall, " is_wall_running: ", is_wall_running, " is_on_floor: ", is_on_floor())
 		
 		# Check if infinite jumps is enabled (assist mode)
 		var infinite_jumps: bool = get_meta("infinite_jumps_enabled", false)
@@ -1057,7 +1042,6 @@ func _perform_jump() -> void:
 			velocity.x += jump_direction * empowered_jump_horizontal_boost
 		
 		is_slide_jump_available = false
-		print("[SLIDE JUMP] Empowered jump from slide! Jump multiplier: ", ground_slide_empowered_jump_multiplier)
 	# Apply empowered jump when in sprint state
 	elif is_running:
 		# Vertical boost - jump higher
@@ -1087,9 +1071,7 @@ func _perform_wall_jump() -> void:
 			jump_wall_normal = Vector2.RIGHT  # Was on left wall
 		else:
 			jump_wall_normal = Vector2.LEFT  # Was on right wall
-		print("[WALL JUMP] Wall normal was zero, inferred: ", jump_wall_normal, " from velocity.x: ", velocity.x)
 	
-	print("[WALL JUMP] Starting wall jump - is_wall_running: ", is_wall_running, " wall_normal: ", jump_wall_normal, " position: ", global_position)
 	
 	# Check if jumping from a wall run (empowered wall jump)
 	if is_wall_running:
@@ -1097,7 +1079,6 @@ func _perform_wall_jump() -> void:
 		velocity.y = wall_run_empowered_jump_vertical
 		velocity.x = jump_wall_normal.x * wall_run_empowered_jump_horizontal
 		
-		print("[WALL JUMP] ⚡ EMPOWERED ⚡ - velocity: ", velocity, " | horizontal: ", velocity.x, " | vertical: ", velocity.y)
 		
 		# End wall run
 		_end_wall_run()
@@ -1106,7 +1087,6 @@ func _perform_wall_jump() -> void:
 		velocity.y = wall_jump_vertical_velocity
 		velocity.x = jump_wall_normal.x * wall_jump_horizontal_velocity
 		
-		print("[WALL JUMP] Normal - velocity: ", velocity, " | horizontal: ", velocity.x, " | vertical: ", velocity.y)
 	
 	# Set jump state
 	is_jumping = true
@@ -1118,7 +1098,6 @@ func _perform_wall_jump() -> void:
 	is_on_wall = false
 	is_wall_sliding = false
 	
-	print("[WALL JUMP] ✓ Complete - Final velocity: ", velocity, " | Cooldown: ", wall_jump_cooldown, "s")
 	
 	# Could trigger wall jump effects here (particles, sound, animation, etc.)
 
@@ -1379,7 +1358,6 @@ func _update_enemy_detection() -> void:
 	
 	# Debug: Print enemy detection results (only when debugging)
 	# if Engine.get_process_frames() % 60 == 0:  # Print every 60 frames (1 second)
-	#	print("Enemy detection - found ", enemies.size(), " total enemies")
 	
 	# Check each enemy for distance and filter out destroyed enemies
 	for enemy in enemies:
@@ -1390,7 +1368,6 @@ func _update_enemy_detection() -> void:
 	
 	# Debug output (only when debugging)
 	# if nearby_enemies.size() > 0 and Engine.get_process_frames() % 60 == 0:
-	#	print("Found ", nearby_enemies.size(), " nearby enemies")
 
 
 func _update_attack_indicator() -> void:
@@ -1532,7 +1509,6 @@ func _start_attack() -> void:
 	if is_air_dashing:
 		_end_air_dash()
 	
-	print("[KICK ATTACK] Started - player knockback direction: ", attack_direction, " speed: ", attack_velocity.length())
 	
 	# Could trigger attack effects here (animation, sound, screen shake, etc.)
 
@@ -1557,7 +1533,6 @@ func _process_attack(delta: float) -> void:
 	
 	# Debug output
 	if int(attack_timer * 10) != int((attack_timer - delta) * 10):  # Every 0.1 seconds
-		print("[KICK ATTACK] Knockback - timer: %.2f/%.2f, velocity: %s" % [attack_timer, attack_duration, velocity])
 
 
 func _end_attack() -> void:
@@ -1577,7 +1552,6 @@ func _end_attack() -> void:
 		# Ground attack - keep most of horizontal momentum
 		velocity.y = 0.0
 	
-	print("[KICK ATTACK] Ended - final velocity: ", velocity, " (retained ", attack_momentum_retention * 100, "% momentum)")
 	
 	# Could trigger attack end effects here (animation, sound, trail fade, etc.)
 
@@ -1612,7 +1586,6 @@ func _start_stun(colliding_enemy: Node2D = null) -> void:
 	grace_period_timer = grace_period_duration
 	grace_period_colliding_enemy = colliding_enemy
 	
-	print("Grace period started! Press kick within ", grace_period_duration, " seconds to cancel stun!")
 
 
 func _apply_stun_after_grace_period() -> void:
@@ -1640,12 +1613,10 @@ func _apply_stun_after_grace_period() -> void:
 	if is_air_dashing:
 		_end_air_dash()
 	
-	print("Player stunned for ", stun_duration, " seconds!")
 
 
 func _cancel_grace_period_with_kick() -> void:
 	"""Cancel grace period and perform kick attack instead."""
-	print("Grace period cancelled! Performing kick attack!")
 	
 	# Clear grace period state
 	grace_period_active = false
@@ -1685,7 +1656,6 @@ func _end_stun() -> void:
 	# Start invulnerability period
 	stun_invulnerability_timer = stun_invulnerability_duration
 	
-	print("Player stun ended! Invulnerable for ", stun_invulnerability_duration, " seconds!")
 
 
 func _on_enemy_touched(enemy: Node2D = null) -> void:
@@ -1697,7 +1667,6 @@ func _on_enemy_touched(enemy: Node2D = null) -> void:
 
 func _on_enemy_destroyed() -> void:
 	"""Called when an enemy is destroyed by attack."""
-	print("Enemy destroyed by attack!")
 
 
 func _on_bullet_hit(bullet: Node2D, shooter: Node2D = null) -> void:
@@ -1709,7 +1678,6 @@ func _on_bullet_hit(bullet: Node2D, shooter: Node2D = null) -> void:
 		bullet_grace_period_timer = bullet_hit_grace_period
 		bullet_that_hit = bullet
 		
-		print("[BULLET HIT] Grace period started! Press kick within ", bullet_hit_grace_period, " seconds to parry!")
 
 
 func _apply_bullet_hitstun() -> void:
@@ -1721,12 +1689,10 @@ func _apply_bullet_hitstun() -> void:
 	# Apply stun effect (same as enemy touch)
 	_on_enemy_touched(null)
 	
-	print("[BULLET HIT] Grace period expired - hitstun applied!")
 
 
 func _cancel_bullet_grace_period_with_parry() -> void:
 	"""Cancel bullet grace period by parrying nearby bullets."""
-	print("[BULLET HIT] Grace period cancelled! Performing parry!")
 	
 	# Clear bullet grace period state
 	bullet_grace_period_active = false
@@ -1742,7 +1708,6 @@ func _cancel_bullet_grace_period_with_parry() -> void:
 	else:
 		# No bullets to parry - just give brief invulnerability as reward
 		stun_invulnerability_timer = 0.3
-		print("[BULLET PARRY] No bullets to parry, but hitstun cancelled!")
 
 
 # ====================================
@@ -1786,7 +1751,6 @@ func _start_ground_slide(input_x: float) -> void:
 	if is_wall_running:
 		_end_wall_run()
 	
-	print("[GROUND SLIDE] Started - direction: ", dash_direction, " speed: ", ground_slide_speed)
 	
 	# Could trigger slide effects here (particles, sound, animation, etc.)
 
@@ -1829,7 +1793,6 @@ func _end_ground_slide() -> void:
 	# Set horizontal speed to max speed
 	velocity.x = dash_direction * ground_slide_end_speed
 	
-	print("[GROUND SLIDE] Ended - final speed: ", velocity.x)
 	
 	# Could trigger slide end effects here (particles fade, etc.)
 
@@ -1871,7 +1834,6 @@ func _start_air_dash(input_x: float) -> void:
 	if is_wall_running:
 		_end_wall_run()
 	
-	print("[AIR DASH] Started - direction: ", dash_direction, " speed: ", air_dash_speed, " pre-dash speed: ", pre_air_dash_horizontal_speed)
 	
 	# Could trigger air dash effects here (particles, sound, animation, etc.)
 
@@ -1906,7 +1868,6 @@ func _end_air_dash() -> void:
 	# Cancel vertical velocity
 	velocity.y = 0
 	
-	print("[AIR DASH] Ended - set speed to: ", velocity.x, " vertical speed canceled")
 	
 	# Could trigger air dash end effects here (particles fade, etc.)
 
@@ -2044,7 +2005,6 @@ func _process_dive(delta: float) -> void:
 
 func _perform_dive_attack(enemy: Node2D) -> void:
 	"""Execute a dive attack on an enemy - bounce player upward and destroy enemy."""
-	print("[DIVE ATTACK] Hit enemy at: ", enemy.global_position)
 	
 	# Kick the enemy downwards (destroy it)
 	if enemy.has_method("kick"):
@@ -2073,7 +2033,6 @@ func _perform_dive_attack(enemy: Node2D) -> void:
 	# Set jumping state to allow player control
 	is_jumping = true
 	
-	print("[DIVE ATTACK] Bounce! New velocity: ", velocity)
 	
 	# Could trigger dive attack effects here (particles, sound, screen shake, etc.)
 
@@ -2178,7 +2137,6 @@ func _kick_object(obj: Node2D) -> void:
 	# Set cooldown
 	attack_cooldown_timer = attack_cooldown
 	
-	print("[KICK OBJECT] Kicked object: ", obj.name, " direction: ", kick_direction, " speed: ", kick_object_speed)
 
 
 # ====================================
@@ -2299,7 +2257,6 @@ func _parry_bullet(bullet: Node2D) -> void:
 	if not is_stunned:  # Only reset if not in another state
 		modulate = Color.WHITE
 	
-	print("[BULLET PARRY] Parried bullet! Time slowed, vertical boost applied!")
 
 
 func _start_parry_time_slowdown() -> void:
@@ -2308,7 +2265,6 @@ func _start_parry_time_slowdown() -> void:
 	parry_time_slowdown_timer = parry_time_duration
 	Engine.time_scale = parry_time_scale
 	
-	print("[PARRY TIME] Time slowed to ", parry_time_scale * 100, "% for ", parry_time_duration, " seconds!")
 
 
 func _restore_normal_time() -> void:
@@ -2317,4 +2273,3 @@ func _restore_normal_time() -> void:
 	parry_time_slowdown_timer = 0.0
 	Engine.time_scale = 1.0
 	
-	print("[PARRY TIME] Time restored to normal!")

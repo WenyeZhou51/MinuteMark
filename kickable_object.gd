@@ -116,7 +116,6 @@ func kick(direction: Vector2, speed: float = 0.0) -> void:
 	# Visual feedback - tint red
 	modulate = Color(1.5, 0.5, 0.5)
 	
-	# print("[KICKABLE] Kicked with speed: ", final_speed, " direction: ", direction)
 
 
 func _handle_collision(collider: Node) -> void:
@@ -124,7 +123,6 @@ func _handle_collision(collider: Node) -> void:
 	if has_collided:
 		return  # Already collided
 	
-	# print("[KICKABLE] Collision detected with: ", collider.name if collider else "null")
 	
 	# Check if collider is an enemy
 	if collider and (collider.is_in_group("enemies") or collider.is_in_group("enemy")):

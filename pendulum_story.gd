@@ -32,8 +32,6 @@ var is_transitioning: bool = false
 @export_range(0.0, 0.5, 0.01) var noise_softness: float = 0.05
 @export_range(0.0, 100.0, 0.1) var noise_seed: float = 1.0
 @export var reveal_center: Vector2 = Vector2(0.5, 0.5)
-@export var show_debug_tint: bool = false
-@export var debug_show_shader_mask: bool = false
 
 @onready var pendulum = $Pendulum
 @onready var pivot_visual = $Pendulum/Pivot
@@ -63,10 +61,6 @@ var instructions_faded: bool = false
 func _ready():
 	# Get viewport size
 	var viewport_size = get_viewport_rect().size
-	print("DEBUG: Viewport size: ", viewport_size)
-	
-	# Initialize meta for debug tracking
-	set_meta("last_progress_shown", -1)
 	
 	# --- BACKGROUND SETUP ---
 	# We're already inside a CanvasLayer from the trigger (layer 100).
@@ -116,9 +110,8 @@ func _ready():
 		static_bg.modulate = Color(1, 1, 1, 0.5)
 		static_bg.z_index = -99 # Slightly above solid bg
 		add_child(static_bg)
-		print("DEBUG: Loaded pocket watch background frame")
 	else:
-		print("WARNING: Could not load pocket watch frames for background!")
+		pass
 
 	# 3. Texture Overlay
 	var bg_tex = load("res://Sprites/Bg white overlay .png")
@@ -135,7 +128,6 @@ func _ready():
 		# Assuming the texture is a paper grain/texture
 		bg_overlay.modulate = Color(0.9, 0.9, 0.9, 1.0) 
 		add_child(bg_overlay)
-		print("DEBUG: Loaded background overlay")
 	# ------------------------
 	
 	# Create border frame
@@ -175,13 +167,10 @@ func _ready():
 	# Generate bob polygons based on bob_radius
 	update_bob_visuals()
 	
-	# Debug: Print pendulum children and remove potential ghost shadows
-	print("Checking Pendulum children:")
+	# Remove potential ghost shadows
 	for child in pendulum.get_children():
-		print("- ", child.name, " (", child.get_class(), ")")
 		# Remove any Sprite2D that isn't the Bob (e.g. leftover shadows)
 		if child is Sprite2D and child != bob:
-			print("Removing rogue sprite: ", child.name)
 			child.queue_free()
 	
 	# Set swing angles based on max_swing_angle
@@ -193,17 +182,6 @@ func _ready():
 	
 	current_angle = start_angle
 	
-	print("Pivot: ", pivot_point)
-	print("Bob radius: ", bob_radius)
-	print("Pendulum line width: ", pendulum_line_width)
-	print("Pendulum length: ", pendulum_length)
-	print("Keyboard force: ", keyboard_force)
-	print("Max swing angle: ", max_swing_angle, "°")
-	print("Cutoff angle: ", cutoff_angle, "° (auto-complete at this angle)")
-	print("Start angle: ", rad_to_deg(start_angle), " degrees (", max_swing_angle, "° left of vertical)")
-	print("End angle: ", rad_to_deg(end_angle), " degrees (", max_swing_angle, "° right of vertical)")
-	print("Swing range: ", max_swing_angle * 2, " degrees total")
-	print("Cutoff threshold: ", rad_to_deg(deg_to_rad(90 - cutoff_angle)), "° (when reached, show full image)")
 	
 	# Load story frame images
 	load_story_textures()
@@ -222,20 +200,18 @@ func _ready():
 	# var viewport_w = viewport_size.x
 	# var viewport_h = viewport_size.y
 	
-	# Hide the debug transform guide
+	# Hide the transform guide
 	image_transform.visible = false
 	
 	# Load and set up the paint splatter reveal shader
 	var splatter_shader = load("res://shaders/paint_splatter_reveal.gdshader")
 	if splatter_shader == null:
-		print("ERROR: Failed to load paint splatter shader!")
 		return
 	
 	var shader_material = ShaderMaterial.new()
 	shader_material.shader = splatter_shader
 	image_top.material = shader_material
 	
-	print("Paint splatter shader loaded and applied to ImageTop")
 	
 	# Initialize shader parameters from exported variables
 	shader_material.set_shader_parameter("reveal_progress", 0.0)
@@ -247,16 +223,11 @@ func _ready():
 	shader_material.set_shader_parameter("detail_scale", noise_detail)
 	shader_material.set_shader_parameter("edge_softness", noise_softness)
 	shader_material.set_shader_parameter("noise_seed", noise_seed)
-	shader_material.set_shader_parameter("shader_active_check", show_debug_tint)
-	shader_material.set_shader_parameter("debug_show_mask_only", debug_show_shader_mask)
 	
 	if image_top.texture:
 		var tex_size = image_top.texture.get_size()
 		shader_material.set_shader_parameter("aspect_ratio", tex_size.x / tex_size.y)
 	
-	print("\n=== Paint Splatter Shader Initialized ===")
-	print("Reveal starts when pendulum swings ", reveal_start_angle_offset, "° PAST vertical center")
-	print("========================================\n")
 	
 	# Initialize mask
 	update_pendulum()
@@ -264,11 +235,6 @@ func _ready():
 	# Setup instructions
 	setup_instructions()
 	
-	# Debug print all loaded textures
-	print("\n=== All Story Textures Loaded ===")
-	for i in range(story_textures.size()):
-		print("Index ", i, ": ", story_textures[i].resource_path)
-	print("=================================\n")
 
 func _process(delta):
 	# Don't update physics if we are in the middle of a transition pause
@@ -357,22 +323,6 @@ func _process(delta):
 	update_pendulum()
 
 func _input(event):
-	# Debug: Manual shader control with keyboard (T key to test)
-	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_T:
-			# Toggle between 0 and 1 for testing
-			var shader_material = image_top.material as ShaderMaterial
-			if shader_material:
-				var current_progress = shader_material.get_shader_parameter("reveal_progress")
-				var new_progress = 1.0 if current_progress < 0.5 else 0.0
-				shader_material.set_shader_parameter("reveal_progress", new_progress)
-				print("DEBUG: Manual reveal_progress set to: ", new_progress)
-		elif event.keycode == KEY_R:
-			# Reset to start position
-			current_angle = start_angle
-			angular_velocity = 0
-			print("DEBUG: Reset pendulum to start position")
-	
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			if event.pressed:
@@ -390,7 +340,6 @@ func _input(event):
 					angular_velocity = 0 # Reset velocity on grab
 					var current_deg = rad_to_deg(current_angle)
 					var start_deg = rad_to_deg(start_angle)
-					print("Started dragging | Current angle: %.1f° | Start angle: %.1f°" % [current_deg, start_deg])
 			else:
 				is_dragging = false
 	
@@ -475,16 +424,8 @@ func update_mask():
 		shader_material.set_shader_parameter("detail_scale", noise_detail)
 		shader_material.set_shader_parameter("edge_softness", noise_softness)
 		shader_material.set_shader_parameter("noise_seed", noise_seed)
-		shader_material.set_shader_parameter("shader_active_check", show_debug_tint)
-		shader_material.set_shader_parameter("debug_show_mask_only", debug_show_shader_mask)
-		
-		# Debug output
-		var progress_percent = int(total_progress * 10)
-		if progress_percent != get_meta("last_progress_shown", -1):
-			set_meta("last_progress_shown", progress_percent)
-			print("Total Swing: %.1f%% | Reveal: %.1f%%" % [total_progress * 100.0, reveal_progress * 100.0])
 	else:
-		print("WARNING: Shader material is null!")
+		pass
 
 func load_story_textures():
 	var dir = DirAccess.open("res://story frames/")
@@ -509,9 +450,8 @@ func load_story_textures():
 			if tex:
 				story_textures.append(tex)
 		
-		print("Loaded ", story_textures.size(), " story textures: ", frame_files)
 	else:
-		print("Error: Could not open story frames directory")
+		pass
 
 func setup_images():
 	# Use the viewport center instead of the ImageTransform guide
@@ -616,7 +556,6 @@ func complete_transition():
 	if current_story_index + 1 >= story_textures.size():
 		return
 
-	print("DEBUG: complete_transition() triggered automatically at end of swing")
 	
 	# Start transition pause
 	is_transitioning = true
@@ -626,7 +565,6 @@ func complete_transition():
 	# Wait for a moment to let the user see the full image
 	await get_tree().create_timer(0.4).timeout
 	
-	print("DEBUG: Transitioning from index %d to %d" % [current_story_index, current_story_index + 1])
 	
 	# Play transition sound if available
 	var transition_sound = load("res://audio/menu transition.wav")
@@ -678,9 +616,7 @@ func complete_transition():
 		# Update scaling for the new textures
 		setup_images()
 		
-		print("DEBUG: Ready for next swing. New start: %.1f, end: %.1f" % [rad_to_deg(start_angle), rad_to_deg(end_angle)])
 	else:
-		print("DEBUG: Final image reached. Sequence complete.")
 		# Last image revealed, hide image_top or set it to fully visible
 		var shader_material = image_top.material as ShaderMaterial
 		if shader_material:

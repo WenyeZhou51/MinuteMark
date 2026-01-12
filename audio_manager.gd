@@ -61,10 +61,9 @@ func _setup_and_play():
 		music_player.play()
 		
 		if music_player.playing:
-			print("[AudioManager] SUCCESS: 'Second Chance' is playing.")
+			pass
 		else:
 			# Final attempt: try playing on a fresh player
-			print("[AudioManager] First attempt failed. Retrying with fresh player...")
 			_retry_play(stream)
 
 func _retry_play(stream):
@@ -77,7 +76,6 @@ func _retry_play(stream):
 	if new_player.playing:
 		music_player.queue_free()
 		music_player = new_player
-		print("[AudioManager] SUCCESS: Music playing on secondary player.")
 
 func stop_music():
 	if music_player:

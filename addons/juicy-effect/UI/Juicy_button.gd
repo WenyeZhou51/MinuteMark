@@ -15,25 +15,20 @@ var pressed_effect : Juicy_player;
 
 # Called when the node enters the scene tree for the first time.
 func _ready():
-	# print("[JUICY_BUTTON DEBUG] Initializing button: ", name)
 	select_effect = get_node_or_null(juicy_focus_name)
 	unselect_effect = get_node_or_null(juicy_unfocus_name)
 	pressed_effect = get_node_or_null(juicy_pressed_name)
 	
 	if select_effect:
 		focus_entered.connect(func():
-			# print("[JUICY_BUTTON DEBUG] %s - FOCUS ENTERED - Playing select effect" % name)
-			_debug_polygon_colors()
 			select_effect.Play()
 		)
 	if unselect_effect:
 		focus_exited.connect(func():
-			# print("[JUICY_BUTTON DEBUG] %s - FOCUS EXITED - Playing unselect effect" % name)
 			unselect_effect.Play()
 		)
 	if pressed_effect:
 		button_down.connect(func():
-			# print("[JUICY_BUTTON DEBUG] %s - BUTTON PRESSED" % name)
 			pressed_effect.Play()
 		)
 	
@@ -55,18 +50,6 @@ func _ready():
 	
 func _set_focus():
 	grab_focus()
-
-func _debug_polygon_colors():
-	var indicator = get_node_or_null("SelectingIndicator")
-	if indicator:
-		var red_poly = indicator.get_node_or_null("RedPolygon")
-		var cyan_poly = indicator.get_node_or_null("CyanPolygon")
-		if red_poly:
-			# print("[JUICY_BUTTON DEBUG]   RedPolygon - color: %s, self_modulate: %s" % [red_poly.color, red_poly.self_modulate])
-			pass
-		if cyan_poly:
-			# print("[JUICY_BUTTON DEBUG]   CyanPolygon - color: %s, self_modulate: %s" % [cyan_poly.color, cyan_poly.self_modulate])
-			pass
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.
 func _process(delta):

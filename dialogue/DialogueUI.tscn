@@ -209,6 +209,11 @@ theme_override_font_sizes/normal_font_size = 28
 text = "This is a sample dialogue text."
 scroll_active = false
 
+[node name="ChoiceContainer" type="VBoxContainer" parent="MainLayout/ContentHBox/DialoguePanel/TextMargin/VBoxContainer"]
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 10
+
 [node name="SpacerBottom" type="Control" parent="MainLayout/ContentHBox/DialoguePanel/TextMargin/VBoxContainer"]
 layout_mode = 2
 size_flags_vertical = 3

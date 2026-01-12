@@ -4,6 +4,7 @@ signal line_changed(line: Dictionary)
 signal dialogue_started(id: String)
 signal dialogue_finished
 signal interrupt_triggered
+signal action_triggered(action_name: String)
 
 var dialogue_data: Dictionary = {}
 var current_id: String = ""
@@ -54,7 +55,36 @@ func advance() -> void:
 	if line == null:
 		return
 
+	# If there are choices, don't advance automatically
+	if line.has("choices") and line["choices"].size() > 0:
+		return
+
 	var next_id = line.get("next")
+	if next_id != null:
+		current_id = next_id
+		_emit_current()
+	else:
+		end_conversation()
+
+func select_choice(index: int) -> void:
+	if current_id == "":
+		return
+
+	var line = dialogue_data.get(current_id)
+	if line == null or not line.has("choices"):
+		return
+
+	var choices = line["choices"]
+	if index < 0 or index >= choices.size():
+		return
+
+	var choice = choices[index]
+	
+	# Trigger action if defined
+	if choice.has("action"):
+		emit_signal("action_triggered", choice["action"])
+	
+	var next_id = choice.get("next")
 	if next_id != null:
 		current_id = next_id
 		_emit_current()

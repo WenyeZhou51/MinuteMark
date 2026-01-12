@@ -172,7 +172,6 @@ func _on_body_entered(body: Node2D) -> void:
 	if body.has_method("_on_enemy_touched") and not is_destroyed:
 		# Emit signal that player touched enemy, passing this enemy as parameter
 		enemy_touched_by_player.emit(self)
-		# print("Enemy touched by player!")
 
 func kick(knockback_direction: Vector2, force: float) -> void:
 	"""Called when player kicks this enemy - send flying in straight line."""
@@ -203,7 +202,6 @@ func kick(knockback_direction: Vector2, force: float) -> void:
 		# Change color to indicate it's been kicked
 		modulate = Color(1.5, 0.5, 0.5)  # Red tint
 		
-		# print("Enemy kicked with force: ", force, " in direction: ", knockback_direction)
 
 func _on_collision() -> void:
 	"""Called when kicked enemy hits something - start falling."""
@@ -222,7 +220,6 @@ func _on_collision() -> void:
 	# Reduce velocity significantly on impact
 	kick_velocity *= 0.3
 	
-	# print("Enemy hit something! Starting to fall...")
 
 func _on_timeout() -> void:
 	"""Called when flight time expires without hitting a wall."""
@@ -280,6 +277,22 @@ func destroy() -> void:
 	if not is_destroyed:
 		kick(Vector2.RIGHT, 0.0)  # Kick with no force
 
+func disable() -> void:
+	"""Disable the enemy (non-violently, e.g. through dialogue)"""
+	if not is_destroyed:
+		is_destroyed = true
+		set_deferred("monitoring", false)
+		set_deferred("monitorable", false)
+		
+		# Hide laser sight and warning
+		if laser_sight: laser_sight.visible = false
+		if warning_indicator: warning_indicator.visible = false
+		
+		# Fade out
+		var tween = create_tween()
+		tween.tween_property(self, "modulate:a", 0.0, 0.5)
+		tween.finished.connect(queue_free)
+
 func become_physics_object(direction: Vector2, speed: float) -> void:
 	"""Turn into physics object when hit by kicked object - behaves like kick but synchronized with object."""
 	if not is_destroyed:
@@ -311,7 +324,6 @@ func become_physics_object(direction: Vector2, speed: float) -> void:
 		# Show "Bonk!" text
 		_show_bonk_text()
 		
-		# print("Enemy became physics object with velocity: ", kick_velocity)
 
 func _show_bonk_text() -> void:
 	"""Show 'Bonk!' text when hit by a kicked object."""
@@ -473,7 +485,6 @@ func _start_warning() -> void:
 	if warning_indicator:
 		warning_indicator.visible = true
 	
-	# print("[ENEMY] Warning started - will shoot in ", warning_duration, " seconds")
 
 func _update_warning_shake() -> void:
 	"""Apply vibrating shake effect to warning indicator."""
@@ -509,11 +520,9 @@ func _shoot_at_player() -> void:
 	# Add bullet to scene (as sibling, not child)
 	get_parent().add_child(bullet)
 	
-	# print("[ENEMY] Fired bullet towards player! Direction: ", direction_to_player)
 
 func _hit_by_parried_bullet(hit_direction: Vector2, bullet_speed: float) -> void:
 	"""Called when this enemy is hit by a parried bullet."""
 	if not is_destroyed:
 		# Become physics object with bullet's velocity
 		become_physics_object(hit_direction, bullet_speed)
-		# print("[ENEMY] Hit by parried bullet! Becoming physics object")

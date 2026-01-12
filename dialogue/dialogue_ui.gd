@@ -4,6 +4,7 @@ extends Control
 @onready var speaker_label: Label = $MainLayout/ContentHBox/DialoguePanel/SpeakerContainer/SpeakerBox/SpeakerLabel
 @onready var portrait: TextureRect = $MainLayout/ContentHBox/PortraitContainer/Portrait
 @onready var interrupt_indicator: Button = $InterruptIndicator
+@onready var choice_container: VBoxContainer = $MainLayout/ContentHBox/DialoguePanel/TextMargin/VBoxContainer/ChoiceContainer
 
 @export var style_red: StyleBoxFlat
 @export var style_green: StyleBoxFlat
@@ -20,7 +21,9 @@ var current_line: Dictionary = {}
 var portraits = {
 	"Boss": preload("res://dialogue/protag.png"),
 	"Player": preload("res://dialogue/protag.png"), 
+	"Protag": preload("res://dialogue/protag.png"),
 	"Stranger": preload("res://dialogue/protag.png"),
+	"Elevator Guard": preload("res://dialogue/guard_portrait.png"),
 	"???": preload("res://dialogue/protag.png")
 }
 
@@ -55,6 +58,11 @@ func _on_line_changed(line: Dictionary) -> void:
 	# Determine if speaker changed
 	var speaker_changed = (speaker != speaker_label.text)
 	
+	# Clear choice container for new line
+	for child in choice_container.get_children():
+		child.queue_free()
+	choice_container.visible = false
+
 	# Update text content immediately (it's hidden by visible_ratio anyway)
 	label.text = text
 	if speaker_label:
@@ -84,7 +92,7 @@ func _on_line_changed(line: Dictionary) -> void:
 		typewriter_tween.kill()
 	
 	typewriter_tween = create_tween()
-	var duration = label.get_total_character_count() * 0.05
+	var duration = label.get_total_character_count() * 0.025
 	
 	# Force show interrupt button immediately for new line
 	interrupt_indicator.visible = true
@@ -98,6 +106,11 @@ func _on_line_changed(line: Dictionary) -> void:
 		interrupt_indicator.add_theme_stylebox_override("normal", style_red)
 		interrupt_indicator.add_theme_stylebox_override("hover", style_red) # Keep red on hover while in F OFF
 		indicator_faded_in = true # Mark as visible so pulse can start if needed
+	elif speaker == "Elevator Guard":
+		interrupt_indicator.text = "KICK [Enter]"
+		interrupt_indicator.add_theme_stylebox_override("normal", style_red)
+		interrupt_indicator.add_theme_stylebox_override("hover", style_red)
+		indicator_faded_in = true
 	else:
 		interrupt_indicator.text = "..."
 		interrupt_indicator.add_theme_stylebox_override("normal", style_red) # Use red for "busy/typing"
@@ -121,17 +134,54 @@ func _on_line_changed(line: Dictionary) -> void:
 func _on_typing_finished() -> void:
 	var speaker = current_line.get("speaker", "???")
 	var next_id = current_line.get("next")
+	var choices = current_line.get("choices", [])
 	
 	interrupt_indicator.add_theme_stylebox_override("normal", style_green)
 	interrupt_indicator.add_theme_stylebox_override("hover", style_green)
 	
-	if speaker == "Boss":
-		interrupt_indicator.text = "THANK YOU [Enter]"
+	if choices.size() > 0:
+		interrupt_indicator.visible = false
+		_show_choices(choices)
 	else:
-		if next_id == null:
-			interrupt_indicator.text = "LEAVE [Enter]"
+		if speaker == "Boss":
+			interrupt_indicator.text = "THANK YOU [Enter]"
+		elif speaker == "Elevator Guard":
+			interrupt_indicator.text = "FLATTER [Enter]"
 		else:
-			interrupt_indicator.text = "NEXT [Enter]"
+			if next_id == null:
+				interrupt_indicator.text = "LEAVE [Enter]"
+			else:
+				interrupt_indicator.text = "NEXT [Enter]"
+
+func _show_choices(choices: Array) -> void:
+	# Clear existing choices
+	for child in choice_container.get_children():
+		child.queue_free()
+	
+	choice_container.visible = true
+	
+	for i in range(choices.size()):
+		var choice = choices[i]
+		var btn = Button.new()
+		btn.text = choice.get("text", "Choice " + str(i))
+		btn.add_theme_font_override("font", preload("res://Fonts/Funkrocker.otf"))
+		btn.add_theme_font_size_override("font_size", 24)
+		
+		# Apply some styling
+		btn.alignment = HorizontalAlignment.HORIZONTAL_ALIGNMENT_LEFT
+		
+		btn.pressed.connect(_on_choice_selected.bind(i))
+		choice_container.add_child(btn)
+		
+		# Animation for choice buttons
+		btn.modulate.a = 0
+		var tween = create_tween()
+		tween.tween_interval(i * 0.1)
+		tween.tween_property(btn, "modulate:a", 1.0, 0.2)
+
+func _on_choice_selected(index: int) -> void:
+	choice_container.visible = false
+	DialogueManager.select_choice(index)
 
 func _animate_portrait_switch(new_texture: Texture2D):
 	if portrait_tween:
@@ -207,9 +257,9 @@ func _unhandled_input(event):
 			get_viewport().set_input_as_handled()
 
 func _on_interrupt_indicator_pressed() -> void:
-	# "F OFF" state (typing not done) -> Interrupt
+	# "F OFF" / "KICK" state (typing not done) -> Interrupt
 	if label.visible_ratio < 1.0:
-		if speaker_label.text == "Boss":
+		if speaker_label.text == "Boss" or speaker_label.text == "Elevator Guard":
 			_reset_indicator()
 			DialogueManager.do_interrupt()
 		else:

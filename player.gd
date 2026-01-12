@@ -390,6 +390,7 @@ var dust_spawn_timer: float = 0.0
 func _ready() -> void:
 	# Connect to dialogue interrupt signal for kick
 	DialogueManager.interrupt_triggered.connect(_on_dialogue_interrupt_kick)
+	DialogueManager.action_triggered.connect(_on_dialogue_action)
 
 	# Ensure time scale is normal on start
 	Engine.time_scale = 1.0
@@ -447,11 +448,20 @@ func _on_dialogue_interrupt_kick() -> void:
 	# Force kick action immediately when interrupt is triggered
 	# Wait a tiny bit for the pause state to clear (unpause happens in level_manager)
 	get_tree().create_timer(0.05).timeout.connect(func():
-		# Find closest enemy to auto-move towards
+		_trigger_kick_on_closest_enemy()
+	)
+
+func _on_dialogue_action(action_name: String) -> void:
+	if action_name == "kick_guard":
+		# Force kick action when specific dialogue action is triggered
+		get_tree().create_timer(0.05).timeout.connect(func():
+			_trigger_kick_on_closest_enemy()
+		)
+	elif action_name == "disable_guard":
+		# Non-violently disable the guard
 		var enemies = get_tree().get_nodes_in_group("enemies")
 		var closest_enemy = null
 		var closest_dist = INF
-		
 		for enemy in enemies:
 			if not is_instance_valid(enemy) or enemy.is_destroyed:
 				continue
@@ -460,13 +470,29 @@ func _on_dialogue_interrupt_kick() -> void:
 				closest_dist = dist
 				closest_enemy = enemy
 		
-		if closest_enemy:
-			auto_kick_target = closest_enemy
-			auto_kick_active = true
-		else:
-			# Fallback if no enemy found
-			_start_kick_sequence()
-	)
+		if closest_enemy and closest_enemy.has_method("disable"):
+			closest_enemy.disable()
+
+func _trigger_kick_on_closest_enemy() -> void:
+	# Find closest enemy to auto-move towards
+	var enemies = get_tree().get_nodes_in_group("enemies")
+	var closest_enemy = null
+	var closest_dist = INF
+	
+	for enemy in enemies:
+		if not is_instance_valid(enemy) or enemy.is_destroyed:
+			continue
+		var dist = global_position.distance_to(enemy.global_position)
+		if dist < closest_dist:
+			closest_dist = dist
+			closest_enemy = enemy
+	
+	if closest_enemy:
+		auto_kick_target = closest_enemy
+		auto_kick_active = true
+	else:
+		# Fallback if no enemy found
+		_start_kick_sequence()
 
 func _exit_tree() -> void:
 	"""Ensure time scale is reset when player is removed from scene."""
@@ -645,13 +671,11 @@ func _physics_process(delta: float) -> void:
 		# Check if rewind button was just pressed (start rewind)
 		if Input.is_action_just_pressed("rewind"):
 			if not is_stunned and not is_slam_frozen and not is_rewind_tracing:
-				print("[REWIND] Rewind hold started")
 				_start_rewind_hold()
 		
 		# Check if rewind button was just released (stop and spawn shadow)
 		# This must be checked AFTER the press check to avoid same-frame conflicts
 		if Input.is_action_just_released("rewind") and is_rewind_holding:
-			print("[REWIND] Rewind hold released")
 			_stop_rewind_hold()
 	
 	# Update run state based on speed (sprint state when speed exceeds threshold)
@@ -781,18 +805,17 @@ func _physics_process(delta: float) -> void:
 		if Input.is_action_just_pressed("jump"):
 			var too_early = ground_slide_timer < ground_slide_min_duration
 			if too_early:
-				print("[DEBUG-SLIDE] Jump pressed too early (%.3f < %.3f). Buffering jump." % [ground_slide_timer, ground_slide_min_duration])
 				jump_buffered = true
 				jump_buffer_timer.start()
 			else:
-				print("[DEBUG-SLIDE] Jump cancel triggered at %.3f" % ground_slide_timer)
+				pass
 		
 		# Allow buffered jump to trigger if min duration passed
 		var can_jump_cancel = (Input.is_action_just_pressed("jump") or jump_buffered) and ground_slide_timer >= ground_slide_min_duration
 		
 		if can_jump_cancel and not is_stunned and not is_in_rewind_slowmo:
 			if jump_buffered:
-				print("[DEBUG-SLIDE] Executing buffered jump cancel at %.3f" % ground_slide_timer)
+				pass
 			
 			_perform_jump()  # Will automatically use slide jump bonus
 			jump_buffered = false
@@ -805,7 +828,6 @@ func _physics_process(delta: float) -> void:
 		
 		# Wall run activation moved to _check_wall_run_activation() which runs AFTER move_and_slide()
 		# to ensure actual collision detection instead of raycast-based detection
-		# print("[DASH DEBUG] Ground slide frame - wall run check deferred to post-movement")
 		
 		# Only process slide if not wall running (wall run takes priority)
 		if is_ground_sliding and not is_wall_running:
@@ -831,7 +853,6 @@ func _physics_process(delta: float) -> void:
 		
 		# Wall run activation moved to _check_wall_run_activation() which runs AFTER move_and_slide()
 		# to ensure actual collision detection instead of raycast-based detection
-		# print("[DASH DEBUG] Air dash frame - wall run check deferred to post-movement")
 		
 		# Only process air dash if not wall running (wall run takes priority)
 		if is_air_dashing and not is_wall_running:
@@ -852,15 +873,10 @@ func _physics_process(delta: float) -> void:
 	
 	# 7. Process Wall Run (if active, skip most normal movement)
 	if is_wall_running:
-		# print("╔═══════════════════════════════════════╗")
-		# print("║   WALL RUN ACTIVE THIS FRAME          ║")
-		# print("╚═══════════════════════════════════════╝")
-		# print("[WALL RUN STATE] Timer: ", "%.2f" % wall_run_timer, "s | Speed: ", "%.1f" % wall_run_speed, " | Decay: ", "%.1f" % wall_run_speed_decay)
 		
 		# Check for jump input BEFORE processing wall run
 		# This allows player to jump out of wall run
 		if Input.is_action_just_pressed("jump") and not is_stunned and not is_in_rewind_slowmo:
-			# print("[WALL RUN DEBUG] ⚠ Jump pressed during wall run, performing empowered wall jump")
 			_perform_wall_jump()
 			# After jump, is_wall_running is false, so continue with normal physics below
 		
@@ -869,7 +885,6 @@ func _physics_process(delta: float) -> void:
 			# wall_normal points AWAY from the wall
 			# If player is pressing in the direction of wall_normal, they're pushing away from wall
 			if (wall_normal.x > 0 and input_vector.x > 0.1) or (wall_normal.x < 0 and input_vector.x < -0.1):
-				# print("[WALL RUN DEBUG] ⚠ Player pushing away from wall (input: ", "%.2f" % input_vector.x, ", wall_normal.x: ", "%.2f" % wall_normal.x, ") - ending wall run")
 				_end_wall_run()
 		
 		# Only process wall run if still wall running (jump or input might have cancelled it)
@@ -880,8 +895,6 @@ func _physics_process(delta: float) -> void:
 			move_and_slide()
 			var pos_after_frame = global_position
 			var movement_this_frame = pos_after_frame - pos_before_frame
-			# print("[WALL RUN DEBUG] Position AFTER move_and_slide(): ", pos_after_frame)
-			# print("[WALL RUN DEBUG] Movement this frame: ", movement_this_frame, " (distance: ", "%.2f" % movement_this_frame.length(), ")")
 			_post_movement_updates(space_state)
 			return
 	
@@ -1000,27 +1013,6 @@ func _physics_process(delta: float) -> void:
 	if early_parry_timer > 0:
 		early_parry_timer -= delta
 	
-	# 25. Track position changes when near walls (for debugging)
-	if is_on_wall:
-		var frame_end_position = global_position
-		var frame_end_velocity = velocity
-		var position_delta = frame_end_position - frame_start_position
-		var velocity_delta = frame_end_velocity - frame_start_velocity
-		
-		if position_delta.length() > 0.1 or velocity_delta.length() > 0.1:
-			var vertical_direction = "UP" if position_delta.y < 0 else "DOWN"
-			# print("╔═══════════ FRAME MOVEMENT (NEAR WALL) ═══════════╗")
-			# print("║ Start pos: ", frame_start_position)
-			# print("║ End pos:   ", frame_end_position)
-			# print("║ Delta:     ", position_delta, " (", "%.2f" % position_delta.length(), " pixels)")
-			# print("║ Vertical:  ", vertical_direction, " ", "%.2f" % abs(position_delta.y), " pixels")
-			# print("║ Start vel: ", frame_start_velocity)
-			# print("║ End vel:   ", frame_end_velocity)
-			# print("║ is_wall_running: ", is_wall_running)
-			# print("║ is_on_wall: ", is_on_wall)
-			# print("╚═══════════════════════════════════════════════════╝")
-
-
 # ====================================
 # INPUT PROCESSING
 # ====================================
@@ -1260,9 +1252,6 @@ func _is_wall_at_lower_quarter() -> bool:
 	
 	# End wall run if wall ends (check using raycast detection)
 	if is_wall_running and not is_on_wall:
-		# print("[WALL RUN DEBUG] ⚠ Wall contact lost (raycast) - stopping wall run")
-		# print("[WALL RUN DEBUG] Position: ", global_position)
-		# print("[WALL RUN DEBUG] Velocity: ", velocity)
 		_end_wall_run()
 
 
@@ -1280,7 +1269,6 @@ func _start_wall_run(horizontal_speed: float, force: bool = false) -> void:
 	if not force:
 		# Check if wall run speed is above minimum (prevents immediate termination)
 		if wall_run_speed <= wall_run_min_speed:
-			# print("[WALL RUN DEBUG] ✗ Cannot start - speed at minimum threshold (", wall_run_speed, " <= ", wall_run_min_speed, ")")
 			return
 		
 		# CRITICAL CHECK: Prevent wall run if decay is so high it would end in first frame
@@ -1288,40 +1276,17 @@ func _start_wall_run(horizontal_speed: float, force: bool = false) -> void:
 		var estimated_first_frame_decay = wall_run_speed_decay * 0.017
 		var speed_after_first_frame = wall_run_speed - estimated_first_frame_decay
 		
-		# print("=== WALL RUN START CHECK ===")
-		# print("[WALL RUN DEBUG] Initial speed: ", "%.1f" % wall_run_speed)
-		# print("[WALL RUN DEBUG] Decay rate: ", "%.1f" % wall_run_speed_decay, " per second")
-		# print("[WALL RUN DEBUG] Estimated first frame decay (0.017s): ", "%.1f" % estimated_first_frame_decay)
-		# print("[WALL RUN DEBUG] Speed after first frame: ", "%.1f" % speed_after_first_frame)
-		# print("[WALL RUN DEBUG] Min speed threshold: ", "%.1f" % wall_run_min_speed)
 		
 		if speed_after_first_frame < wall_run_min_speed:
-			# print("[WALL RUN DEBUG] ⚠ BLOCKED: Decay too high! Wall run would end in first frame")
-			# print("[WALL RUN DEBUG] This would cause infinite micro-wall-runs")
-			# print("[WALL RUN DEBUG] To wall run with this decay rate, you need initial speed > ", "%.1f" % (wall_run_min_speed + estimated_first_frame_decay))
 			return
 	else:
 		pass
-		# print("=== WALL RUN FORCED START (FROM DASH) ===")
-		# print("[WALL RUN DEBUG] FORCED activation from dash - bypassing all speed checks")
-		# print("[WALL RUN DEBUG] Initial speed: ", "%.1f" % wall_run_speed)
 	
 	is_wall_running = true
 	wall_run_timer = 0.0
 	wall_run_start_position = global_position
 	wall_run_frame_count = 0
 	
-	# print("=== WALL RUN STARTING ===")
-	# print("[WALL RUN DEBUG] Initial wall_run_speed: ", "%.2f" % wall_run_speed)
-	# print("[WALL RUN DEBUG] Expected duration: ", "%.2f" % ((wall_run_speed - wall_run_min_speed) / wall_run_speed_decay), " seconds")
-	# print("[WALL RUN DEBUG] Expected frames (at 60fps): ", int((wall_run_speed - wall_run_min_speed) / wall_run_speed_decay * 60))
-	# print("[WALL RUN DEBUG] Max allowed duration: ", "%.2f" % wall_run_max_duration, " seconds")
-	# print("[WALL RUN DEBUG] Wall normal: ", wall_normal)
-	# print("[WALL RUN DEBUG] Starting position: ", wall_run_start_position)
-	# print("[WALL RUN DEBUG] Is sprinting: ", is_running)
-	# print("[WALL RUN DEBUG] Is dashing: ", is_ground_sliding or is_air_dashing)
-	# print("[WALL RUN DEBUG] Is in air: ", not is_on_floor())
-	# print("=============================")
 	
 	# Set upward velocity
 	velocity.y = -wall_run_speed
@@ -1344,10 +1309,8 @@ func _start_wall_run(horizontal_speed: float, force: bool = false) -> void:
 	
 	# End ground slide or air dash if wall running
 	if is_ground_sliding:
-		# print("[WALL RUN DEBUG] Ended ground slide to start wall run")
 		_end_ground_slide()
 	if is_air_dashing:
-		# print("[WALL RUN DEBUG] Ended air dash to start wall run")
 		_end_air_dash()
 	
 	# Could trigger wall run effects here (particles, sound, animation, etc.)
@@ -1364,96 +1327,42 @@ func _process_wall_run(delta: float) -> void:
 	# Increment timer
 	wall_run_timer += delta
 	
-	# EXTENSIVE DEBUG - Print every frame for detailed tracking
-	# print("╔══════════════════════════════════════════════════════════════════╗")
-	# print("║ WALL RUN FRAME #", wall_run_frame_count, "                                           ║")
-	# print("╚══════════════════════════════════════════════════════════════════╝")
-	# print("[WALL RUN DEBUG] Position BEFORE frame: ", position_before)
-	# print("[WALL RUN DEBUG] Timer: ", "%.3f" % wall_run_timer, "s / ", "%.2f" % wall_run_max_duration, "s max")
-	# print("[WALL RUN DEBUG] Delta time: ", "%.4f" % delta, "s")
-	# print("[WALL RUN DEBUG] wall_run_speed BEFORE decay: ", "%.2f" % wall_run_speed)
-	# print("[WALL RUN DEBUG] ⚠️ wall_run_speed_decay VALUE: ", "%.2f" % wall_run_speed_decay, " per second ⚠️")
-	# print("[WALL RUN DEBUG] Decay amount this frame: ", "%.4f" % (wall_run_speed_decay * delta))
-	# print("[WALL RUN DEBUG] VERIFY: wall_run_speed (", "%.2f" % wall_run_speed, ") - (decay ", "%.2f" % wall_run_speed_decay, " * delta ", "%.4f" % delta, ") = ", "%.2f" % (wall_run_speed - wall_run_speed_decay * delta))
-	# print("[WALL RUN DEBUG] Is sprinting: ", is_running)
-	# print("[WALL RUN DEBUG] Is dashing: ", is_ground_sliding or is_air_dashing)
-	# print("[WALL RUN DEBUG] Is in air: ", not is_on_floor())
-	# print("[WALL RUN DEBUG] On wall: ", is_on_wall)
-	# print("[WALL RUN DEBUG] Wall normal: ", wall_normal)
-	
 	# Check if max duration reached
 	if wall_run_timer >= wall_run_max_duration:
-		# print("[WALL RUN DEBUG] ⚠ Max duration reached (", wall_run_max_duration, "s) - STOPPING")
 		_end_wall_run()
 		return
 	
 	# Apply speed decay and check if it drops below minimum BEFORE clamping
 	var new_speed = wall_run_speed - wall_run_speed_decay * delta
 	
-	# print("[WALL RUN DEBUG] Speed AFTER decay calculation: ", "%.2f" % new_speed)
-	# print("[WALL RUN DEBUG] Min speed threshold: ", "%.2f" % wall_run_min_speed)
-	# print("[WALL RUN DEBUG] Speed check: new_speed (", "%.2f" % new_speed, ") < min (", "%.2f" % wall_run_min_speed, ") = ", new_speed < wall_run_min_speed)
 	
 	# Check if speed dropped below minimum
 	if new_speed < wall_run_min_speed:
-		# print("[WALL RUN DEBUG] ⚠⚠⚠ Speed dropped below minimum - CALLING _end_wall_run() ⚠⚠⚠")
-		# print("[WALL RUN DEBUG] new_speed: ", "%.2f" % new_speed, " < wall_run_min_speed: ", "%.2f" % wall_run_min_speed)
-		# print("[WALL RUN DEBUG] About to call _end_wall_run() and return...")
 		_end_wall_run()
-		# print("[WALL RUN DEBUG] ⚠⚠⚠ THIS SHOULD NEVER PRINT - _process_wall_run should have returned! ⚠⚠⚠")
 		return
 	
 	# Speed is still above minimum, update it
 	wall_run_speed = new_speed
 	
-	# print("[WALL RUN DEBUG] ✓ Speed updated to: ", "%.2f" % wall_run_speed)
 	
 	# Set upward velocity based on current wall run speed
 	velocity.y = -wall_run_speed
 	
-	# print("[WALL RUN DEBUG] Set velocity.y to: ", "%.2f" % velocity.y)
 	
 	# Maintain slight horizontal velocity to stay on wall
 	# Push slightly into the wall
 	velocity.x = -wall_normal.x * 50.0
 	
-	# print("[WALL RUN DEBUG] Set velocity.x to: ", "%.2f" % velocity.x)
-	# print("[WALL RUN DEBUG] Final velocity: ", velocity)
 	
 	# Position will change after move_and_slide() is called in _physics_process
 	# Log it there for accurate tracking
-	# print("----------------------")
 
 
 func _end_wall_run() -> void:
 	"""End the wall run."""
 	if not is_wall_running:
-		# print("[WALL RUN DEBUG] ⚠ _end_wall_run() called but not wall running - ignoring")
 		return
 	
-	var velocity_before = velocity
-	var timer_final = wall_run_timer
-	var speed_final = wall_run_speed
-	var final_position = global_position
-	var total_movement = final_position - wall_run_start_position
-	var vertical_movement = total_movement.y  # Negative = moved up, positive = moved down
-	var frames_ran = wall_run_frame_count
-	
-	# print("╔═══════════════════════════════════════╗")
-	# print("║       WALL RUN ENDED                  ║")
-	# print("╚═══════════════════════════════════════╝")
-	# print("[WALL RUN DEBUG] ⚠️ TOTAL FRAMES: ", frames_ran, " ⚠️")
-	# print("[WALL RUN DEBUG] Duration: ", "%.3f" % timer_final, " seconds")
-	# print("[WALL RUN DEBUG] Final wall_run_speed: ", "%.2f" % speed_final)
-	# print("[WALL RUN DEBUG] Velocity before: ", velocity_before)
-	# print("[WALL RUN DEBUG] Start position: ", wall_run_start_position)
-	# print("[WALL RUN DEBUG] Final position: ", final_position)
-	# print("[WALL RUN DEBUG] Total movement: ", total_movement)
-	# print("[WALL RUN DEBUG] ⚠️ Vertical distance: ", "%.2f" % abs(vertical_movement), " pixels ", "UP" if vertical_movement < 0 else "DOWN", " ⚠️")
-	# print("[WALL RUN DEBUG] Sprint state: ", is_running)
-	# print("[WALL RUN DEBUG] Dashing: ", is_ground_sliding or is_air_dashing)
-	# print("[WALL RUN DEBUG] In air: ", not is_on_floor())
-		
 	is_wall_running = false
 	wall_run_timer = 0.0
 	wall_run_speed = 0.0
@@ -1471,10 +1380,6 @@ func _end_wall_run() -> void:
 	# Allow gravity to take over
 	# Velocity is maintained but wall run state is cleared
 	
-	# print("[WALL RUN DEBUG] Velocity after: ", velocity)
-	# print("[WALL RUN DEBUG] Set wall run cooldown to prevent immediate restart: ", "%.3f" % wall_run_cooldown, "s")
-	# print("[WALL RUN DEBUG] Cleared wall state to prevent slide")
-	# print("====================")
 	
 	# Could trigger wall run end effects here (particles fade, etc.)
 
@@ -1493,7 +1398,6 @@ func _check_wall_run_activation() -> void:
 		# During wall run, use raycast detection to check if still on wall
 		# NEW: Also end if hit head or lost wall contact at the lower quarter point
 		if not is_on_wall or is_on_ceiling() or not _is_wall_at_lower_quarter():
-			# print("[WALL RUN COLLISION] ⚠ Lost wall contact, hit ceiling, or wall ended - ending wall run")
 			_end_wall_run()
 		return  # Don't check for activation if already running
 	
@@ -1542,35 +1446,12 @@ func _check_wall_run_activation() -> void:
 	var has_wall_collision = (raycast_detects_wall or has_actual_wall_collision) and (velocity_reduced or has_slide_collision)
 	
 	if not has_wall_collision or not _is_wall_at_lower_quarter():
-		# print("[WALL RUN COLLISION] No wall collision detected or lower quarter check failed")
 		return
 	
-	# print("[WALL RUN CHECK] ═══════════════════════════════════════")
-	# print("[WALL RUN CHECK] ✓ WALL COLLISION DETECTED!")
-	# print("[WALL RUN CHECK] Detection: raycast=", raycast_detects_wall, " velocity_reduced=", velocity_reduced, " slides=", has_slide_collision)
-	# print("[WALL RUN CHECK] POSITION: ", global_position)
-	# print("[WALL RUN CHECK] Velocity before collision: ", velocity_before_move_and_slide)
-	# print("[WALL RUN CHECK] Velocity after collision: ", velocity)
-	# print("[WALL RUN CHECK] Speed reduction: ", "%.1f" % speed_before_collision, " -> ", "%.1f" % abs(velocity.x))
-	# print("[WALL RUN CHECK] Wall normal: ", wall_normal)
-	# print("[WALL RUN CHECK] Attempting to start wall run:")
-	# print("[WALL RUN CHECK] - Speed before collision: ", "%.2f" % speed_before_collision)
-	# print("[WALL RUN CHECK] - Wall run speed (fixed): 1000.00")
-	# print("[WALL RUN CHECK] - Required speed: ", "%.2f" % wall_run_min_velocity)
-	# print("[WALL RUN CHECK] - Sprint state: ", is_running)
-	# print("[WALL RUN CHECK] - Dashing: ", is_ground_sliding or is_air_dashing)
-	# print("[WALL RUN CHECK] - In air: ", not is_on_floor())
-	# print("[WALL RUN CHECK] - Wall jump cooldown: ", "%.3f" % wall_jump_cooldown, "s")
-	# print("[WALL RUN CHECK] - Wall run cooldown: ", "%.3f" % wall_run_cooldown, "s")
-	# print("[WALL RUN CHECK] ✓ Conditions met - calling _start_wall_run() with speed=1000")
 	
 	# Start wall run with fixed speed of 1000 for consistent wall run behavior
 	_start_wall_run(1000.0, true)
 	
-	# print("[WALL RUN CHECK] AFTER _start_wall_run() - is_wall_running: ", is_wall_running)
-	# print("[WALL RUN CHECK] VELOCITY AFTER: ", velocity)
-	# print("[WALL RUN CHECK] POSITION AFTER: ", global_position)
-	# print("[WALL RUN CHECK] ═══════════════════════════════════════")
 
 
 # ====================================
@@ -1582,14 +1463,12 @@ func _apply_gravity(delta: float) -> void:
 	if not is_on_floor():
 		# WALL RUNNING: No gravity during wall run (handled in _process_wall_run)
 		if is_wall_running:
-			# print("[GRAVITY DEBUG] Skipping gravity - wall running active")
 			return
 		# WALL SLIDING: Apply gravity but cap at wall slide speed
 		elif is_wall_sliding:
 			var vel_before_slide = velocity.y
 			velocity.y += gravity * delta
 			velocity.y = min(velocity.y, wall_slide_speed)
-			# print("[WALL SLIDE] Applied - vel before: ", "%.2f" % vel_before_slide, " | after: ", "%.2f" % velocity.y, " | gravity added: ", "%.2f" % (gravity * delta), " | capped at: ", "%.2f" % wall_slide_speed)
 		else:
 			var gravity_multiplier := 1.0
 			
@@ -1690,7 +1569,6 @@ func _handle_jump_input() -> void:
 	
 	# Check for jump button press this frame
 	if Input.is_action_just_pressed("jump"):
-		# print("[JUMP DEBUG] Jump pressed - is_on_wall: ", is_on_wall, " is_wall_running: ", is_wall_running, " is_on_floor: ", is_on_floor())
 		
 		# Check if infinite jumps is enabled (assist mode)
 		var infinite_jumps: bool = get_meta("infinite_jumps_enabled", false)
@@ -1749,7 +1627,6 @@ func _perform_jump() -> void:
 	# Check if jumping out of ground slide (empowered jump)
 	if is_slide_jump_available:
 		# End the slide first
-		print("[DEBUG-SLIDE] JUMPING OUT OF SLIDE. timer: %.3f" % ground_slide_timer)
 		_end_ground_slide()
 		
 		# Empowered slide jump - even better than sprint jump
@@ -1798,9 +1675,7 @@ func _perform_wall_jump() -> void:
 			jump_wall_normal = Vector2.RIGHT  # Was on left wall
 		else:
 			jump_wall_normal = Vector2.LEFT  # Was on right wall
-		# print("[WALL JUMP DEBUG] Wall normal was zero, inferred: ", jump_wall_normal, " from velocity.x: ", velocity.x)
 	
-	# print("[WALL JUMP DEBUG] Starting wall jump - is_wall_running: ", is_wall_running, " wall_normal: ", jump_wall_normal)
 	
 	# Check if jumping from a wall run (empowered wall jump)
 	if is_wall_running:
@@ -1808,7 +1683,6 @@ func _perform_wall_jump() -> void:
 		velocity.y = wall_run_empowered_jump_vertical
 		velocity.x = jump_wall_normal.x * wall_run_empowered_jump_horizontal
 		
-		# print("[WALL JUMP DEBUG] ⚡ EMPOWERED from wall run ⚡")
 		
 		# End wall run
 		_end_wall_run()
@@ -1817,7 +1691,6 @@ func _perform_wall_jump() -> void:
 		velocity.y = wall_jump_vertical_velocity
 		velocity.x = jump_wall_normal.x * wall_jump_horizontal_velocity
 		
-		# print("[WALL JUMP DEBUG] Normal wall jump")
 	
 	# Set jump state
 	is_jumping = true
@@ -1884,12 +1757,10 @@ func _apply_corner_correction(space_state: PhysicsDirectSpaceState2D) -> void:
 	var nudged = false
 	if left_hit and not right_hit:
 		# Left corner is blocked, right is clear -> nudge right to slip past
-		print("[CORNER] Nudging RIGHT")
 		position.x += corner_correction_distance * 0.5
 		nudged = true
 	elif right_hit and not left_hit:
 		# Right corner is blocked, left is clear -> nudge left to slip past
-		print("[CORNER] Nudging LEFT")
 		position.x -= corner_correction_distance * 0.5
 		nudged = true
 		
@@ -1940,7 +1811,6 @@ func _check_ledge_climb(space_state: PhysicsDirectSpaceState2D) -> void:
 	
 	# Only check when near a wall
 	if not is_on_wall:
-		# print("[LEDGE] Not on wall (is_on_wall=false)")
 		return
 
 	# Only climb if moving towards the wall or pressing towards it
@@ -1989,7 +1859,6 @@ func _check_ledge_climb(space_state: PhysicsDirectSpaceState2D) -> void:
 					# This ground is at or below our feet, not a ledge top
 					continue
 					
-				print("[LEDGE] VALID LEDGE FOUND! Triggering climb at height: ", height_offset, " Ground at relative Y: ", ground_relative_y)
 				ledge_found = true
 				# Calculate target position on top of ledge
 				ledge_climb_target_pos = Vector2(
@@ -2060,7 +1929,6 @@ func _process_ledge_climb(delta: float) -> void:
 	
 	# Finish climb when progress reaches 1.0
 	if ledge_climb_progress >= 1.0:
-		print("[LEDGE] Climb finished at: ", global_position)
 		_finish_ledge_climb()
 
 
@@ -2133,10 +2001,6 @@ func _update_enemy_detection() -> void:
 			if enemy_by_name:
 				enemies.append(enemy_by_name)
 	
-	# Debug: Print enemy detection results (only when debugging)
-	# if Engine.get_process_frames() % 60 == 0:  # Print every 60 frames (1 second)
-	#	print("Enemy detection - found ", enemies.size(), " total enemies")
-	
 	# Check each enemy for distance and filter out destroyed enemies
 	for enemy in enemies:
 		if enemy and is_instance_valid(enemy) and not enemy.is_destroyed:
@@ -2144,11 +2008,7 @@ func _update_enemy_detection() -> void:
 			if distance <= attack_detection_range:
 				nearby_enemies.append(enemy)
 	
-	# Debug output (only when debugging)
-	# if nearby_enemies.size() > 0 and Engine.get_process_frames() % 60 == 0:
-	#	print("Found ", nearby_enemies.size(), " nearby enemies")
-
-
+	
 func _update_attack_indicator() -> void:
 	"""Update the visual indicator showing knockback direction when near enemies."""
 	# Clear previous targeted enemy outline if it changed
@@ -2578,7 +2438,6 @@ func _cancel_bullet_grace_period_with_parry() -> void:
 
 func _start_ground_slide(input_x: float) -> void:
 	"""Initiate a ground slide with reduced height."""
-	print("[DEBUG-SLIDE] STARTING SLIDE. input_x: %.2f, time: %.2f" % [input_x, Time.get_ticks_msec() / 1000.0])
 	# Determine slide direction
 	if abs(input_x) > 0.1:
 		dash_direction = sign(input_x)
@@ -2630,20 +2489,11 @@ func _process_ground_slide(delta: float) -> void:
 	# Increment timer
 	ground_slide_timer += delta
 	
-	# Detailed debug for slide duration
-	if Engine.get_frames_drawn() % 10 == 0: # Every 10 frames to avoid spam
-		print("[DEBUG-SLIDE] Sliding: Time=%.2f/%.2f, Animation=%s, Frame=%d" % [ground_slide_timer, ground_slide_duration, animated_sprite.animation, animated_sprite.frame])
-	
 	# Check if slide duration has elapsed
 	if ground_slide_timer >= ground_slide_duration:
 		if _can_stand_up():
-			print("[DEBUG-SLIDE] Duration finished, ending slide")
 			_end_ground_slide()
 			return
-		else:
-			# If we can't stand up, keep sliding
-			if Engine.get_frames_drawn() % 60 == 0:
-				print("[DEBUG-SLIDE] Slide duration finished but can't stand up - continuing slide")
 	
 	# Maintain slide velocity (horizontal only) with linear slowdown
 	var current_slide_speed = ground_slide_speed - (ground_slide_slowdown_rate * ground_slide_timer)
@@ -2656,7 +2506,6 @@ func _process_ground_slide(delta: float) -> void:
 		ground_slide_air_buffer += 1
 		if ground_slide_air_buffer > 5: # Allow 5 frames of "air time" during slide
 			if _can_stand_up():
-				# print("[DEBUG-SLIDE] Air buffer exceeded, ending slide")
 				_end_ground_slide()
 				return
 	else:
@@ -2707,7 +2556,6 @@ func _end_ground_slide() -> void:
 	if not is_ground_sliding:
 		return
 	
-	print("[DEBUG-SLIDE] ENDING SLIDE. Timer: %.3f, duration: %.3f, time: %.2f" % [ground_slide_timer, ground_slide_duration, Time.get_ticks_msec() / 1000.0])
 	is_ground_sliding = false
 	ground_slide_timer = 0.0
 	is_slide_jump_available = false
@@ -3251,22 +3099,18 @@ func _find_state_at_time(target_time: float) -> Dictionary:
 func _start_rewind_hold() -> void:
 	"""Start the hold-to-rewind - extract path and begin continuous traceback."""
 	if not rewind_enabled:
-		print("[REWIND] Rewind is disabled")
 		return
 	
 	# Check if we have enough history
 	rewind_target_time = game_time - rewind_time
 	if rewind_target_time < 0:
 		# Not enough history available - use whatever we have
-		print("[REWIND] Not enough history (game_time: ", game_time, ", target_time: ", rewind_target_time, ")")
 		# Try to use available history instead
 		if state_history.is_empty():
-			print("[REWIND] No state history available")
 			return
 		# Use the oldest state we have
 		var oldest_state = state_history[0]
 		rewind_target_time = oldest_state["timestamp"]
-		print("[REWIND] Using oldest available state at time: ", rewind_target_time)
 	
 	# Store rewind start information
 	rewind_start_time = game_time
@@ -3278,16 +3122,12 @@ func _start_rewind_hold() -> void:
 	rewind_traceback_frame_data = _extract_path_from_history(rewind_target_time, game_time, rewind_start_position)
 	
 	if rewind_traceback_frame_data.is_empty():
-		print("[REWIND] Could not extract path, aborting rewind")
 		return
 	
 	# Sort path by timestamp in descending order (most recent first) for easier traceback
 	# This way progress 0.0 = first element, progress 1.0 = last element
 	rewind_traceback_frame_data.sort_custom(func(a, b): return a["timestamp"] > b["timestamp"])
 	
-	print("[REWIND] Extracted path with ", rewind_traceback_frame_data.size(), " points")
-	print("[REWIND] Path time range: ", rewind_traceback_frame_data[rewind_traceback_frame_data.size() - 1]["timestamp"], " to ", rewind_traceback_frame_data[0]["timestamp"])
-	print("[REWIND] Target time range: ", rewind_target_time, " to ", game_time)
 	
 	# Cancel conflicting states before starting traceback
 	if is_attacking:
@@ -3324,7 +3164,6 @@ func _start_rewind_hold() -> void:
 	is_rewind_tracing = true
 	rewind_hold_start_time = game_time
 	velocity = Vector2.ZERO  # Stop movement during traceback
-	print("[REWIND] Hold-to-rewind started with ", rewind_traceback_frame_data.size(), " path points")
 
 
 func _stop_rewind_hold() -> void:
@@ -3332,7 +3171,6 @@ func _stop_rewind_hold() -> void:
 	if not is_rewind_holding:
 		return
 	
-	print("[REWIND] Stopping hold-to-rewind at progress: ", rewind_current_progress)
 	
 	# Get the current state at the release position
 	var release_state = _get_state_at_progress(rewind_current_progress)
@@ -3455,7 +3293,6 @@ func _process_rewind_traceback(delta: float) -> void:
 	# Check if button is still being held
 	if not Input.is_action_pressed("rewind"):
 		# Button was released - stop rewind
-		print("[REWIND TRACEBACK] Button no longer pressed, stopping")
 		_stop_rewind_hold()
 		return
 	
@@ -3471,13 +3308,8 @@ func _process_rewind_traceback(delta: float) -> void:
 	# Clamp progress to 0.0 - 1.0
 	rewind_current_progress = clamp(rewind_current_progress, 0.0, 1.0)
 	
-	# Debug output (only every 10 frames to avoid spam)
-	if Engine.get_physics_frames() % 10 == 0:
-		print("[REWIND TRACEBACK] Progress: ", old_progress, " -> ", rewind_current_progress, " (delta: ", progress_delta, ", speed: ", rewind_traceback_speed, ")")
-	
 	# Check if we've reached the end (2 seconds ago)
 	if rewind_current_progress >= 1.0:
-		print("[REWIND] Reached 2 seconds ago, completing rewind")
 		_complete_rewind_hold()
 		return
 	
@@ -3494,7 +3326,7 @@ func _process_rewind_traceback(delta: float) -> void:
 		# Update ghost visualization (fade out completed segments)
 		_update_ghost_path_visualization(rewind_current_progress)
 	else:
-		print("[REWIND TRACEBACK] WARNING: Could not get state at progress ", rewind_current_progress)
+		pass
 	
 	# Zero out velocity to prevent physics from interfering
 	# Also clear wall states to prevent wall interactions (wall run, wall slide, etc.)
@@ -3639,7 +3471,6 @@ func _complete_rewind_hold() -> void:
 	if not is_rewind_holding:
 		return
 	
-	print("[REWIND] Completing rewind at 2 seconds ago")
 	
 	# Get state at 2 seconds ago
 	var target_state = _find_state_at_time(rewind_target_time)
@@ -3695,7 +3526,6 @@ func _enter_rewind_slowmo() -> void:
 	# Enable grayscale overlay
 	_enable_grayscale_overlay()
 	
-	print("[REWIND] Entered slow-mo (time_scale: ", rewind_slowmo_scale, ")")
 
 
 func _exit_rewind_slowmo() -> void:
@@ -3709,7 +3539,6 @@ func _exit_rewind_slowmo() -> void:
 	# Disable grayscale overlay
 	_disable_grayscale_overlay()
 	
-	print("[REWIND] Exited slow-mo (restored time_scale: ", original_time_scale, ")")
 
 
 func _create_ghost_path_visualization() -> void:
@@ -3802,7 +3631,6 @@ func _create_ghost_path_visualization() -> void:
 		rewind_path_visualization.add_child(ghost_marker)
 		ghost_markers.append(ghost_marker)
 	
-	print("[REWIND] Created ", ghost_markers.size(), " ghost markers for path visualization")
 
 
 func _update_ghost_path_visualization(progress: float) -> void:
@@ -3849,7 +3677,6 @@ func _clear_ghost_path_visualization() -> void:
 		rewind_path_visualization.queue_free()
 		rewind_path_visualization = null
 	
-	print("[REWIND] Cleared ghost path visualization")
 
 
 func _enable_grayscale_overlay() -> void:
@@ -3883,7 +3710,6 @@ func _enable_grayscale_overlay() -> void:
 			var viewport_size = viewport.get_visible_rect().size
 			color_rect.size = viewport_size
 			color_rect.position = Vector2.ZERO
-			print("[REWIND] Viewport size: ", viewport_size, ", ColorRect size: ", color_rect.size)
 		
 		# Load and apply grayscale shader
 		var shader = load("res://shaders/grayscale_overlay.gdshader")
@@ -3892,10 +3718,8 @@ func _enable_grayscale_overlay() -> void:
 			shader_material.shader = shader
 			shader_material.set_shader_parameter("intensity", 1.0)
 			color_rect.material = shader_material
-			print("[REWIND] Grayscale shader loaded and applied successfully")
-			print("[REWIND] ColorRect visible: ", color_rect.visible, ", has material: ", color_rect.material != null)
 		else:
-			print("[REWIND] ERROR: Could not load grayscale shader at res://shaders/grayscale_overlay.gdshader")
+			pass
 		
 		# Add ColorRect to canvas layer
 		canvas_layer.add_child(color_rect)
@@ -3905,15 +3729,12 @@ func _enable_grayscale_overlay() -> void:
 		if grayscale_overlay:
 			if grayscale_overlay.material:
 				grayscale_overlay.material.set_shader_parameter("intensity", 1.0)
-				print("[REWIND] Grayscale overlay material found and intensity set to 1.0")
 			else:
-				print("[REWIND] WARNING: Grayscale overlay has no material")
+				pass
 			grayscale_overlay.visible = true
-			print("[REWIND] Grayscale overlay made visible")
 		else:
-			print("[REWIND] WARNING: Could not find GrayscaleRect in canvas layer")
+			pass
 	
-	print("[REWIND] Enabled grayscale overlay")
 
 
 func _disable_grayscale_overlay() -> void:
@@ -3933,7 +3754,6 @@ func _disable_grayscale_overlay() -> void:
 		if color_rect:
 			color_rect.visible = false
 	
-	print("[REWIND] Disabled grayscale overlay")
 
 
 func _perform_rewind() -> void:
@@ -4106,7 +3926,6 @@ func _create_bullet_parry_indicator() -> void:
 
 func die() -> void:
 	"""Kill the player and restart the level."""
-	print("[PLAYER] DIED! Restarting level...")
 	# Reset time scale just in case
 	Engine.time_scale = 1.0
 	get_tree().reload_current_scene()
@@ -4248,7 +4067,7 @@ func _load_animation_sequence(sf: SpriteFrames, anim_name: String, folder: Strin
 		sf.set_animation_speed(anim_name, fps)
 		sf.set_animation_loop(anim_name, loop)
 	else:
-		print("Warning: No frames found for animation: ", anim_name, " at path: ", folder + prefix)
+		pass
 
 # ====================================
 # VISUAL EFFECTS & CAMERA
@@ -4366,26 +4185,20 @@ func _update_animations() -> void:
 		current_offset = kick_offset
 		if animated_sprite.animation != "kick":
 			animated_sprite.play("kick")
-			print("[DEBUG-ANIM] Started Kick")
 		animated_sprite.speed_scale = 1.0
 	elif is_ground_sliding:
 		current_scale = ground_slide_scale
 		current_offset = ground_slide_offset
 		if animated_sprite.animation != "slide":
 			animated_sprite.play("slide")
-			print("[DEBUG-ANIM] Started Slide Animation")
 		
 		# Ensure it stays at the last frame if it reached it
 		var frame_count = animated_sprite.sprite_frames.get_frame_count("slide")
 		if animated_sprite.frame == frame_count - 1:
 			if animated_sprite.is_playing():
 				animated_sprite.stop()
-				print("[DEBUG-ANIM] Slide animation finished, locking to last frame (%d)" % (frame_count - 1))
 			# Force it to stay at the last frame to prevent any possible wrap-around
 			animated_sprite.frame = frame_count - 1
-		
-		# Detailed debug for sliding frame
-		# print("[DEBUG-FRAME] Sliding: Animation=%s, Frame=%d/%d, Playing=%s" % [animated_sprite.animation, animated_sprite.frame, frame_count-1, animated_sprite.is_playing()])
 		
 		animated_sprite.speed_scale = 1.0
 	elif is_on_floor():
@@ -4395,7 +4208,6 @@ func _update_animations() -> void:
 			# FIX: Ensure animation plays if it was previously stopped (e.g. from idle)
 			if animated_sprite.animation != "run" or not animated_sprite.is_playing():
 				animated_sprite.play("run")
-				print("[DEBUG-ANIM] Playing Run (moving horizontally)")
 			animated_sprite.speed_scale = max(0.5, abs(velocity.x) / max_speed)
 		else:
 			# If stopped on floor, play idle animation
@@ -4403,14 +4215,12 @@ func _update_animations() -> void:
 			current_offset = idle_offset
 			if animated_sprite.animation != "idle" or not animated_sprite.is_playing():
 				animated_sprite.play("idle")
-				print("[DEBUG-ANIM] Playing Idle")
 			animated_sprite.speed_scale = 1.0
 	elif is_wall_running:
 		current_scale = wall_run_scale
 		current_offset = wall_run_offset
 		if animated_sprite.animation != "wall_run" or not animated_sprite.is_playing():
 			animated_sprite.play("wall_run")
-			print("[DEBUG-ANIM] Started Wall Run")
 		animated_sprite.speed_scale = 1.0
 	else:
 		# In air
@@ -4418,7 +4228,6 @@ func _update_animations() -> void:
 		current_offset = jump_offset
 		if animated_sprite.animation != "jump" or not animated_sprite.is_playing():
 			animated_sprite.play("jump")
-			print("[DEBUG-ANIM] Started Jump/Air")
 		
 		# For jump animation, we can tie frame to vertical velocity for a more dynamic look
 		# or just let it play. Since it has 28 frames, let's play it.

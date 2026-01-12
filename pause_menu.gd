@@ -89,10 +89,7 @@ func setup_pocket_watch_animation():
 		else:
 			break  # No more frames
 	
-	if pocket_watch_frames.size() > 0:
-		# print("Loaded %d frames for pocket watch animation" % pocket_watch_frames.size())
-		pass
-	else:
+	if pocket_watch_frames.size() == 0:
 		push_warning("No pocket watch frames found! Make sure to run convert_gif_to_frames.py")
 
 
@@ -298,7 +295,6 @@ func _on_inputs_pressed():
 func show_inner_menu(menu_name: String):
 	"""Show an inner menu with transition"""
 	if not inner_menus.has(menu_name):
-		# print("Inner menu not found: ", menu_name)
 		return
 	
 	# Play transition sound when entering inner menu

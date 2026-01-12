@@ -81,11 +81,9 @@ func _on_body_entered(body: Node2D) -> void:
 		# Trigger player bullet hit (with grace period for parrying)
 		if body.has_method("_on_bullet_hit"):
 			body._on_bullet_hit(self, shooter_enemy)
-			# print("[BULLET] Hit player! Starting grace period for parry")
 		elif body.has_method("_on_enemy_touched"):
 			# Fallback for older version
 			body._on_enemy_touched(shooter_enemy)
-			# print("[BULLET] Hit player! Triggering hitstun (fallback)")
 		
 		# Destroy bullet
 		queue_free()
@@ -102,7 +100,6 @@ func _on_area_entered(area: Area2D) -> void:
 			# Hit any enemy when parried (prioritize shooter but hit any)
 			var hit_direction = velocity.normalized()
 			area._hit_by_parried_bullet(hit_direction, speed)
-			# print("[BULLET] Parried bullet hit enemy! Enemy becoming physics object")
 		
 		# Destroy bullet
 		queue_free()
@@ -153,7 +150,6 @@ func parry(parry_direction: Vector2) -> void:
 	set_collision_mask_value(1, true)  # Still detect walls/platforms
 	set_collision_mask_value(3, true)  # Layer 3 for enemy areas (4 = 2^2, but using layer index 3)
 	
-	# print("[BULLET] Parried! Redirecting towards shooter at speed ", velocity.length())
 
 func _create_particle_trail() -> void:
 	"""Create a CPUParticles2D trail for the bullet."""

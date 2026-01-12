@@ -1,5 +1,6 @@
 extends Area2D
 
+@export var dialogue_id: String = "intro"
 var triggered := false
 
 func _ready() -> void:
@@ -12,4 +13,4 @@ func _on_body_entered(body: Node2D) -> void:
 	if body.is_in_group("player"):
 		triggered = true
 		# Wait a small delay to let the player fully land/settle
-		get_tree().create_timer(0.1).timeout.connect(func(): DialogueManager.start("intro"))
+		get_tree().create_timer(0.1).timeout.connect(func(): DialogueManager.start(dialogue_id))

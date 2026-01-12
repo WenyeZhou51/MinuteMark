@@ -1,6 +1,35 @@
 {
   "intro": {
 	"id": "intro",
+	"speaker": "Elevator Guard",
+	"text": "I am the mighty elevator guardian that guardeth the elevator. I won’t let you pass!",
+	"next": "flatter_guard",
+	"priority": 5
+  },
+  "elevator_guard_start": {
+	"id": "elevator_guard_start",
+	"speaker": "Elevator Guard",
+	"text": "I am the mighty elevator guardian that guardeth the elevator. I won’t let you pass!",
+	"next": "flatter_guard",
+	"priority": 5
+  },
+  "flatter_guard": {
+	"id": "flatter_guard",
+	"speaker": "Protag",
+	"text": "Impressive, I’m sure its an uplifting job.",
+	"next": "guard_flattered",
+	"priority": 5
+  },
+  "guard_flattered": {
+	"id": "guard_flattered",
+	"speaker": "Elevator Guard",
+	"text": "Oh! Why, thank you. You have a keen eye for talent. You may pass!",
+	"next": null,
+	"action": "disable_guard",
+	"priority": 5
+  },
+  "old_intro": {
+	"id": "old_intro",
 	"speaker": "Boss",
 	"text": "You're late.You're late.You're late.You're late.You're late.You're late.You're late.You're late.You're late.You're late.You're late.You're late.",
 	"next": "reply",
@@ -13,7 +42,6 @@
 	"next": null,
 	"priority": 1
   },
-
   "interrupt": {
 	"id": "interrupt",
 	"speaker": "Stranger",
