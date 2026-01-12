@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3 uid="uid://clfclx5p38xkv"]
+[gd_scene load_steps=15 format=3 uid="uid://clfclx5p38xkv"]
 
 [ext_resource type="Script" path="res://level_manager.gd" id="1_manager"]
 [ext_resource type="PackedScene" uid="uid://vv3m4nx6g3jo" path="res://player.tscn" id="1_qj3g4"]
@@ -8,11 +8,13 @@
 [ext_resource type="TileSet" uid="uid://e2ocjnnc6tiu" path="res://tileset.tres" id="5_tileset"]
 [ext_resource type="PackedScene" uid="uid://b7q8n5ck2wh0e" path="res://pause_menu.tscn" id="8_b0gwe"]
 [ext_resource type="PackedScene" uid="uid://b756hnxt8gukc" path="res://dialogue/DialogueUI.tscn" id="9_dialogue"]
+[ext_resource type="Script" path="res://tutorial_trigger.gd" id="10_o05kg"]
 [ext_resource type="Script" path="res://dialogue_trigger.gd" id="10_trigger"]
 [ext_resource type="Script" path="res://pendulum_trigger.gd" id="11_pendulum_trigger"]
+[ext_resource type="FontFile" uid="uid://baaiikv2041fb" path="res://Fonts/Funkrocker.otf" id="12_font"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_trigger"]
-size = Vector2(957, 195)
+size = Vector2(481, 196.25)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_pendulum"]
 size = Vector2(455, 194)
@@ -34,7 +36,7 @@ centered = false
 [node name="TileMap" type="TileMap" parent="."]
 tile_set = ExtResource("5_tileset")
 format = 2
-layer_0/tile_data = PackedInt32Array(983040, 0, 0, 983041, 0, 0, 983042, 0, 0, 983043, 0, 0, 983044, 0, 0, 983045, 0, 0, 983046, 0, 0, 983047, 0, 0, 983048, 0, 0, 983049, 0, 0, 983050, 0, 0, 983051, 0, 0, 983052, 0, 0, 983053, 0, 0, 983054, 0, 0, 983055, 0, 0, 983056, 0, 0, 983057, 0, 0, 983058, 0, 0, 983059, 0, 0, 983060, 0, 0, 983061, 0, 0, 983062, 0, 0, 983063, 0, 0, 983064, 0, 0, 983065, 0, 0, 983066, 0, 0, 983067, 0, 0, 983068, 0, 0, 983069, 0, 0, 983070, 0, 0, 983071, 0, 0, 983072, 0, 0, 983073, 0, 0, 720900, 0, 0, 655364, 0, 0, 589828, 0, 0, 524292, 0, 0, 458756, 0, 0, 393220, 0, 0, 393221, 0, 0, 393222, 0, 0, 393223, 0, 0, 393224, 0, 0, 393225, 0, 0, 393226, 0, 0, 393227, 0, 0, 720910, 0, 0, 720911, 0, 0, 720912, 0, 0, 720913, 0, 0, 720914, 0, 0, 720915, 0, 0, 720916, 0, 0, 720917, 0, 0, 720918, 0, 0, 131096, 0, 0, 131097, 0, 0, 131098, 0, 0, 131099, 0, 0, 131100, 0, 0, 131101, 0, 0, 131102, 0, 0, 131103, 0, 0, 131104, 0, 0, 131105, 0, 0, 131106, 0, 0, 196642, 0, 0, 262178, 0, 0, 327714, 0, 0, 393250, 0, 0, 983074, 0, 0, 917538, 0, 0, 852002, 0, 0, 786466, 0, 0, 720930, 0, 0, 655394, 0, 0, 589858, 0, 0, 524322, 0, 0, 458786, 0, 0, 720922, 0, 0, 720923, 0, 0, 720924, 0, 0, 720925, 0, 0, 720921, 0, 0, 720920, 0, 0, 720919, 0, 0, 327684, 0, 0, 262148, 0, 0, 196612, 0, 0, 131076, 0, 0, 65540, 0, 0, 4, 0, 0, -65532, 0, 0, -131068, 0, 0, 655395, 0, 0, 655396, 0, 0, 655397, 0, 0, 655398, 0, 0, -393192, 0, 0, -393191, 0, 0, -393190, 0, 0, -393189, 0, 0, -393188, 0, 0, -393187, 0, 0, -393186, 0, 0, -393185, 0, 0, -393184, 0, 0, -393183, 0, 0, -393182, 0, 0, -393181, 0, 0, -393180, 0, 0, -393179, 0, 0, -393178, 0, 0, -393177, 0, 0, -327641, 0, 0, -327640, 0, 0, -327639, 0, 0, -327638, 0, 0, -327650, 0, 0, -327649, 0, 0, -262113, 0, 0, -262112, 0, 0, -196576, 0, 0, -196575, 0, 0, -196574, 0, 0, -131038, 0, 0, -131037, 0, 0, -131036, 0, 0, -65500, 0, 0, -65499, 0, 0, -65498, 0, 0, -65497, 0, 0, -131032, 0, 0, -196568, 0, 0, -196567, 0, 0, -262103, 0, 0, -262102, 0, 0, -327637, 0, 0, -262104, 0, 0, -196569, 0, 0, -131033, 0, 0, -131034, 0, 0, -262105, 0, 0, -262106, 0, 0, -196571, 0, 0, -196572, 0, 0, -196573, 0, 0, -262110, 0, 0, -262109, 0, 0, -262108, 0, 0, -262107, 0, 0, -262111, 0, 0, -262114, 0, 0, -327648, 0, 0, -327647, 0, 0, -327646, 0, 0, -327645, 0, 0, -327644, 0, 0, -327643, 0, 0, -327642, 0, 0, -196570, 0, 0, -131035, 0, 0, 131107, 0, 0, 131108, 0, 0, 131109, 0, 0, 131110, 0, 0, 131111, 0, 0, 131112, 0, 0, 131113, 0, 0, 131114, 0, 0, 131115, 0, 0, 131116, 0, 0, 36, 0, 0, 37, 0, 0, 38, 0, 0, 39, 0, 0, 40, 0, 0, -65496, 0, 0, -65495, 0, 0, -131031, 0, 0, -131030, 0, 0, -196566, 0, 0, -262101, 0, 0, -327636, 0, 0, -327635, 0, 0, -327634, 0, 0, -327633, 0, 0, -327632, 0, 0, -327631, 0, 0, -327630, 0, 0, -327629, 0, 0, -327628, 0, 0, -327627, 0, 0, -327626, 0, 0, -327625, 0, 0, -393193, 0, 0, -393194, 0, 0, -393195, 0, 0, -393196, 0, 0, -393197, 0, 0, -393198, 0, 0, -393199, 0, 0, -393200, 0, 0, -393201, 0, 0, -393202, 0, 0, -393203, 0, 0, -393204, 0, 0, -393205, 0, 0, -393206, 0, 0, -393207, 0, 0, -393208, 0, 0, -393209, 0, 0, -393210, 0, 0, -393211, 0, 0, -393212, 0, 0, -327676, 0, 0, -196604, 0, 0, -262140, 0, 0, 655412, 0, 0, 655413, 0, 0, 655414, 0, 0, 655415, 0, 0, 655416, 0, 0, 655417, 0, 0, -196551, 0, 0, -262087, 0, 0, -327623, 0, 0, -327624, 0, 0, 655401, 0, 0, 655400, 0, 0, 655399, 0, 0, 720948, 0, 0, 786484, 0, 0, 852020, 0, 0, 917556, 0, 0, 983092, 0, 0, 1048628, 0, 0, 1114164, 0, 0, 1179700, 0, 0, 1245236, 0, 0, 1310772, 0, 0, 1376308, 0, 0, 1376307, 0, 0, 1376306, 0, 0, 1376305, 0, 0, 1376304, 0, 0, 1376303, 0, 0, 1376302, 0, 0, 1376301, 0, 0, 1376300, 0, 0, 1376299, 0, 0, 1376298, 0, 0, 1376297, 0, 0, 1376296, 0, 0, 1376295, 0, 0, 1376294, 0, 0, 1376293, 0, 0, 1376292, 0, 0, 1376291, 0, 0, 1376290, 0, 0, 1376289, 0, 0, 1376288, 0, 0, 1376287, 0, 0, 1376286, 0, 0, 1376285, 0, 0, 1376284, 0, 0, 1376283, 0, 0, 1376282, 0, 0, 655402, 0, 0, 655403, 0, 0, 655404, 0, 0, 655405, 0, 0, 655406, 0, 0, 655418, 0, 0, 655419, 0, 0, 655420, 0, 0, 655421, 0, 0, 655422, 0, 0, 655423, 0, 0, 655424, 0, 0, 655425, 0, 0, 589889, 0, 0, 524353, 0, 0, 458817, 0, 0, 393281, 0, 0, 327745, 0, 0, 262209, 0, 0, 196673, 0, 0, 131137, 0, 0, 65601, 0, 0, 65, 0, 0, -65471, 0, 0, -131007, 0, 0, -196543, 0, 0, -262079, 0, 0, -262078, 0, 0, -327614, 0, 0, -327615, 0, 0, -327616, 0, 0, -327617, 0, 0, -327618, 0, 0, -327619, 0, 0, -327620, 0, 0, -327621, 0, 0, -327622, 0, 0, -262086, 0, 0, -196550, 0, 0, -196549, 0, 0, -131012, 0, 0, -131011, 0, 0, -65475, 0, 0, -65474, 0, 0, 62, 0, 0, 63, 0, 0, 64, 0, 0, 65600, 0, 0, 131138, 0, 0)
+layer_0/tile_data = PackedInt32Array(983040, 0, 0, 983041, 0, 0, 983042, 0, 0, 983043, 0, 0, 983044, 0, 0, 983045, 0, 0, 983046, 0, 0, 983047, 0, 0, 983048, 0, 0, 983049, 0, 0, 983050, 0, 0, 983051, 0, 0, 983052, 0, 0, 983053, 0, 0, 983054, 0, 0, 983055, 0, 0, 983056, 0, 0, 983057, 0, 0, 983058, 0, 0, 983059, 0, 0, 983060, 0, 0, 983061, 0, 0, 983062, 0, 0, 983063, 0, 0, 983064, 0, 0, 983065, 0, 0, 983066, 0, 0, 983067, 0, 0, 983068, 0, 0, 983069, 0, 0, 983070, 0, 0, 983071, 0, 0, 983072, 0, 0, 983073, 0, 0, 720900, 0, 0, 655364, 0, 0, 589828, 0, 0, 524292, 0, 0, 458756, 0, 0, 393220, 0, 0, 720910, 0, 0, 720911, 0, 0, 720912, 0, 0, 720913, 0, 0, 720914, 0, 0, 720915, 0, 0, 720916, 0, 0, 720917, 0, 0, 720918, 0, 0, 131096, 0, 0, 131097, 0, 0, 131098, 0, 0, 131099, 0, 0, 131100, 0, 0, 131101, 0, 0, 131102, 0, 0, 131103, 0, 0, 131104, 0, 0, 131105, 0, 0, 131106, 0, 0, 196642, 0, 0, 262178, 0, 0, 327714, 0, 0, 393250, 0, 0, 983074, 0, 0, 917538, 0, 0, 852002, 0, 0, 786466, 0, 0, 720930, 0, 0, 655394, 0, 0, 589858, 0, 0, 524322, 0, 0, 458786, 0, 0, 720922, 0, 0, 720923, 0, 0, 720924, 0, 0, 720925, 0, 0, 720921, 0, 0, 720920, 0, 0, 720919, 0, 0, 327684, 0, 0, 262148, 0, 0, 196612, 0, 0, 131076, 0, 0, 65540, 0, 0, 4, 0, 0, -65532, 0, 0, -131068, 0, 0, 655395, 0, 0, 655396, 0, 0, 655397, 0, 0, 655398, 0, 0, -393192, 0, 0, -393191, 0, 0, -393190, 0, 0, -393189, 0, 0, -393188, 0, 0, -393187, 0, 0, -393186, 0, 0, -393185, 0, 0, -393184, 0, 0, -393183, 0, 0, -393182, 0, 0, -393181, 0, 0, -393180, 0, 0, -393179, 0, 0, -393178, 0, 0, -393177, 0, 0, -327641, 0, 0, -327640, 0, 0, -327639, 0, 0, -327638, 0, 0, -327650, 0, 0, -327649, 0, 0, -262113, 0, 0, -262112, 0, 0, -196576, 0, 0, -196575, 0, 0, -196574, 0, 0, -131038, 0, 0, -131037, 0, 0, -131036, 0, 0, -65500, 0, 0, -65499, 0, 0, -65498, 0, 0, -65497, 0, 0, -131032, 0, 0, -196568, 0, 0, -196567, 0, 0, -262103, 0, 0, -262102, 0, 0, -327637, 0, 0, -262104, 0, 0, -196569, 0, 0, -131033, 0, 0, -131034, 0, 0, -262105, 0, 0, -262106, 0, 0, -196571, 0, 0, -196572, 0, 0, -196573, 0, 0, -262110, 0, 0, -262109, 0, 0, -262108, 0, 0, -262107, 0, 0, -262111, 0, 0, -262114, 0, 0, -327648, 0, 0, -327647, 0, 0, -327646, 0, 0, -327645, 0, 0, -327644, 0, 0, -327643, 0, 0, -327642, 0, 0, -196570, 0, 0, -131035, 0, 0, 131107, 0, 0, 131108, 0, 0, 131109, 0, 0, 131110, 0, 0, 131111, 0, 0, 131112, 0, 0, 131113, 0, 0, 131114, 0, 0, 131115, 0, 0, 131116, 0, 0, 36, 0, 0, 37, 0, 0, 38, 0, 0, 39, 0, 0, 40, 0, 0, -65496, 0, 0, -65495, 0, 0, -131031, 0, 0, -131030, 0, 0, -196566, 0, 0, -262101, 0, 0, -327636, 0, 0, -327635, 0, 0, -327634, 0, 0, -327633, 0, 0, -327632, 0, 0, -327631, 0, 0, -327630, 0, 0, -327629, 0, 0, -327628, 0, 0, -327627, 0, 0, -327626, 0, 0, -327625, 0, 0, -393193, 0, 0, -393194, 0, 0, -393195, 0, 0, -393196, 0, 0, -393197, 0, 0, -393198, 0, 0, -393199, 0, 0, -393200, 0, 0, -393201, 0, 0, -393202, 0, 0, -393203, 0, 0, -393204, 0, 0, -393205, 0, 0, -393206, 0, 0, -393207, 0, 0, -393208, 0, 0, -393209, 0, 0, -393210, 0, 0, -393211, 0, 0, -393212, 0, 0, -327676, 0, 0, -196604, 0, 0, -262140, 0, 0, 655412, 0, 0, 655413, 0, 0, 655414, 0, 0, 655415, 0, 0, 655416, 0, 0, 655417, 0, 0, -196551, 0, 0, -262087, 0, 0, -327623, 0, 0, -327624, 0, 0, 655401, 0, 0, 655400, 0, 0, 655399, 0, 0, 720948, 0, 0, 786484, 0, 0, 852020, 0, 0, 917556, 0, 0, 983092, 0, 0, 1048628, 0, 0, 1114164, 0, 0, 1179700, 0, 0, 1245236, 0, 0, 1310772, 0, 0, 1376308, 0, 0, 1376307, 0, 0, 1376306, 0, 0, 1376305, 0, 0, 1376304, 0, 0, 1376303, 0, 0, 1376302, 0, 0, 1376301, 0, 0, 1376300, 0, 0, 1376299, 0, 0, 1376298, 0, 0, 1376297, 0, 0, 1376296, 0, 0, 1376295, 0, 0, 1376294, 0, 0, 1376293, 0, 0, 1376292, 0, 0, 1376291, 0, 0, 1376290, 0, 0, 1376289, 0, 0, 1376288, 0, 0, 1376287, 0, 0, 1376286, 0, 0, 1376285, 0, 0, 1376284, 0, 0, 1376283, 0, 0, 1376282, 0, 0, 655402, 0, 0, 655403, 0, 0, 655404, 0, 0, 655418, 0, 0, 655419, 0, 0, 655420, 0, 0, 655421, 0, 0, 655422, 0, 0, 655423, 0, 0, 655424, 0, 0, 655425, 0, 0, 589889, 0, 0, 524353, 0, 0, 458817, 0, 0, 393281, 0, 0, 327745, 0, 0, 262209, 0, 0, 196673, 0, 0, 131137, 0, 0, 65601, 0, 0, 65, 0, 0, -65471, 0, 0, -131007, 0, 0, -196543, 0, 0, -262079, 0, 0, -262078, 0, 0, -327614, 0, 0, -327615, 0, 0, -327616, 0, 0, -327617, 0, 0, -327618, 0, 0, -327619, 0, 0, -327620, 0, 0, -327621, 0, 0, -327622, 0, 0, -262086, 0, 0, -196550, 0, 0, -196549, 0, 0, -131012, 0, 0, -131011, 0, 0, -65475, 0, 0, -65474, 0, 0, 62, 0, 0, 63, 0, 0, 64, 0, 0, 65600, 0, 0, 131138, 0, 0, 720901, 0, 0, 720902, 0, 0, 720903, 0, 0, 720904, 0, 0, 720905, 0, 0, 720906, 0, 0, 720907, 0, 0, 720908, 0, 0, 720909, 0, 0, 393226, 0, 0, 393227, 0, 0, 393228, 0, 0, 393229, 0, 0, 393230, 0, 0, 655411, 0, 0, 655410, 0, 0)
 
 [node name="Player" parent="." instance=ExtResource("1_qj3g4")]
 position = Vector2(156, 806)
@@ -110,21 +112,25 @@ slam_landing_aoe_height = 50.0
 slam_freeze_duration = 0.2
 
 [node name="Enemy" parent="." instance=ExtResource("2_enemy")]
-position = Vector2(544, 325)
+position = Vector2(1088, 666)
+
+[node name="Enemy2" parent="." instance=ExtResource("2_enemy")]
+position = Vector2(2333, 594)
 
 [node name="Enemy3" parent="." instance=ExtResource("2_enemy")]
 position = Vector2(1195, 632)
 
-[node name="Enemy4" parent="." instance=ExtResource("2_enemy")]
-position = Vector2(2120, 909)
-
-[node name="Enemy2" parent="." instance=ExtResource("2_enemy")]
-position = Vector2(2965, 568)
+[node name="Elevator Guard" parent="." instance=ExtResource("2_enemy")]
+position = Vector2(3384, 595)
 
 [node name="KickableObjects" type="Node2D" parent="."]
 
 [node name="KickableObject1" parent="KickableObjects" instance=ExtResource("4_kickable")]
-position = Vector2(3352, 573)
+position = Vector2(2589, 553)
+fragment_count = 3
+
+[node name="KickableObject2" parent="KickableObjects" instance=ExtResource("4_kickable")]
+position = Vector2(2677, 600)
 fragment_count = 3
 
 [node name="KickableObject5" parent="KickableObjects" instance=ExtResource("4_kickable")]
@@ -143,17 +149,131 @@ offset_right = 2.0
 offset_bottom = 3.0
 
 [node name="DialogueTrigger" type="Area2D" parent="."]
-position = Vector2(1000, 325)
+position = Vector2(1939, 968)
 script = ExtResource("10_trigger")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="DialogueTrigger"]
 position = Vector2(427.5, 269.5)
 shape = SubResource("RectangleShape2D_trigger")
 
+[node name="Tutorial Trigger" type="Area2D" parent="."]
+position = Vector2(1000, 325)
+script = ExtResource("10_o05kg")
+tutorial_message = "A D To Move"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Tutorial Trigger"]
+position = Vector2(-757, 539.875)
+shape = SubResource("RectangleShape2D_trigger")
+
+[node name="Tutorial Trigger5" type="Area2D" parent="."]
+position = Vector2(2037, 48)
+script = ExtResource("10_o05kg")
+tutorial_message = "J to Kick"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Tutorial Trigger5"]
+position = Vector2(-757, 539.875)
+shape = SubResource("RectangleShape2D_trigger")
+
+[node name="Tutorial Trigger6" type="Area2D" parent="."]
+position = Vector2(1777, -478)
+script = ExtResource("10_o05kg")
+tutorial_message = "Shift midair to dash"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Tutorial Trigger6"]
+position = Vector2(-757, 539.875)
+shape = SubResource("RectangleShape2D_trigger")
+
+[node name="Tutorial Trigger4" type="Area2D" parent="."]
+position = Vector2(1290, 63)
+script = ExtResource("10_o05kg")
+tutorial_message = "Run towards Wall to Wallrun"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Tutorial Trigger4"]
+position = Vector2(-726.5, 539.875)
+shape = SubResource("RectangleShape2D_trigger")
+
+[node name="Tutorial Trigger2" type="Area2D" parent="."]
+position = Vector2(2674, 315)
+script = ExtResource("10_o05kg")
+tutorial_message = "K To Jump"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Tutorial Trigger2"]
+position = Vector2(-757, 539.875)
+shape = SubResource("RectangleShape2D_trigger")
+
+[node name="Tutorial Trigger3" type="Area2D" parent="."]
+position = Vector2(2845, -518)
+script = ExtResource("10_o05kg")
+tutorial_message = "Shift to Slide"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Tutorial Trigger3"]
+position = Vector2(-757, 539.875)
+shape = SubResource("RectangleShape2D_trigger")
+
 [node name="PendulumTrigger" type="Area2D" parent="."]
-position = Vector2(500, 325)
+position = Vector2(2184, 698)
 script = ExtResource("11_pendulum_trigger")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="PendulumTrigger"]
 position = Vector2(910, 542)
 shape = SubResource("RectangleShape2D_pendulum")
+
+[node name="JumpLabel" type="Label" parent="."]
+offset_left = 1064.0
+offset_top = 421.0
+offset_right = 1464.0
+offset_bottom = 529.0
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 12
+theme_override_fonts/font = ExtResource("12_font")
+theme_override_font_sizes/font_size = 72
+text = "J to Kick"
+horizontal_alignment = 1
+
+[node name="JumpLabel4" type="Label" parent="."]
+offset_left = -446.0
+offset_top = 757.0
+offset_right = -46.0
+offset_bottom = 865.0
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 12
+theme_override_fonts/font = ExtResource("12_font")
+theme_override_font_sizes/font_size = 72
+text = "R to Rewind"
+horizontal_alignment = 1
+
+[node name="JumpLabel2" type="Label" parent="."]
+offset_left = 3438.0
+offset_top = 266.0
+offset_right = 4013.0
+offset_bottom = 374.0
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 12
+theme_override_fonts/font = ExtResource("12_font")
+theme_override_font_sizes/font_size = 72
+text = "Kick Bullet to parry"
+horizontal_alignment = 1
+
+[node name="JumpLabel3" type="Label" parent="."]
+offset_left = 2316.0
+offset_top = 320.0
+offset_right = 2981.0
+offset_bottom = 428.0
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 12
+theme_override_fonts/font = ExtResource("12_font")
+theme_override_font_sizes/font_size = 72
+text = "Kick Object at enemy"
+horizontal_alignment = 1
+
+[node name="DashLabel" type="Label" parent="."]
+offset_left = 441.0
+offset_top = 81.0
+offset_right = 1284.0
+offset_bottom = 189.0
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 12
+theme_override_fonts/font = ExtResource("12_font")
+theme_override_font_sizes/font_size = 72
+text = "Shift while airborn to dash"
+horizontal_alignment = 1
