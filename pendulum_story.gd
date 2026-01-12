@@ -3,11 +3,11 @@ extends Node2D
 signal story_finished
 
 # Inspector-adjustable properties
-@export var bob_radius: float = 120.0
+@export var bob_radius: float = 250.0
 @export var bob_sprite_scale_multiplier: float = 2.25
-@export var pendulum_line_width: float = 4.0
-@export_range(0.0, 2000.0, 10.0) var pendulum_length: float = 1500.0
-@export_range(0.0, 90.0, 1.0) var max_swing_angle: float = 60.0  # Degrees from vertical
+@export var pendulum_line_width: float = 8.0
+@export_range(0.0, 2000.0, 10.0) var pendulum_length: float = 950.0
+@export_range(0.0, 90.0, 1.0) var max_swing_angle: float = 75.0  # Degrees from vertical
 @export_range(0.0, 90.0, 1.0) var cutoff_angle: float = 50.0  # Degrees from vertical - when reached, show complete image
 
 @export_range(0.0, 1.0, 0.01) var transition_threshold: float = 0.98  # Trigger transition at 98% of swing
@@ -129,21 +129,6 @@ func _ready():
 		bg_overlay.modulate = Color(0.9, 0.9, 0.9, 1.0) 
 		add_child(bg_overlay)
 	# ------------------------
-	
-	# Create border frame
-	var border_tex = load("res://Sprites/Border.png")
-	if border_tex:
-		frame_border = Sprite2D.new()
-		frame_border.texture = border_tex
-		frame_border.name = "FrameBorder"
-		add_child(frame_border)
-		# Ensure it's above images but below pendulum
-		# Pendulum is a separate node, images are separate nodes. 
-		# We need to check scene tree order.
-		# ImageBottom and ImageTop are direct children. Pendulum is direct child.
-		# We want order: BG -> Images -> Border -> Pendulum
-		# Currently: BG (0,1), ImageBottom, ImageTop, Pendulum
-		# So we can move border to be after ImageTop
 	
 	# Set pivot at TOP CENTER of screen
 	pivot_point = Vector2(viewport_size.x / 2, 0)
@@ -365,10 +350,10 @@ func update_pendulum():
 	# Check for instruction fade out
 	if !instructions_faded and instruction_label:
 		# If moving significantly or dragging or using keys
-		var is_moving = abs(angular_velocity) > 0.5
+		var is_moving = abs(angular_velocity) > 0.1
 		var input_active = Input.get_axis("move_left", "move_right") != 0
 		
-		if is_dragging or (is_moving and input_active):
+		if is_dragging or input_active:
 			fade_out_instructions()
 
 func update_mask():
@@ -456,14 +441,7 @@ func load_story_textures():
 func setup_images():
 	# Use the viewport center instead of the ImageTransform guide
 	var viewport_size = get_viewport_rect().size
-	var actual_center = Vector2(viewport_size.x / 2.0, viewport_size.y / 2.0 + 50.0) # Slightly lower than center
-	
-	# Calculate target size (use ImageTransform scale as a reference for size)
-	var base_width = image_transform.offset_right - image_transform.offset_left
-	var base_height = image_transform.offset_bottom - image_transform.offset_top
-	# Reduce scale to 60% of original
-	var actual_width = base_width * image_transform.scale.x * 0.6
-	var actual_height = base_height * image_transform.scale.y * 0.6
+	var actual_center = Vector2(viewport_size.x / 2.0, viewport_size.y / 2.0) # True center
 	
 	# Position images at the center
 	image_bottom.position = actual_center
@@ -474,30 +452,23 @@ func setup_images():
 	# Scale images to fit
 	if image_bottom.texture:
 		var tex_size = image_bottom.texture.get_size()
-		image_bottom.scale = Vector2(actual_width / tex_size.x, actual_height / tex_size.y)
-	
-	if image_top.texture:
-		var tex_size = image_top.texture.get_size()
-		image_top.scale = Vector2(actual_width / tex_size.x, actual_height / tex_size.y)
-
-	# Update border scale/position
-	if frame_border and frame_border.texture:
-		frame_border.position = actual_center
-		var border_size = frame_border.texture.get_size()
-		# Scale border to be slightly larger than the images
-		# Assuming border texture has some thickness and inner transparent area
-		# We want the inner area to match actual_width/height roughly
-		# Let's just match the outer dimensions plus a bit of padding if needed, 
-		# or scale to fit exactly if it's a frame.
-		# Let's scale it to be slightly larger than the image (e.g. 1.15x)
-		var scale_x = (actual_width / border_size.x) * 1.15
-		var scale_y = (actual_height / border_size.y) * 1.15
-		frame_border.scale = Vector2(scale_x, scale_y)
+		# Calculate scale to FIT the viewport (min of x/y ratios)
+		var scale_x = viewport_size.x / tex_size.x
+		var scale_y = viewport_size.y / tex_size.y
+		# Use max to ensure it covers the whole screen (Aspect Fill)
+		var final_scale = max(scale_x, scale_y) * 1.0
 		
-		# Move border in scene tree to be above images
-		if frame_border.get_parent() == self:
-			move_child(frame_border, image_top.get_index() + 1)
-			
+		image_bottom.scale = Vector2(final_scale, final_scale)
+		
+		if image_top.texture:
+			# Assume same size/aspect ratio for top image or recalculate
+			var top_tex_size = image_top.texture.get_size()
+			# Apply same logic to top image
+			var top_scale_x = viewport_size.x / top_tex_size.x
+			var top_scale_y = viewport_size.y / top_tex_size.y
+			var top_final_scale = max(top_scale_x, top_scale_y) * 1.0
+			image_top.scale = Vector2(top_final_scale, top_final_scale)
+
 func update_bob_visuals():
 	# Load and set the sprite texture
 	bob.texture = load("res://Sprites/New bob.png")
@@ -520,12 +491,14 @@ func setup_instructions():
 	
 	# Style the label
 	instruction_label.add_theme_font_size_override("font_size", 64)
-	instruction_label.add_theme_color_override("font_color", Color.BLACK)
-	# instruction_label.add_theme_color_override("font_outline_color", Color.BLACK)
-	# instruction_label.add_theme_constant_override("outline_size", 12)
-	# instruction_label.add_theme_constant_override("shadow_offset_x", 4)
-	# instruction_label.add_theme_constant_override("shadow_offset_y", 4)
-	# instruction_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.5))
+	instruction_label.add_theme_color_override("font_color", Color.WHITE)
+	instruction_label.add_theme_constant_override("outline_size", 12)
+	instruction_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	
+	# Add shadow for extra visibility
+	instruction_label.add_theme_constant_override("shadow_offset_x", 4)
+	instruction_label.add_theme_constant_override("shadow_offset_y", 4)
+	instruction_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.6))
 	
 	# Try to load custom font
 	var font = load("res://Fonts/Funkrocker.otf")
@@ -538,8 +511,8 @@ func setup_instructions():
 	
 	var viewport_size = get_viewport_rect().size
 	instruction_label.size = Vector2(viewport_size.x, 100)
-	instruction_label.position = Vector2(0, viewport_size.y - 300)
-	instruction_label.z_index = 10 # Ensure it's on top
+	instruction_label.position = Vector2(0, viewport_size.y - 200) # Slightly higher
+	instruction_label.z_index = 100 # Ensure it's on top of everything (z=10 might be too low if bg layers are weird)
 	
 	add_child(instruction_label)
 

@@ -55,7 +55,7 @@ func start_transition():
 	pendulum_instance.process_mode = Node.PROCESS_MODE_ALWAYS
 	
 	var canvas_layer = CanvasLayer.new()
-	canvas_layer.layer = 100
+	canvas_layer.layer = 110 # Higher than TimerUI (100)
 	canvas_layer.add_child(pendulum_instance)
 	get_tree().root.add_child(canvas_layer)
 	
