@@ -375,6 +375,10 @@ var rewind_path_visualization: Node2D = null  # Container for ghost path visuals
 var ghost_markers: Array[Node2D] = []  # Array of ghost marker nodes
 var grayscale_overlay: ColorRect = null  # Grayscale overlay for rewind effect
 
+# Position validity state
+var is_position_invalid: bool = false  # Is player's current position invalid (overlapping with solid objects)
+var is_dying: bool = false  # Flag to prevent further processing after die() is called
+
 # Dust effect state
 var dust_spawn_timer: float = 0.0
 
@@ -573,6 +577,10 @@ func _create_kick_object_indicator() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	# Skip all processing if dying (scene is being reloaded)
+	if is_dying:
+		return
+	
 	# Update timer system (only when not paused)
 	if not get_tree().paused and current_game_time > 0:
 		current_game_time -= delta
@@ -581,6 +589,7 @@ func _physics_process(delta: float) -> void:
 			if timer_ui_instance:
 				timer_ui_instance.update_display(current_game_time)
 			die()
+			return  # Stop processing after death
 		else:
 			if timer_ui_instance:
 				timer_ui_instance.update_display(current_game_time)
@@ -677,6 +686,9 @@ func _physics_process(delta: float) -> void:
 		# This must be checked AFTER the press check to avoid same-frame conflicts
 		if Input.is_action_just_released("rewind") and is_rewind_holding:
 			_stop_rewind_hold()
+			# Check if die() was called during stop
+			if is_dying:
+				return
 	
 	# Update run state based on speed (sprint state when speed exceeds threshold)
 	var current_speed = velocity.length()
@@ -957,6 +969,9 @@ func _physics_process(delta: float) -> void:
 	# 11.5. Process Rewind Traceback (if active, skip normal movement)
 	if is_rewind_tracing:
 		_process_rewind_traceback(delta)
+		# Check if die() was called during rewind processing
+		if is_dying:
+			return
 		# Skip normal physics when tracing
 		move_and_slide()
 		_post_movement_updates(space_state)
@@ -1005,6 +1020,12 @@ func _physics_process(delta: float) -> void:
 	
 	# 22. Post-Movement Updates
 	_post_movement_updates(space_state)
+	
+	# 22.5. Update position validity check
+	# Note: Position validity is only meaningful during rewind when we manually set position.
+	# During normal gameplay, Godot's physics prevents entering walls, so we skip the check here.
+	# The actual kill logic is in _process_rewind_traceback, _stop_rewind_hold, and _complete_rewind_hold.
+	is_position_invalid = false  # Reset to false during normal gameplay
 	
 	# 23. Update camera shake
 	_process_camera_shake(delta)
@@ -2551,6 +2572,50 @@ func _can_stand_up() -> bool:
 	return results.is_empty()
 
 
+func _check_position_validity() -> bool:
+	"""Check if the player's current position is valid (not overlapping with solid objects).
+	Uses a slightly inset collision shape to allow normal floor/wall contact."""
+	var collision_shape = $CollisionShape2D
+	if not collision_shape or not collision_shape.shape:
+		return false  # Assume valid if collision shape is missing
+	
+	var shape = collision_shape.shape as RectangleShape2D
+	if not shape:
+		return false  # Only handle rectangle shapes
+	
+	var space_state = get_world_2d().direct_space_state
+	if not space_state:
+		return false  # Assume valid if space state is unavailable
+	
+	# Create a slightly smaller collision shape (inset by a few pixels on all sides)
+	# This way, normal floor/wall contact won't register as overlaps
+	# Only true "inside a solid" overlaps will be detected
+	var inset_amount = 2.0  # Pixels to shrink the collision shape (smaller = more sensitive detection)
+	var inset_shape = RectangleShape2D.new()
+	inset_shape.size = Vector2(
+		max(shape.size.x - inset_amount * 2, 1.0),
+		max(shape.size.y - inset_amount * 2, 1.0)
+	)
+	
+	# Use the collision shape's global transform, not just the player's transform
+	# This accounts for the collision shape's local offset (e.g., during slide when shape is repositioned)
+	var query = PhysicsShapeQueryParameters2D.new()
+	query.shape = inset_shape
+	query.transform = collision_shape.global_transform
+	query.collision_mask = collision_mask
+	query.exclude = [self.get_rid()]  # Exclude self from the check
+	
+	var results = space_state.intersect_shape(query, 1)
+	
+	# If no overlaps with the inset shape, position is valid
+	# (normal floor/wall contact is allowed since we're using a smaller shape)
+	if results.is_empty():
+		return false  # Valid position
+	
+	# The inset shape still overlaps with something - player is truly inside a solid
+	return true
+
+
 func _end_ground_slide() -> void:
 	"""End the ground slide and restore collision shape."""
 	if not is_ground_sliding:
@@ -3136,6 +3201,8 @@ func _start_rewind_hold() -> void:
 	if is_ground_sliding:
 		is_ground_sliding = false
 		ground_slide_timer = 0.0
+		# Restore collision shape to full height (slide uses reduced height)
+		_set_collision_height(original_collision_shape_height)
 	if is_air_dashing:
 		is_air_dashing = false
 		air_dash_timer = 0.0
@@ -3178,6 +3245,19 @@ func _stop_rewind_hold() -> void:
 	if not release_state.is_empty():
 		# Restore player to release position
 		global_position = release_state["position"]
+		
+		# Check validity at release position
+		is_position_invalid = _check_position_validity()
+		if is_position_invalid:
+			# Reset visual indicator before dying
+			_reset_rewind_validity_indicator()
+			# Kill player if release position is invalid
+			die()
+			return
+		
+		# Reset visual indicator on successful exit
+		_reset_rewind_validity_indicator()
+		
 		if rewind_restore_velocity:
 			velocity = release_state["velocity"]
 		else:
@@ -3325,8 +3405,12 @@ func _process_rewind_traceback(delta: float) -> void:
 		
 		# Update ghost visualization (fade out completed segments)
 		_update_ghost_path_visualization(rewind_current_progress)
-	else:
-		pass
+		
+		# Check position validity after setting position during rewind
+		is_position_invalid = _check_position_validity()
+		
+		# Update visual indicator based on position validity
+		_update_rewind_validity_indicator()
 	
 	# Zero out velocity to prevent physics from interfering
 	# Also clear wall states to prevent wall interactions (wall run, wall slide, etc.)
@@ -3476,6 +3560,19 @@ func _complete_rewind_hold() -> void:
 	var target_state = _find_state_at_time(rewind_target_time)
 	if not target_state.is_empty():
 		global_position = target_state["position"]
+		
+		# Check validity at target position
+		is_position_invalid = _check_position_validity()
+		if is_position_invalid:
+			# Reset visual indicator before dying
+			_reset_rewind_validity_indicator()
+			# Kill player if target position is invalid
+			die()
+			return
+		
+		# Reset visual indicator on successful completion
+		_reset_rewind_validity_indicator()
+		
 		if rewind_restore_velocity:
 			velocity = target_state["velocity"]
 		else:
@@ -3539,6 +3636,28 @@ func _exit_rewind_slowmo() -> void:
 	# Disable grayscale overlay
 	_disable_grayscale_overlay()
 	
+	# Reset validity indicator when exiting rewind
+	_reset_rewind_validity_indicator()
+
+
+func _update_rewind_validity_indicator() -> void:
+	"""Update visual indicator based on position validity during rewind.
+	Changes sprite color to red when in an invalid position."""
+	if not animated_sprite:
+		return
+	
+	if is_position_invalid:
+		# Invalid position - tint sprite red
+		animated_sprite.modulate = Color(1.0, 0.3, 0.3, 1.0)  # Red tint
+	else:
+		# Valid position - normal color
+		animated_sprite.modulate = Color.WHITE
+
+
+func _reset_rewind_validity_indicator() -> void:
+	"""Reset the visual indicator to normal state."""
+	if animated_sprite:
+		animated_sprite.modulate = Color.WHITE
 
 
 func _create_ghost_path_visualization() -> void:
@@ -3926,6 +4045,26 @@ func _create_bullet_parry_indicator() -> void:
 
 func die() -> void:
 	"""Kill the player and restart the level."""
+	# Set dying flag to prevent further processing in _physics_process
+	is_dying = true
+	
+	# Clean up rewind state if dying during rewind
+	if is_in_rewind_slowmo:
+		_exit_rewind_slowmo()
+	if is_rewind_holding or is_rewind_tracing:
+		_clear_ghost_path_visualization()
+		is_rewind_holding = false
+		is_rewind_tracing = false
+	
+	# Explicitly remove the grayscale overlay from the tree root (it persists across scene reloads)
+	var canvas_layer = get_tree().root.get_node_or_null("GrayscaleOverlay")
+	if canvas_layer:
+		canvas_layer.queue_free()
+	
+	# Resume music if it was playing backwards
+	if AudioManager:
+		AudioManager.stop_rewind()
+	
 	# Reset time scale just in case
 	Engine.time_scale = 1.0
 	get_tree().reload_current_scene()
