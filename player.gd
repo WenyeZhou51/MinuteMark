@@ -3201,8 +3201,13 @@ func _start_rewind_hold() -> void:
 	if is_ground_sliding:
 		is_ground_sliding = false
 		ground_slide_timer = 0.0
+		is_slide_jump_available = false
+		is_invulnerable = false
 		# Restore collision shape to full height (slide uses reduced height)
 		_set_collision_height(original_collision_shape_height)
+		# End paper tear effect
+		if paper_tear_effect:
+			paper_tear_effect.end_tear()
 	if is_air_dashing:
 		is_air_dashing = false
 		air_dash_timer = 0.0
