@@ -4,6 +4,7 @@ extends Control
 @onready var speaker_label: Label = $MainLayout/ContentHBox/DialoguePanel/SpeakerContainer/SpeakerBox/SpeakerLabel
 @onready var portrait: TextureRect = $MainLayout/ContentHBox/PortraitContainer/Portrait
 @onready var interrupt_indicator: Button = $InterruptIndicator
+@onready var interrupt_label: Label = $InterruptIndicator/Label
 @onready var choice_container: VBoxContainer = $MainLayout/ContentHBox/DialoguePanel/TextMargin/VBoxContainer/ChoiceContainer
 
 @export var style_red: StyleBoxFlat
@@ -14,7 +15,9 @@ var was_interruptable := false
 var typewriter_tween: Tween
 var portrait_tween: Tween
 var indicator_tween: Tween
+var progress_tween: Tween
 var current_line: Dictionary = {}
+var button_shader: ShaderMaterial
 
 # Map speaker names to textures
 # In a real game, you'd have different images for each character
@@ -33,6 +36,11 @@ func _ready():
 	DialogueManager.dialogue_started.connect(_on_dialogue_started)
 	DialogueManager.dialogue_finished.connect(_on_dialogue_finished)
 	interrupt_indicator.pressed.connect(_on_interrupt_indicator_pressed)
+	
+	# Setup shader for interrupt button
+	button_shader = ShaderMaterial.new()
+	button_shader.shader = preload("res://dialogue/interrupt_button.gdshader")
+	interrupt_indicator.material = button_shader
 	
 	# Initial hide
 	modulate.a = 0.0
@@ -91,8 +99,21 @@ func _on_line_changed(line: Dictionary) -> void:
 	if typewriter_tween:
 		typewriter_tween.kill()
 	
+	if progress_tween:
+		progress_tween.kill()
+	
 	typewriter_tween = create_tween()
-	var duration = label.get_total_character_count() * 0.025
+	var duration = label.get_total_character_count() * 0.05
+	
+	# Setup shader progress
+	button_shader.set_shader_parameter("progress", 0.0)
+	progress_tween = create_tween()
+	progress_tween.tween_method(
+		func(val): button_shader.set_shader_parameter("progress", val),
+		0.0,
+		1.0,
+		duration
+	)
 	
 	# Force show interrupt button immediately for new line
 	interrupt_indicator.visible = true
@@ -102,17 +123,17 @@ func _on_line_changed(line: Dictionary) -> void:
 		fade_in.tween_property(interrupt_indicator, "modulate:a", 1.0, 0.2)
 	
 	if speaker == "Boss":
-		interrupt_indicator.text = "F OFF [Enter]"
+		interrupt_label.text = "F OFF [Enter]"
 		interrupt_indicator.add_theme_stylebox_override("normal", style_red)
 		interrupt_indicator.add_theme_stylebox_override("hover", style_red) # Keep red on hover while in F OFF
 		indicator_faded_in = true # Mark as visible so pulse can start if needed
 	elif speaker == "Elevator Guard":
-		interrupt_indicator.text = "KICK [Enter]"
+		interrupt_label.text = "KICK [Enter]"
 		interrupt_indicator.add_theme_stylebox_override("normal", style_red)
 		interrupt_indicator.add_theme_stylebox_override("hover", style_red)
 		indicator_faded_in = true
 	else:
-		interrupt_indicator.text = "..."
+		interrupt_label.text = "..."
 		interrupt_indicator.add_theme_stylebox_override("normal", style_red) # Use red for "busy/typing"
 		interrupt_indicator.add_theme_stylebox_override("hover", style_red)
 		indicator_faded_in = true
@@ -143,15 +164,21 @@ func _on_typing_finished() -> void:
 		interrupt_indicator.visible = false
 		_show_choices(choices)
 	else:
-		if speaker == "Boss":
-			interrupt_indicator.text = "THANK YOU [Enter]"
-		elif speaker == "Elevator Guard":
-			interrupt_indicator.text = "FLATTER [Enter]"
-		else:
-			if next_id == null:
-				interrupt_indicator.text = "LEAVE [Enter]"
+		# Animate text change
+		var tween = create_tween()
+		tween.tween_property(interrupt_label, "modulate:a", 0.0, 0.1)
+		tween.tween_callback(func():
+			if speaker == "Boss":
+				interrupt_label.text = "THANK YOU [Enter]"
+			elif speaker == "Elevator Guard":
+				interrupt_label.text = "FLATTER [Enter]"
 			else:
-				interrupt_indicator.text = "NEXT [Enter]"
+				if next_id == null:
+					interrupt_label.text = "LEAVE [Enter]"
+				else:
+					interrupt_label.text = "NEXT [Enter]"
+		)
+		tween.tween_property(interrupt_label, "modulate:a", 1.0, 0.1)
 
 func _show_choices(choices: Array) -> void:
 	# Clear existing choices
@@ -244,6 +271,10 @@ func _reset_indicator():
 		indicator_tween.kill()
 		indicator_tween = null
 
+	if progress_tween:
+		progress_tween.kill()
+		progress_tween = null
+
 	indicator_faded_in = false
 	interrupt_indicator.visible = false
 	interrupt_indicator.modulate.a = 0.0
@@ -266,6 +297,8 @@ func _on_interrupt_indicator_pressed() -> void:
 			# Skip typing for non-boss
 			if typewriter_tween:
 				typewriter_tween.kill()
+			if progress_tween:
+				progress_tween.kill()
 			label.visible_ratio = 1.0
 			_on_typing_finished()
 			

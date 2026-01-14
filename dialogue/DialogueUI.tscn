@@ -220,6 +220,7 @@ size_flags_vertical = 3
 
 [node name="InterruptIndicator" type="Button" parent="."]
 visible = false
+custom_minimum_size = Vector2(300, 60)
 layout_mode = 1
 anchors_preset = 3
 anchor_left = 1.0
@@ -228,18 +229,28 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = -780.0
 offset_top = -500.0
-offset_right = -630.0
+offset_right = -480.0
 offset_bottom = -440.0
 grow_horizontal = 2
 grow_vertical = 0
 rotation = -0.1
-pivot_offset = Vector2(75, 30)
+pivot_offset = Vector2(150, 30)
+theme_override_styles/hover = SubResource("StyleBoxFlat_btn_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_pressed")
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn")
+
+[node name="Label" type="Label" parent="InterruptIndicator"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 4
 theme_override_fonts/font = ExtResource("3_funk")
 theme_override_font_sizes/font_size = 36
-theme_override_styles/hover = SubResource("StyleBoxFlat_btn_hover")
-theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_pressed")
-theme_override_styles/normal = SubResource("StyleBoxFlat_btn")
 text = "INTERRUPT!"
+horizontal_alignment = 1
+vertical_alignment = 1
