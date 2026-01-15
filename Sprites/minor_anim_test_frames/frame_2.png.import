@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://x6mkifqrqlwb"
-path="res://.godot/imported/protag.png-6fd45925d8a2f39dc03eb33f1852e99b.ctex"
+uid="uid://c6nofn4vd3uu0"
+path="res://.godot/imported/frame_2.png-4a02a8e7e68431c6cec9ba9e3e11fcb8.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://dialogue/protag.png"
-dest_files=["res://.godot/imported/protag.png-6fd45925d8a2f39dc03eb33f1852e99b.ctex"]
+source_file="res://Sprites/minor_anim_test_frames/frame_2.png"
+dest_files=["res://.godot/imported/frame_2.png-4a02a8e7e68431c6cec9ba9e3e11fcb8.ctex"]
 
 [params]
 

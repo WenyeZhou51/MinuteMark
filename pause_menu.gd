@@ -110,7 +110,18 @@ func toggle_pause():
 		visible = true
 		play_menu_transition_sound()  # Play transition sound when entering pause menu
 		play_pause_menu_intro()
+		
+		# Pause music
+		if AudioManager:
+			AudioManager.pause_music()
+		
+		# Hide other UI (timer, dialogue, etc.)
+		_set_other_ui_visible(false)
 	else:
+		# Resume music
+		if AudioManager:
+			AudioManager.resume_music()
+			
 		# Restore assist time scale when exiting pause
 		if get_tree().root.has_meta("assist_time_scale"):
 			Engine.time_scale = get_tree().root.get_meta("assist_time_scale")
@@ -123,6 +134,20 @@ func toggle_pause():
 		else:
 			visible = false
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+			_set_other_ui_visible(true)
+
+
+func _set_other_ui_visible(p_visible: bool):
+	"""Toggles visibility of all other CanvasLayer UI elements (timer, etc.)"""
+	var tree = get_tree()
+	if not tree:
+		return
+		
+	# Find all CanvasLayer nodes in the tree
+	for node in tree.root.find_children("*", "CanvasLayer", true, false):
+		# Don't hide our own layer or the root
+		if node != self:
+			node.visible = p_visible
 
 
 func play_pause_menu_intro():
@@ -251,6 +276,9 @@ func finish_exit_transition():
 		$Background.visible = true
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	is_transitioning = false
+	
+	# Show other UI again after transition finishes
+	_set_other_ui_visible(true)
 	
 	# Reset animation elements for next time
 	reset_animation_elements()
