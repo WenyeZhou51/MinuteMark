@@ -43,3 +43,4 @@ func _trigger_tutorial() -> void:
 	triggered = true
 	TutorialManager.display_message(tutorial_message)
 
+
