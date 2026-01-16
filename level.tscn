@@ -122,6 +122,9 @@ slam_kill_radius = 100.0
 slam_landing_aoe_width = 200.0
 slam_landing_aoe_height = 50.0
 slam_freeze_duration = 0.2
+rewind_warning_size = Vector2(128, 128)
+rewind_warning_offset = Vector2(5, 20)
+rewind_warning_vibration_amplitude = 5.0
 
 [node name="Enemy" parent="." instance=ExtResource("2_enemy")]
 position = Vector2(1088, 666)
@@ -292,7 +295,7 @@ text = "Shift while airborn to dash"
 horizontal_alignment = 1
 
 [node name="MinorAnimSystem" type="Node2D" parent="."]
-position = Vector2(1586, 310)
+position = Vector2(1455, 246)
 script = ExtResource("14_wxjrc")
 frame_folder = "res://Sprites/bird_anim_frames"
 fps = 7.0
@@ -303,5 +306,5 @@ debug_mode = true
 collision_layer = 0
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="MinorAnimSystem/Area2D"]
-position = Vector2(446, 356)
+position = Vector2(567, 439)
 shape = SubResource("CircleShape2D_minor_anim")

@@ -221,6 +221,10 @@ const DustParticlesScene = preload("res://dust_particles.tscn")
 @export var rewind_enabled: bool = true  ## Enable rewind mechanics
 @export var rewind_time: float = 2.0  ## Seconds to rewind back in time
 @export var rewind_cooldown: float = 3.0  ## Cooldown between rewinds (seconds)
+@export var rewind_warning_size: Vector2 = Vector2(16, 16)  ## Size of the warning sprite in pixels
+@export var rewind_warning_offset: Vector2 = Vector2(0, -50)  ## Offset from player position (negative Y is above)
+@export var rewind_warning_vibration_frequency: float = 15.0  ## Frequency of warning vibration in Hz
+@export var rewind_warning_vibration_amplitude: float = 3.0  ## Amplitude of warning vibration in pixels
 
 # TIMER CONFIGURATION
 @export_group("Timer System")
@@ -378,6 +382,7 @@ var grayscale_overlay: ColorRect = null  # Grayscale overlay for rewind effect
 # Position validity state
 var is_position_invalid: bool = false  # Is player's current position invalid (overlapping with solid objects)
 var is_dying: bool = false  # Flag to prevent further processing after die() is called
+var rewind_warning_vibration_time: float = 0.0  # Accumulated time for warning vibration effect
 
 # Dust effect state
 var dust_spawn_timer: float = 0.0
@@ -389,6 +394,7 @@ var dust_spawn_timer: float = 0.0
 @onready var attack_visual: Node2D = $AttackVisual
 @onready var attack_indicator: Line2D = $AttackVisual/AttackIndicator
 @onready var attack_target_marker: Marker2D = $AttackVisual/AttackTarget
+@onready var rewind_warning_sprite: Sprite2D = $RewindWarningLayer/RewindWarningSprite
 
 
 func _ready() -> void:
@@ -417,6 +423,14 @@ func _ready() -> void:
 	if attack_indicator:
 		attack_indicator.width = enemy_attack_indicator_width
 		attack_indicator.default_color = enemy_attack_indicator_color
+	
+	# Setup rewind warning sprite
+	if rewind_warning_sprite:
+		# Set size based on inspector settings
+		var texture_size = rewind_warning_sprite.texture.get_size() if rewind_warning_sprite.texture else rewind_warning_size
+		var scale_factor = Vector2(rewind_warning_size.x / texture_size.x, rewind_warning_size.y / texture_size.y)
+		rewind_warning_sprite.scale = scale_factor
+		rewind_warning_sprite.visible = false
 	
 	# Create ground slam attack visual indicator
 	_create_slam_attack_visual()
@@ -3647,22 +3661,48 @@ func _exit_rewind_slowmo() -> void:
 
 func _update_rewind_validity_indicator() -> void:
 	"""Update visual indicator based on position validity during rewind.
-	Changes sprite color to red when in an invalid position."""
+	Changes sprite color to red and shows warning overlay when in an invalid position."""
 	if not animated_sprite:
 		return
 	
 	if is_position_invalid:
 		# Invalid position - tint sprite red
 		animated_sprite.modulate = Color(1.0, 0.3, 0.3, 1.0)  # Red tint
+		# Show warning overlay
+		if rewind_warning_sprite:
+			rewind_warning_sprite.visible = true
+			# Update vibration time based on actual delta (using Engine.time_scale adjusted delta)
+			rewind_warning_vibration_time += get_process_delta_time()
+			
+			# Calculate vibration offset using sine wave
+			var vibration_x = sin(rewind_warning_vibration_time * rewind_warning_vibration_frequency * TAU) * rewind_warning_vibration_amplitude
+			var vibration_y = cos(rewind_warning_vibration_time * rewind_warning_vibration_frequency * TAU * 0.7) * rewind_warning_vibration_amplitude * 0.5
+			var vibration_offset = Vector2(vibration_x, vibration_y)
+			
+			# Position warning sprite relative to player using inspector-defined offset
+			# Convert world position to canvas/screen position
+			var player_screen_pos = get_viewport().get_canvas_transform() * global_position
+			# Apply the offset from inspector settings plus vibration
+			rewind_warning_sprite.global_position = player_screen_pos + rewind_warning_offset + vibration_offset
 	else:
 		# Valid position - normal color
 		animated_sprite.modulate = Color.WHITE
+		# Hide warning overlay
+		if rewind_warning_sprite:
+			rewind_warning_sprite.visible = false
+			# Reset vibration time when hiding
+			rewind_warning_vibration_time = 0.0
 
 
 func _reset_rewind_validity_indicator() -> void:
 	"""Reset the visual indicator to normal state."""
 	if animated_sprite:
 		animated_sprite.modulate = Color.WHITE
+	# Hide warning overlay
+	if rewind_warning_sprite:
+		rewind_warning_sprite.visible = false
+	# Reset vibration time
+	rewind_warning_vibration_time = 0.0
 
 
 func _create_ghost_path_visualization() -> void:

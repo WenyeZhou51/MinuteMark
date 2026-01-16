@@ -1,6 +1,7 @@
-[gd_scene load_steps=3 format=3 uid="uid://vv3m4nx6g3jo"]
+[gd_scene load_steps=4 format=3 uid="uid://vv3m4nx6g3jo"]
 
 [ext_resource type="Script" path="res://player.gd" id="1_2x4rk"]
+[ext_resource type="Texture2D" uid="uid://cpgk6srfh7eo2" path="res://Sprites/Rewind warning .png" id="2_rewind_warning"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_w6f8y"]
 size = Vector2(45, 85)
@@ -34,6 +35,13 @@ color = Color(0.290196, 0.639216, 1, 1)
 polygon = PackedVector2Array(-16, -32, 16, -32, 16, 32, -16, 32)
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+
+[node name="RewindWarningLayer" type="CanvasLayer" parent="."]
+layer = 201
+
+[node name="RewindWarningSprite" type="Sprite2D" parent="RewindWarningLayer"]
+visible = false
+texture = ExtResource("2_rewind_warning")
 
 [node name="CoyoteTimer" type="Timer" parent="."]
 wait_time = 0.15
