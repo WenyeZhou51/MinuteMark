@@ -1,0 +1,179 @@
+[gd_scene load_steps=4 format=3 uid="uid://deathui002"]
+
+[ext_resource type="FontFile" uid="uid://funkrocker" path="res://Fonts/Funkrocker.otf" id="1_font"]
+[ext_resource type="FontFile" uid="uid://doctorpunk" path="res://Fonts/doctor punk.otf" id="2_font"]
+
+[sub_resource type="GDScript" id="GDScript_deathui"]
+script/source = "extends CanvasLayer
+
+@onready var background = $Control/ColorRect
+@onready var main_label = $Control/CenterContainer/MainLabel
+@onready var sub_label = $Control/VBoxContainer/RestartLabel
+
+const MESSAGES = [
+	\"WASTED\",
+	\"CRUSHED\",
+	\"SPLAT!\",
+	\"OOPS...\",
+	\"DENIED\",
+	\"WIPEOUT\",
+	\"FATAL\",
+	\"THE END\"
+]
+
+var input_allowed = false
+var reload_triggered = false
+var state = 0 # 0: Waiting, 1: Fading, 2: Animation
+var fade_timer = 0.0
+var fade_duration = 0.3
+
+func _ready():
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	
+	# Initial state
+	background.color.a = 0.0
+	main_label.text = MESSAGES.pick_random()
+	main_label.pivot_offset = main_label.size / 2
+	main_label.scale = Vector2(5.0, 5.0)
+	main_label.modulate.a = 0.0
+	main_label.rotation_degrees = randf_range(-20, 20)
+	sub_label.modulate.a = 0.0
+	
+	# Start the sequence using a coroutine that respects real time
+	_run_sequence()
+
+func _run_sequence():
+	# 1. Let slow-mo shatter play for a bit (0.5s real time)
+	# create_timer with ignore_time_scale=true
+	await get_tree().create_timer(0.5, true, false, true).timeout
+	
+	# 2. Start manual fade to black (handled in _process)
+	state = 1
+	await get_tree().create_timer(fade_duration, true, false, true).timeout
+	state = 2 # Fade done
+	
+	# 3. Reset Time Scale (Now that screen is black, we can snap back to normal speed)
+	Engine.time_scale = 1.0
+	
+	# 4. Start UI Animations (Tween)
+	var tween = create_tween()
+	
+	# Slam text
+	tween.set_parallel(true)
+	tween.tween_property(main_label, \"scale\", Vector2.ONE, 0.4).set_trans(Tween.TRANS_BOUNCE).set_ease(Tween.EASE_OUT)
+	tween.tween_property(main_label, \"modulate:a\", 1.0, 0.2)
+	tween.tween_property(main_label, \"rotation_degrees\", 0.0, 0.4).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.set_parallel(false)
+	
+	# 5. Trigger Reload (Wait a tiny bit so text is readable before freeze)
+	tween.tween_interval(0.3)
+	tween.tween_callback(func(): _trigger_background_reload())
+	
+	# 6. Show Restart Prompt (Only after reload starts)
+	# We add a delay to ensure the freeze has likely happened
+	tween.tween_interval(0.2)
+	tween.tween_property(sub_label, \"modulate:a\", 1.0, 0.5)
+	tween.tween_callback(func(): input_allowed = true)
+	
+	# Blink loop
+	var blink_tween = create_tween().set_loops()
+	blink_tween.tween_property(sub_label, \"modulate:a\", 0.2, 0.7)
+	blink_tween.tween_property(sub_label, \"modulate:a\", 1.0, 0.7)
+
+func _process(delta):
+	# Manual fade handling to ignore time scale
+	if state == 1:
+		# Calculate real delta approximation
+		var real_delta = delta
+		if Engine.time_scale > 0.0:
+			real_delta = delta / Engine.time_scale
+		else:
+			# Fallback if time scale is 0, assume 60fps
+			real_delta = 1.0 / 60.0
+			
+		fade_timer += real_delta
+		var progress = clamp(fade_timer / fade_duration, 0.0, 1.0)
+		background.color.a = progress
+
+func _trigger_background_reload():
+	if reload_triggered:
+		return
+	reload_triggered = true
+	
+	# Reload scene
+	get_tree().reload_current_scene()
+	
+	# Pause immediately after reload request
+	get_tree().paused = true
+
+func _input(event):
+	if not input_allowed:
+		return
+		
+	if (event is InputEventKey or event is InputEventMouseButton) and event.pressed:
+		get_tree().paused = false
+		queue_free()
+"
+
+[node name="DeathUI" type="CanvasLayer"]
+process_mode = 3
+layer = 128
+script = SubResource("GDScript_deathui")
+
+[node name="Control" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="ColorRect" type="ColorRect" parent="Control"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 1)
+
+[node name="CenterContainer" type="CenterContainer" parent="Control"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MainLabel" type="Label" parent="Control/CenterContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.2, 0.2, 1)
+theme_override_colors/font_outline_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 8
+theme_override_fonts/font = ExtResource("1_font")
+theme_override_font_sizes/font_size = 120
+text = "WASTED"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Control"]
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -250.0
+offset_bottom = -150.0
+grow_horizontal = 2
+grow_vertical = 0
+alignment = 1
+
+[node name="RestartLabel" type="Label" parent="Control/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 6
+theme_override_fonts/font = ExtResource("2_font")
+theme_override_font_sizes/font_size = 64
+text = "Press any key to restart"
+horizontal_alignment = 1

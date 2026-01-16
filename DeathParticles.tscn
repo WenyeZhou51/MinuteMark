@@ -1,0 +1,23 @@
+[gd_scene load_steps=2 format=3 uid="uid://deathparticles001"]
+
+[sub_resource type="GDScript" id="GDScript_particles"]
+script/source = "extends CPUParticles2D
+
+func _ready():
+	emitting = true
+	finished.connect(queue_free)
+"
+
+[node name="DeathParticles" type="CPUParticles2D"]
+emitting = false
+amount = 32
+one_shot = true
+explosiveness = 1.0
+spread = 180.0
+gravity = Vector2(0, 0)
+initial_velocity_min = 100.0
+initial_velocity_max = 300.0
+scale_amount_min = 4.0
+scale_amount_max = 8.0
+color = Color(1, 1, 1, 1)
+script = SubResource("GDScript_particles")

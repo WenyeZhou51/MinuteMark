@@ -21,6 +21,11 @@ const ShadowScene = preload("res://shadow.tscn")
 # DUST PARTICLES
 const DustParticlesScene = preload("res://dust_particles.tscn")
 
+# DEATH EFFECTS
+const DeathUIScene = preload("res://DeathUI.tscn")
+const DeathParticlesScene = preload("res://DeathParticles.tscn")
+const DeathEffectScene = preload("res://DeathEffect.tscn")
+
 # MOVEMENT CONFIGURATION
 @export_group("Horizontal Movement")
 @export var max_speed: float = 300.0  ## Maximum horizontal movement speed
@@ -382,6 +387,7 @@ var grayscale_overlay: ColorRect = null  # Grayscale overlay for rewind effect
 # Position validity state
 var is_position_invalid: bool = false  # Is player's current position invalid (overlapping with solid objects)
 var is_dying: bool = false  # Flag to prevent further processing after die() is called
+var can_restart_after_death: bool = false
 var rewind_warning_vibration_time: float = 0.0  # Accumulated time for warning vibration effect
 
 # Dust effect state
@@ -4082,6 +4088,9 @@ func _create_bullet_parry_indicator() -> void:
 
 func die() -> void:
 	"""Kill the player and restart the level."""
+	if is_dying:
+		return
+		
 	# Set dying flag to prevent further processing in _physics_process
 	is_dying = true
 	
@@ -4104,7 +4113,55 @@ func die() -> void:
 	
 	# Reset time scale just in case
 	Engine.time_scale = 1.0
-	get_tree().reload_current_scene()
+
+	# --- NEW DEATH SEQUENCE ---
+	
+	# 1. Spawn Death Explosion Effect (Slow Mo + Fragments)
+	if DeathEffectScene:
+		var death_effect = DeathEffectScene.instantiate()
+		death_effect.global_position = global_position
+		# Make it top level so it ignores camera/parent transforms if needed
+		death_effect.top_level = true 
+		get_parent().add_child(death_effect)
+	
+	# 2. Hide Player Visuals
+	if $AnimatedSprite2D:
+		$AnimatedSprite2D.visible = false
+	if has_node("Visual"):
+		$Visual.visible = false
+	if has_node("AttackVisual"):
+		$AttackVisual.visible = false
+		
+	# 3. Freeze Camera
+	if has_node("Camera2D"):
+		var cam = $Camera2D
+		# Create a temporary camera at the current position to "freeze" the view
+		var temp_cam = Camera2D.new()
+		temp_cam.global_position = cam.global_position
+		temp_cam.zoom = cam.zoom
+		temp_cam.ignore_rotation = true
+		get_parent().add_child(temp_cam)
+		temp_cam.make_current()
+		
+		# Disable the player's camera
+		cam.enabled = false
+		
+	# 4. Show Death UI (Add to Root to persist)
+	if DeathUIScene:
+		var death_ui = DeathUIScene.instantiate()
+		get_tree().root.add_child(death_ui)
+	
+	# 5. Stop Velocity
+	velocity = Vector2.ZERO
+	
+	# The DeathUI will handle the reload and restarting process.
+	# We don't need to do anything else here except maybe stop this script from doing more.
+	set_physics_process(false)
+	set_process(false)
+
+func _input(event: InputEvent) -> void:
+	if can_restart_after_death and (event is InputEventKey or event is InputEventMouseButton) and event.pressed:
+		get_tree().reload_current_scene()
 
 func _update_bullet_detection() -> void:
 	"""Detect bullets near the player that can be parried."""

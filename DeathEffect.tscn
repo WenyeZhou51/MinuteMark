@@ -1,0 +1,87 @@
+[gd_scene load_steps=2 format=3 uid="uid://bwsygvlk3eeke"]
+
+[sub_resource type="GDScript" id="GDScript_deatheffect"]
+script/source = "extends Node2D
+
+@export var fragment_count: int = 16
+@export var explosion_force: float = 1200.0
+@export var gravity: float = 2000.0
+@export var slow_mo_scale: float = 0.05
+@export var slow_mo_duration: float = 1.0
+
+var fragments = []
+
+func _ready():
+	# Start slow motion immediately
+	Engine.time_scale = slow_mo_scale
+	
+	# Create tween to restore time scale
+	var tween = create_tween()
+	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS) # Allow tween to run while paused/slowed
+	tween.tween_interval(slow_mo_duration * slow_mo_scale) # Adjust for time scale
+	tween.tween_property(Engine, \"time_scale\", 1.0, 0.5)
+	
+	spawn_fragments()
+
+func spawn_fragments():
+	# Define a rough player shape (rectangle)
+	var size = Vector2(40, 80)
+	var color = Color(0.2, 0.2, 0.2) # Dark grey/black for player fragments
+	
+	var half_size = size / 2.0
+	var center = Vector2.ZERO
+	
+	# Create fragments from center to edge
+	for i in range(fragment_count):
+		var angle = (float(i) / fragment_count) * TAU
+		var next_angle = (float(i + 1) / fragment_count) * TAU
+		
+		# Points for a triangular shard
+		var p1 = Vector2(cos(angle), sin(angle)) * min(half_size.x, half_size.y)
+		var p2 = Vector2(cos(next_angle), sin(next_angle)) * min(half_size.x, half_size.y)
+		
+		var shard = Polygon2D.new()
+		shard.polygon = PackedVector2Array([center, p1, p2])
+		shard.color = color
+		add_child(shard)
+		
+		# Store velocity for manual physics in _process
+		var dir = (p1 + p2).normalized()
+		var vel = dir * randf_range(explosion_force * 0.5, explosion_force)
+		var rot_speed = randf_range(-20.0, 20.0)
+		
+		fragments.append({
+			\"node\": shard,
+			\"velocity\": vel,
+			\"rot_speed\": rot_speed
+		})
+
+func _process(delta):
+	# Manual physics for fragments so they work well in slow mo
+	# We want them to feel \"fast\" even in slow mo relative to everything else
+	# so we can multiply their delta if needed, but standard physics in slow mo works well for impact
+	
+	for frag in fragments:
+		var node = frag.node
+		if is_instance_valid(node):
+			# Apply gravity
+			frag.velocity.y += gravity * delta
+			
+			# Move
+			node.position += frag.velocity * delta
+			node.rotation += frag.rot_speed * delta
+			
+			# Fade out
+			node.modulate.a -= delta * 0.5
+			if node.modulate.a <= 0:
+				node.queue_free()
+				
+	# Clean up invalid fragments
+	fragments = fragments.filter(func(f): return is_instance_valid(f.node))
+	
+	if fragments.is_empty():
+		queue_free()
+"
+
+[node name="DeathEffect" type="Node2D"]
+script = SubResource("GDScript_deatheffect")
