@@ -565,7 +565,7 @@ func _physics_process(delta: float) -> void:
 	
 	# Update game time for rewind system (only when not paused)
 	# When paused, _physics_process doesn't run, so time doesn't advance
-k	if not get_tree().paused:
+	if not get_tree().paused:
 		game_time += delta
 		
 		# Record state snapshot for rewind system
