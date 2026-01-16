@@ -1234,9 +1234,6 @@ func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceS
 		# Only wall slide if pressing TOWARD the wall
 		if (wall_normal.x > 0 and input_direction < 0) or (wall_normal.x < 0 and input_direction > 0):
 			is_wall_sliding = true
-			# Reset air dash on wall touch/slide
-			air_dash_cooldown_timer = 0.0
-			air_dash_available = true
 
 
 func _is_wall_at_lower_quarter() -> bool:
@@ -1276,11 +1273,6 @@ func _is_wall_at_lower_quarter() -> bool:
 	var result = space_state.intersect_ray(query)
 	
 	return not result.is_empty()
-	
-	# Air dash reset also happens on any wall touch
-	if is_on_wall:
-		air_dash_cooldown_timer = 0.0
-		air_dash_available = true
 	
 	# NOTE: Wall run activation moved to _check_wall_run_activation() 
 	# which runs AFTER move_and_slide() to ensure actual collision
