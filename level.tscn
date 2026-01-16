@@ -38,6 +38,13 @@ scale = Vector2(2, 2)
 texture = ExtResource("3_bg_texture")
 centered = false
 
+[node name="BackgroundTileMap" type="TileMap" parent="."]
+z_index = -1
+scale = Vector2(0.5, 0.5)
+tile_set = ExtResource("4_4gcmt")
+format = 2
+layer_0/tile_data = PackedInt32Array(917508, 786433, 12, 917509, 851969, 12, 917510, 917505, 12, 917511, 983041, 12, 917512, 1048577, 12, 917513, 1114113, 12, 917514, 1179649, 12, 917515, 1245185, 12)
+
 [node name="TileMap" type="TileMap" parent="."]
 visible = false
 tile_set = ExtResource("5_tileset")
