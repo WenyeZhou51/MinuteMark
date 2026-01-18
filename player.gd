@@ -261,6 +261,7 @@ var trail_afterimage_timer: float = 0.0
 
 # Wall jump state variables
 var is_on_wall: bool = false  # Is player touching a wall
+var is_on_runnable_wall: bool = false  # Is the current wall runnable (e.g. platforms vs objects)
 var wall_persistence_timer: int = 0  # Frame buffer to prevent flickering on TileMap seams
 var wall_normal: Vector2 = Vector2.ZERO  # Direction pointing away from the wall
 var is_wall_sliding: bool = false  # Is player currently sliding down a wall
@@ -1141,14 +1142,45 @@ func _on_left_ground() -> void:
 # WALL DETECTION & STATE
 # ====================================
 
+func _is_runnable_wall(collider: Node) -> bool:
+	"""Check if the collided object is a runnable wall (Platform) or non-runnable (Object)."""
+	if not collider:
+		return false
+	
+	# Explicitly check for the "Object Tilemap" mentioned in the scene
+	# We use to_lower() to handle "Object Tilemap", "object tilemap", etc.
+	var node_name = collider.name.to_lower()
+	var is_designated_object = node_name.contains("object") or collider.is_in_group("objects")
+	
+	# Priority 1: If it's the Object Tilemap or in the objects group, it's NOT runnable
+	if is_designated_object:
+		# print("[WallRunDebug] Blocked: '", collider.name, "' is a non-runnable object.")
+		return false
+	
+	# Priority 2: If it's a platform TileMap or in the platforms group, it IS runnable
+	var is_platform = node_name.contains("platform") or collider.is_in_group("platforms")
+	if is_platform:
+		return true
+	
+	# Priority 3: Fallback for any other TileMap (like "TileMap3" in the scene)
+	if collider is TileMap:
+		# Default other TileMaps to runnable
+		return true
+	
+	# Default for everything else (Enemies, small props without "object" in name, etc.)
+	return false
+
+
 func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceState2D) -> void:
 	"""Detect walls and update wall sliding state with TileMap seam robustness."""
 	# Save previous wall state for persistence logic
 	var was_on_wall = is_on_wall
+	var was_on_runnable_wall = is_on_runnable_wall
 	var was_wall_normal = wall_normal
 	
 	# Reset detection flags for this frame
 	var current_frame_wall_detected = false
+	var current_frame_wall_runnable = false
 	var current_frame_wall_normal = Vector2.ZERO
 	
 	# Get collision shape for positioning raycasts
@@ -1178,7 +1210,9 @@ func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceS
 	var check_heights = [-half_height + 4, 0.0, half_height - 4]
 	
 	var left_hit_any = false
+	var left_hit_runnable = false
 	var right_hit_any = false
+	var right_hit_runnable = false
 	
 	# Check for walls at each height
 	for height_offset in check_heights:
@@ -1190,6 +1224,8 @@ func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceS
 		var left_hit = space_state.intersect_ray(query_left)
 		if left_hit:
 			left_hit_any = true
+			if _is_runnable_wall(left_hit.collider):
+				left_hit_runnable = true
 		
 		# Check for wall on the right
 		var right_ray_origin = global_position + ray_origin_offset + Vector2(half_width - ray_inset, height_offset)
@@ -1199,13 +1235,17 @@ func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceS
 		var right_hit = space_state.intersect_ray(query_right)
 		if right_hit:
 			right_hit_any = true
+			if _is_runnable_wall(right_hit.collider):
+				right_hit_runnable = true
 	
 	# Determine if player is on a wall this frame
 	if left_hit_any:
 		current_frame_wall_detected = true
+		current_frame_wall_runnable = left_hit_runnable
 		current_frame_wall_normal = Vector2.RIGHT
 	elif right_hit_any:
 		current_frame_wall_detected = true
+		current_frame_wall_runnable = right_hit_runnable
 		current_frame_wall_normal = Vector2.LEFT
 	
 	# FALLBACK: If raycasts failed but we have a slide collision (helps with TileMap seams)
@@ -1216,6 +1256,8 @@ func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceS
 			# A wall has a mostly horizontal normal
 			if abs(collision_normal.x) > 0.6:
 				current_frame_wall_detected = true
+				if _is_runnable_wall(collision.get_collider()):
+					current_frame_wall_runnable = true
 				# CRITICAL: Always use a strictly horizontal normal for wall mechanics
 				current_frame_wall_normal = Vector2(sign(collision_normal.x), 0)
 				break
@@ -1223,15 +1265,25 @@ func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceS
 	# PERSISTENCE LOGIC: If we detected a wall, reset buffer. If not, check if we're in buffer period.
 	if current_frame_wall_detected:
 		is_on_wall = true
+		is_on_runnable_wall = current_frame_wall_runnable
 		wall_normal = current_frame_wall_normal
 		wall_persistence_timer = 2 # Stay "on wall" for 2 frames after losing contact
+		
+		# Debug for runnable wall detection
+		if is_on_runnable_wall and not was_on_runnable_wall:
+			print("[WallRunDebug] Detected RUNNABLE wall: ", current_frame_wall_normal)
+		elif not is_on_runnable_wall and was_on_runnable_wall:
+			print("[WallRunDebug] Lost runnable wall contact (now on non-runnable wall)")
 	else:
 		if wall_persistence_timer > 0:
 			wall_persistence_timer -= 1
 			is_on_wall = true
-			# Keep previous normal during persistence
+			# Keep previous runnable state and normal during persistence
 		else:
+			if was_on_wall:
+				print("[WallRunDebug] Lost wall contact entirely")
 			is_on_wall = false
+			is_on_runnable_wall = false
 			wall_normal = Vector2.ZERO
 	
 	# Update wall sliding state (only if actually touching and moving down)
@@ -1278,7 +1330,15 @@ func _is_wall_at_lower_quarter() -> bool:
 	query.exclude = [self]
 	var result = space_state.intersect_ray(query)
 	
-	return not result.is_empty()
+	if result.is_empty():
+		return false
+		
+	var is_runnable = _is_runnable_wall(result.collider)
+	# Detailed debug for lower quarter check
+	if not is_runnable:
+		print("[WallRunDebug] Lower quarter check FAILED: Collider '", result.collider.name, "' is NOT runnable.")
+	
+	return is_runnable
 	
 	# NOTE: Wall run activation moved to _check_wall_run_activation() 
 	# which runs AFTER move_and_slide() to ensure actual collision
@@ -1430,7 +1490,14 @@ func _check_wall_run_activation() -> void:
 	if is_wall_running:
 		# During wall run, use raycast detection to check if still on wall
 		# NEW: Also end if hit head or lost wall contact at the lower quarter point
-		if not is_on_wall or is_on_ceiling() or not _is_wall_at_lower_quarter():
+		if not is_on_wall:
+			print("[WallRunDebug] Ending wall run: Lost wall contact.")
+			_end_wall_run()
+		elif is_on_ceiling():
+			print("[WallRunDebug] Ending wall run: Hit ceiling.")
+			_end_wall_run()
+		elif not _is_wall_at_lower_quarter():
+			print("[WallRunDebug] Ending wall run: Wall at lower quarter is no longer runnable/present.")
 			_end_wall_run()
 		return  # Don't check for activation if already running
 	
@@ -1461,27 +1528,41 @@ func _check_wall_run_activation() -> void:
 	# 1. Raycast already detected wall (from _update_wall_state)
 	# 2. We just had a slide collision that looks like a wall
 	var has_slide_collision = get_slide_collision_count() > 0
-	var has_actual_wall_collision = false
+	var has_actual_runnable_wall_collision = false
 	if has_slide_collision:
 		for i in range(get_slide_collision_count()):
 			var collision = get_slide_collision(i)
 			if abs(collision.get_normal().x) > 0.7:
-				has_actual_wall_collision = true
-				# Update wall_normal if it wasn't set correctly by raycasts
-				if wall_normal == Vector2.ZERO:
-					wall_normal = collision.get_normal()
-				break
+				if _is_runnable_wall(collision.get_collider()):
+					has_actual_runnable_wall_collision = true
+					# Update wall_normal if it wasn't set correctly by raycasts
+					if wall_normal == Vector2.ZERO:
+						wall_normal = collision.get_normal()
+					break
+				else:
+					# This is a non-runnable wall (Object)
+					pass
 	
-	var raycast_detects_wall = is_on_wall  # From _update_wall_state raycast detection
+	var raycast_detects_runnable_wall = is_on_runnable_wall  # From _update_wall_state raycast detection
 	var velocity_reduced = abs(velocity.x) < speed_before_collision * 0.5  # Velocity reduced by 50%+
 	
-	# Wall collision is confirmed if we have EITHER a raycast hit OR a slide collision
-	var has_wall_collision = (raycast_detects_wall or has_actual_wall_collision) and (velocity_reduced or has_slide_collision)
+	# Wall collision is confirmed if we have EITHER a raycast hit OR a slide collision (on runnable walls)
+	var has_runnable_wall_collision = (raycast_detects_runnable_wall or has_actual_runnable_wall_collision) and (velocity_reduced or has_slide_collision)
 	
-	if not has_wall_collision or not _is_wall_at_lower_quarter():
+	if not has_runnable_wall_collision:
+		# Detailed debug if we hit a wall but couldn't run
+		if has_slide_collision:
+			for i in range(get_slide_collision_count()):
+				var collision = get_slide_collision(i)
+				if abs(collision.get_normal().x) > 0.7:
+					print("[WallRunDebug] Cannot activate: Wall '", collision.get_collider().name, "' is NOT runnable.")
+		return
+		
+	if not _is_wall_at_lower_quarter():
+		print("[WallRunDebug] Cannot activate: Wall present but lower quarter check failed.")
 		return
 	
-	
+	print("[WallRunDebug] ACTIVATING WALL RUN on wall normal: ", wall_normal)
 	# Start wall run with fixed speed of 1000 for consistent wall run behavior
 	_start_wall_run(1000.0, true)
 	
