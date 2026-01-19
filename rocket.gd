@@ -8,6 +8,7 @@ var direction: Vector2 = Vector2.ZERO
 var shooter: Node2D = null
 
 func _ready() -> void:
+	add_to_group("super_enemy_rockets")
 	collision_layer = 16
 	collision_mask = 1 # Platforms and Player
 	body_entered.connect(_on_body_entered)
@@ -42,10 +43,13 @@ func _on_body_entered(_body: Node2D) -> void:
 	explode()
 
 func explode() -> void:
-	# Lift speed cap from player when rocket hits target
-	var player = get_tree().get_first_node_in_group("player")
-	if player and player.has_method("set_speed_cap"):
-		player.set_speed_cap(false)
+	# Check if this is the last rocket before lifting the speed cap
+	var remaining_rockets = get_tree().get_nodes_in_group("super_enemy_rockets")
+	# Since this rocket is still in the group until next frame, count 1 as "last"
+	if remaining_rockets.size() <= 1:
+		var player = get_tree().get_first_node_in_group("player")
+		if player and player.has_method("set_speed_cap"):
+			player.set_speed_cap(false)
 
 	if explosion_scene:
 		var explosion = explosion_scene.instantiate()

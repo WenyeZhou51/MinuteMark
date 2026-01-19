@@ -5,15 +5,24 @@ extends Node2D
 
 func fire_at_target() -> void:
 	if not rocket_scene: return
-	if not target_spot:
-		push_warning("SuperEnemy: No target_spot assigned!")
+	
+	# Find all rocket targets - can be nodes in the "rocket_target" group
+	# or the specifically assigned target_spot
+	var targets = get_tree().get_nodes_in_group("rocket_target")
+	
+	# Add the specifically assigned target if it's not already in the group
+	if target_spot and not target_spot in targets:
+		targets.append(target_spot)
+		
+	if targets.is_empty():
+		push_warning("SuperEnemy: No rocket targets found!")
 		return
 		
-	var rocket = rocket_scene.instantiate()
-	# Set position BEFORE adding to tree so global_position is ready for _ready()
-	rocket.global_position = global_position
-	# Set target BEFORE adding to tree
-	rocket.initialize(target_spot.global_position, self)
-	
-	get_parent().add_child(rocket)
+	for target in targets:
+		var rocket = rocket_scene.instantiate()
+		# Set position BEFORE adding to tree so global_position is ready for _ready()
+		rocket.global_position = global_position
+		# Set target BEFORE adding to tree
+		rocket.initialize(target.global_position, self)
+		get_parent().add_child(rocket)
 

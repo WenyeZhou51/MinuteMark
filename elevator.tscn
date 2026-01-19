@@ -24,6 +24,7 @@ script = ExtResource("1_script")
 [node name="RigidBody2D" type="RigidBody2D" parent="."]
 lock_rotation = true
 freeze = true
+freeze_mode = 1
 contact_monitor = true
 max_contacts_reported = 4
 
@@ -62,10 +63,8 @@ points = PackedVector2Array(208, -390, -208, -390, -208, 390, 208, 390)
 width = 6.0
 default_color = Color(0, 0, 0, 1)
 
-[node name="Door" type="Node2D" parent="RigidBody2D"]
+[node name="Door" type="CollisionShape2D" parent="RigidBody2D"]
 position = Vector2(198, 0)
-
-[node name="DoorCollision" type="CollisionShape2D" parent="RigidBody2D/Door"]
 shape = SubResource("RectangleShape2D_door")
 
 [node name="DoorVisual" type="Line2D" parent="RigidBody2D/Door"]

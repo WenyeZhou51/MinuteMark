@@ -155,6 +155,11 @@ func _emit_current() -> void:
 		return
 
 	var line: Dictionary = dialogue_data[current_id]
+	
+	# Trigger action if defined in the line itself
+	if line.has("action"):
+		emit_signal("action_triggered", line["action"])
+		
 	emit_signal("line_changed", line)
 	
 func end_conversation() -> void:

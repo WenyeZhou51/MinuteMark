@@ -1,7 +1,7 @@
 extends Node2D
 
 @onready var main_body: RigidBody2D = $RigidBody2D
-@onready var door: Node2D = $RigidBody2D/Door
+@onready var door: CollisionShape2D = $RigidBody2D/Door
 @onready var detection_area: Area2D = $RigidBody2D/DetectionArea
 @onready var timer: Timer = $Timer
 @onready var smoke_particles: CPUParticles2D = $SmokeParticles
@@ -11,13 +11,15 @@ var has_dropped: bool = false
 var impact_triggered: bool = false
 
 # Door vertical positions (relative to RigidBody2D)
-# Increased for 30% taller elevator (780 total height, frame height approx 760)
+# Slide down to open so it doesn't protrude above
 const DOOR_CLOSED_Y = 0
-const DOOR_OPEN_Y = -760 
+const DOOR_OPEN_Y = 760 
 
 func _ready() -> void:
-	# Door starts off open (shifted up)
+	# Door starts off open (shifted down)
 	door.position.y = DOOR_OPEN_Y
+	door.disabled = true
+	door.visible = false
 	
 	# Start as static/frozen
 	main_body.freeze = true
@@ -33,6 +35,8 @@ func _on_player_entered(body: Node2D) -> void:
 	if (body.is_in_group("player") or body.name == "Player") and not player_inside:
 		player_inside = true
 		# Slide door closed
+		door.visible = true
+		door.set_deferred("disabled", false)
 		var tween = create_tween()
 		tween.tween_property(door, "position:y", DOOR_CLOSED_Y, 0.8).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 		
@@ -73,8 +77,11 @@ func _handle_landing() -> void:
 		smoke_particles.emitting = true
 	
 	# Slide door open again
+	# Disable collision immediately so it doesn't hit the ground as it slides down
+	door.set_deferred("disabled", true)
 	var tween = create_tween()
 	tween.tween_property(door, "position:y", DOOR_OPEN_Y, 0.8).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+	tween.finished.connect(func(): door.visible = false)
 	
 	# Stop the elevator and freeze it in place
 	# Small delay to let it settle

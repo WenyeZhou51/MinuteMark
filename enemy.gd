@@ -277,7 +277,7 @@ func destroy() -> void:
 	if not is_destroyed:
 		kick(Vector2.RIGHT, 0.0)  # Kick with no force
 
-func disable() -> void:
+func disable(show_smiley_face: bool = false) -> void:
 	"""Disable the enemy (non-violently, e.g. through dialogue)"""
 	if not is_destroyed:
 		is_destroyed = true
@@ -288,10 +288,41 @@ func disable() -> void:
 		if laser_sight: laser_sight.visible = false
 		if warning_indicator: warning_indicator.visible = false
 		
+		if show_smiley_face:
+			_show_smiley_face()
+		
 		# Fade out
 		var tween = create_tween()
+		tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 		tween.tween_property(self, "modulate:a", 0.0, 0.5)
 		tween.finished.connect(queue_free)
+
+func _show_smiley_face() -> void:
+	"""Show a smiley face icon above the enemy."""
+	var label = Label.new()
+	label.text = ":)"
+	label.z_index = 100
+	
+	# Style the label
+	label.add_theme_font_size_override("font_size", 60)
+	label.add_theme_constant_override("outline_size", 10)
+	label.add_theme_color_override("font_color", Color.YELLOW)
+	label.add_theme_color_override("font_outline_color", Color.BLACK)
+	
+	# Center the label
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	
+	# Add to the level
+	get_parent().add_child(label)
+	# Position above enemy
+	label.global_position = global_position + Vector2(-25, -100)
+	
+	# Float up and fade out
+	var tween = label.create_tween()
+	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	tween.tween_property(label, "global_position:y", label.global_position.y - 50, 0.8).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(label, "modulate:a", 0.0, 0.8).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tween.tween_callback(label.queue_free)
 
 func become_physics_object(direction: Vector2, speed: float) -> void:
 	"""Turn into physics object when hit by kicked object - behaves like kick but synchronized with object."""

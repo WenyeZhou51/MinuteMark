@@ -107,6 +107,8 @@ func _on_line_changed(line: Dictionary) -> void:
 	
 	# Setup shader progress
 	button_shader.set_shader_parameter("progress", 0.0)
+	button_shader.set_shader_parameter("flash_amount", 0.0)
+	button_shader.set_shader_parameter("sheen_progress", -1.0)
 	progress_tween = create_tween()
 	progress_tween.tween_method(
 		func(val): button_shader.set_shader_parameter("progress", val),
@@ -152,6 +154,32 @@ func _on_line_changed(line: Dictionary) -> void:
 	# Update button text when typing finishes
 	typewriter_tween.finished.connect(_on_typing_finished)
 
+func _play_button_success_effect() -> void:
+	if not button_shader:
+		return
+		
+	var effect_tween = create_tween()
+	
+	# Initial flash
+	button_shader.set_shader_parameter("flash_amount", 1.0)
+	effect_tween.tween_method(
+		func(val): button_shader.set_shader_parameter("flash_amount", val),
+		1.0, 0.0, 0.4
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	
+	# Metallic sheen sweep
+	button_shader.set_shader_parameter("sheen_progress", -0.5)
+	effect_tween.parallel().tween_method(
+		func(val): button_shader.set_shader_parameter("sheen_progress", val),
+		-0.5, 1.5, 0.6
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	
+	# Scale pop
+	interrupt_indicator.pivot_offset = interrupt_indicator.size / 2
+	var scale_tween = create_tween()
+	interrupt_indicator.scale = Vector2(1.1, 1.1)
+	scale_tween.tween_property(interrupt_indicator, "scale", Vector2(1.0, 1.0), 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
 func _on_typing_finished() -> void:
 	var speaker = current_line.get("speaker", "???")
 	var next_id = current_line.get("next")
@@ -164,6 +192,7 @@ func _on_typing_finished() -> void:
 		interrupt_indicator.visible = false
 		_show_choices(choices)
 	else:
+		_play_button_success_effect()
 		# Animate text change
 		var tween = create_tween()
 		tween.tween_property(interrupt_label, "modulate:a", 0.0, 0.1)
