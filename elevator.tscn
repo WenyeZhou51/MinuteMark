@@ -1,0 +1,100 @@
+[gd_scene load_steps=7 format=3 uid="uid://c85yqfkymilcl"]
+
+[ext_resource type="Script" path="res://elevator.gd" id="1_script"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_left"]
+size = Vector2(20, 780)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_top"]
+size = Vector2(416, 20)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_bottom"]
+size = Vector2(416, 20)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_door"]
+size = Vector2(20, 760)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_detect"]
+size = Vector2(376, 740)
+
+[node name="Elevator" type="Node2D"]
+z_index = -5
+script = ExtResource("1_script")
+
+[node name="RigidBody2D" type="RigidBody2D" parent="."]
+lock_rotation = true
+freeze = true
+contact_monitor = true
+max_contacts_reported = 4
+
+[node name="LeftWall" type="CollisionShape2D" parent="RigidBody2D"]
+position = Vector2(-198, 0)
+shape = SubResource("RectangleShape2D_left")
+
+[node name="TopWall" type="CollisionShape2D" parent="RigidBody2D"]
+position = Vector2(0, -380)
+shape = SubResource("RectangleShape2D_top")
+
+[node name="BottomWall" type="CollisionShape2D" parent="RigidBody2D"]
+position = Vector2(0, 380)
+shape = SubResource("RectangleShape2D_bottom")
+
+[node name="Visuals" type="Node2D" parent="RigidBody2D"]
+
+[node name="OuterBox" type="Polygon2D" parent="RigidBody2D/Visuals"]
+color = Color(0.152941, 0.152941, 0.152941, 1)
+polygon = PackedVector2Array(-208, -390, 208, -390, 208, 390, -208, 390)
+
+[node name="InnerHole" type="Polygon2D" parent="RigidBody2D/Visuals"]
+color = Color(0.301961, 0.301961, 0.301961, 1)
+polygon = PackedVector2Array(-188, -370, 188, -370, 188, 370, -188, 370)
+
+[node name="RightWallFrame" type="Polygon2D" parent="RigidBody2D/Visuals"]
+color = Color(0.5, 0.5, 0.5, 1)
+polygon = PackedVector2Array(188, -390, 208, -390, 208, 390, 188, 390)
+
+[node name="RightWallStripe" type="Line2D" parent="RigidBody2D/Visuals"]
+points = PackedVector2Array(198, -390, 198, 390)
+width = 4.0
+
+[node name="Outline" type="Line2D" parent="RigidBody2D/Visuals"]
+points = PackedVector2Array(208, -390, -208, -390, -208, 390, 208, 390)
+width = 6.0
+default_color = Color(0, 0, 0, 1)
+
+[node name="Door" type="Node2D" parent="RigidBody2D"]
+position = Vector2(198, 0)
+
+[node name="DoorCollision" type="CollisionShape2D" parent="RigidBody2D/Door"]
+shape = SubResource("RectangleShape2D_door")
+
+[node name="DoorVisual" type="Line2D" parent="RigidBody2D/Door"]
+points = PackedVector2Array(0, -380, 0, 380)
+width = 20.0
+default_color = Color(0, 0, 0, 1)
+
+[node name="DetectionArea" type="Area2D" parent="RigidBody2D"]
+collision_layer = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="RigidBody2D/DetectionArea"]
+shape = SubResource("RectangleShape2D_detect")
+
+[node name="Timer" type="Timer" parent="."]
+one_shot = true
+
+[node name="SmokeParticles" type="CPUParticles2D" parent="."]
+z_index = 1
+position = Vector2(0, 385)
+emitting = false
+amount = 300
+lifetime = 3.0
+one_shot = true
+explosiveness = 1.0
+direction = Vector2(0, -1)
+spread = 180.0
+gravity = Vector2(0, 50)
+initial_velocity_min = 250.0
+initial_velocity_max = 700.0
+scale_amount_min = 10.0
+scale_amount_max = 30.0
+color = Color(0.8, 0.8, 0.8, 0.5)

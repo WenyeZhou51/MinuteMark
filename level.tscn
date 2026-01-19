@@ -1,4 +1,4 @@
-[gd_scene load_steps=20 format=3 uid="uid://clfclx5p38xkv"]
+[gd_scene load_steps=21 format=3 uid="uid://clfclx5p38xkv"]
 
 [ext_resource type="Script" path="res://level_manager.gd" id="1_manager"]
 [ext_resource type="PackedScene" uid="uid://vv3m4nx6g3jo" path="res://player.tscn" id="1_qj3g4"]
@@ -16,6 +16,7 @@
 [ext_resource type="PackedScene" path="res://SuperEnemy.tscn" id="17_super_enemy"]
 [ext_resource type="PackedScene" path="res://SuperEnemyTrigger.tscn" id="18_super_trigger"]
 [ext_resource type="PackedScene" uid="uid://6624qfeempan" path="res://LevelFinishTrigger.tscn" id="19_finish"]
+[ext_resource type="PackedScene" uid="uid://c85yqfkymilcl" path="res://elevator.tscn" id="20_elevator"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_trigger"]
 size = Vector2(481, 196.25)
@@ -138,30 +139,16 @@ rewind_warning_size = Vector2(128, 128)
 rewind_warning_offset = Vector2(5, 20)
 rewind_warning_vibration_amplitude = 5.0
 
-[node name="Enemy" parent="." instance=ExtResource("2_enemy")]
-position = Vector2(3698, 849)
-
 [node name="Enemy2" parent="." instance=ExtResource("2_enemy")]
-position = Vector2(2333, 594)
-
-[node name="Enemy3" parent="." instance=ExtResource("2_enemy")]
-position = Vector2(1195, 632)
+position = Vector2(3256, 859)
 
 [node name="Elevator Guard" parent="." instance=ExtResource("2_enemy")]
 position = Vector2(3384, 595)
 
 [node name="KickableObjects" type="Node2D" parent="."]
 
-[node name="KickableObject1" parent="KickableObjects" instance=ExtResource("4_kickable")]
-position = Vector2(2589, 553)
-fragment_count = 3
-
-[node name="KickableObject2" parent="KickableObjects" instance=ExtResource("4_kickable")]
-position = Vector2(2677, 600)
-fragment_count = 3
-
 [node name="KickableObject5" parent="KickableObjects" instance=ExtResource("4_kickable")]
-position = Vector2(1836, 913)
+position = Vector2(3702, 855)
 fragment_count = 3
 
 [node name="PauseMenu" parent="." instance=ExtResource("8_b0gwe")]
@@ -239,7 +226,7 @@ position = Vector2(-757, 539.875)
 shape = SubResource("RectangleShape2D_trigger")
 
 [node name="PendulumTrigger" type="Area2D" parent="."]
-position = Vector2(2184, 698)
+position = Vector2(1155, 1196)
 script = ExtResource("11_pendulum_trigger")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="PendulumTrigger"]
@@ -326,7 +313,7 @@ position = Vector2(5584, 401)
 target_spot = NodePath("../RocketTarget")
 
 [node name="RocketTarget" type="Marker2D" parent="."]
-position = Vector2(5045, 870)
+position = Vector2(4657, 856)
 
 [node name="SuperEnemyTrigger" parent="." node_paths=PackedStringArray("super_enemy") instance=ExtResource("18_super_trigger")]
 position = Vector2(5031, 561)
@@ -336,3 +323,6 @@ super_enemy = NodePath("../SuperEnemy")
 [node name="LevelFinishTrigger" parent="." instance=ExtResource("19_finish")]
 position = Vector2(4886, 3513)
 scale = Vector2(10, 10)
+
+[node name="Elevator" parent="." instance=ExtResource("20_elevator")]
+position = Vector2(2830, 1508)

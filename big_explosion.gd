@@ -25,14 +25,11 @@ func _play_flash() -> void:
 	tween.tween_property(flash, "modulate:a", 0.0, 0.2)
 
 func destroy_tiles_in_radius() -> void:
-	print("BigExplosion: Starting destruction at ", global_position, " with radius ", explosion_radius)
 	var tilemaps = []
 	_find_tilemaps(get_tree().current_scene, tilemaps)
-	print("BigExplosion: Found ", tilemaps.size(), " tilemaps in current scene.")
 	
 	for tilemap in tilemaps:
 		if not tilemap is TileMap: continue
-		print("BigExplosion: Checking TileMap: ", tilemap.name)
 		
 		# Get the radius in the tilemap's local coordinate system
 		var local_radius = explosion_radius / ((tilemap.global_scale.x + tilemap.global_scale.y) / 2.0)
@@ -48,8 +45,6 @@ func destroy_tiles_in_radius() -> void:
 		var y_min = min(start_cell.y, end_cell.y)
 		var y_max = max(start_cell.y, end_cell.y)
 		
-		print("BigExplosion: Checking cells from ", Vector2i(x_min, y_min), " to ", Vector2i(x_max, y_max))
-		
 		var destroyed_in_map = 0
 		for x in range(x_min, x_max + 1):
 			for y in range(y_min, y_max + 1):
@@ -64,10 +59,7 @@ func destroy_tiles_in_radius() -> void:
 						if dist <= explosion_radius:
 							tilemap.set_cell(0, cell_coords, -1)
 							destroyed_in_map += 1
-		
-		if destroyed_in_map > 0:
-			print("BigExplosion: Destroyed ", destroyed_in_map, " tiles in ", tilemap.name)
-
+	
 func _find_tilemaps(node: Node, list: Array) -> void:
 	if node is TileMap:
 		list.append(node)

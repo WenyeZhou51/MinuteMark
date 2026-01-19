@@ -7,6 +7,9 @@ func _ready() -> void:
 
 func _on_body_entered(body: Node2D) -> void:
 	if body.is_in_group("player") or body.name == "Player":
+		if body.has_method("set_speed_cap"):
+			body.set_speed_cap(true)
+			
 		if super_enemy and super_enemy.has_method("fire_at_target"):
 			super_enemy.fire_at_target()
 			# Disable trigger after use if needed, or keep it for multiple shots

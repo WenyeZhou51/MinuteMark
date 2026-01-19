@@ -16,6 +16,4 @@ func fire_at_target() -> void:
 	rocket.initialize(target_spot.global_position, self)
 	
 	get_parent().add_child(rocket)
-	
-	print("SuperEnemy: Rocket fired from ", rocket.global_position, " at ", target_spot.global_position)
 

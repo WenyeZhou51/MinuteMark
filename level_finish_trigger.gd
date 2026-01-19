@@ -3,7 +3,6 @@ extends Area2D
 signal level_finished(time_taken)
 
 func _ready():
-	# print("[LevelFinishTrigger] Ready! Monitoring: ", monitoring, " Mask: ", collision_mask)
 	# Hide the debug visuals in game
 	if has_node("ColorRect"):
 		$ColorRect.visible = false
@@ -11,9 +10,7 @@ func _ready():
 	body_entered.connect(_on_body_entered)
 
 func _on_body_entered(body):
-	print("[LevelFinishTrigger] Body entered: ", body.name)
 	if body.name == "Player" or body.is_in_group("player"):
-		print("[LevelFinishTrigger] Player detected!")
 		var time_taken = 0.0
 		if "game_timer_duration" in body and "current_game_time" in body:
 			time_taken = body.game_timer_duration - body.current_game_time

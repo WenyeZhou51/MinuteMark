@@ -345,6 +345,9 @@ var camera_shake_type: String = "random" # "random" or "sine"
 var early_parry_timer: float = 0.0  # Time remaining in early parry window (pressed kick before hit)
 @export var parry_early_grace_period: float = 0.15 ## Time window BEFORE getting hit or before bullet enters range to press kick (seconds)
 
+# SUPER ENEMY SPEED CAP
+var is_speed_capped: bool = false  ## Capped horizontal velocity when super enemy rocket is in air
+
 # Slide tear effect
 var paper_tear_effect_script = preload("res://paper_tear_effect.gd")
 var paper_tear_effect: Node2D
@@ -619,11 +622,6 @@ func _physics_process(delta: float) -> void:
 	var frame_start_position = global_position
 	var frame_start_velocity = velocity
 	
-	if fmod(game_time, 1.0) < delta:
-		print("[PlayerDebug] [Frame Start] Pos: %s, Vel: %s, State: [WallRun: %s, WallSlide: %s, Grounded: %s]" % [
-			frame_start_position, frame_start_velocity, is_wall_running, is_wall_sliding, is_on_floor()
-		])
-	
 	# Update game time for rewind system (only when not paused)
 	# When paused, _physics_process doesn't run, so time doesn't advance
 	if not get_tree().paused:
@@ -640,6 +638,10 @@ func _physics_process(delta: float) -> void:
 	
 	# Cache world space state once per frame for performance
 	var space_state = get_world_2d().direct_space_state
+	
+	# Apply speed cap if active (initial clamp)
+	if is_speed_capped:
+		velocity.x = clamp(velocity.x, -300.0, 300.0)
 	
 	# Update performance timers
 	ledge_check_timer += delta
@@ -871,6 +873,8 @@ func _physics_process(delta: float) -> void:
 		if is_ground_sliding and not is_wall_running:
 			_process_ground_slide(delta)
 			# Skip normal physics when sliding
+			if is_speed_capped:
+				velocity.x = clamp(velocity.x, -300.0, 300.0)
 			velocity_before_move_and_slide = velocity  # Store for wall collision detection
 			move_and_slide()
 			_post_movement_updates(space_state)
@@ -896,6 +900,8 @@ func _physics_process(delta: float) -> void:
 		if is_air_dashing and not is_wall_running:
 			_process_air_dash(delta)
 			# Skip normal physics when air dashing
+			if is_speed_capped:
+				velocity.x = clamp(velocity.x, -300.0, 300.0)
 			velocity_before_move_and_slide = velocity  # Store for wall collision detection
 			move_and_slide()
 			_post_movement_updates(space_state)
@@ -905,6 +911,8 @@ func _physics_process(delta: float) -> void:
 	if is_slamming:
 		_process_slam(delta)
 		# Skip normal physics when slamming
+		if is_speed_capped:
+			velocity.x = clamp(velocity.x, -300.0, 300.0)
 		move_and_slide()
 		_post_movement_updates(space_state)
 		return
@@ -930,6 +938,8 @@ func _physics_process(delta: float) -> void:
 			var pos_before_frame = global_position
 			_process_wall_run(delta)
 			# Skip normal physics when wall running
+			if is_speed_capped:
+				velocity.x = clamp(velocity.x, -300.0, 300.0)
 			move_and_slide()
 			var pos_after_frame = global_position
 			var movement_this_frame = pos_after_frame - pos_before_frame
@@ -988,6 +998,8 @@ func _physics_process(delta: float) -> void:
 	
 	# Skip normal movement ONLY during the initial high-speed burst of the kick
 	if is_attacking and kick_post_boost_timer <= 0:
+		if is_speed_capped:
+			velocity.x = clamp(velocity.x, -300.0, 300.0)
 		move_and_slide()
 		_post_movement_updates(space_state)
 		return
@@ -1007,6 +1019,8 @@ func _physics_process(delta: float) -> void:
 	if is_stunned:
 		_process_stun(delta)
 		# Skip normal physics when stunned
+		if is_speed_capped:
+			velocity.x = clamp(velocity.x, -300.0, 300.0)
 		move_and_slide()
 		_post_movement_updates(space_state)
 		return
@@ -1036,6 +1050,8 @@ func _physics_process(delta: float) -> void:
 	_execute_buffered_jump()
 	
 	# 20. Move Character
+	if is_speed_capped:
+		velocity.x = clamp(velocity.x, -300.0, 300.0)
 	velocity_before_move_and_slide = velocity
 	move_and_slide()
 	
@@ -1046,21 +1062,6 @@ func _physics_process(delta: float) -> void:
 	
 	# 22. Post-Movement Updates
 	_post_movement_updates(space_state)
-	
-	if fmod(game_time, 1.0) < delta:
-		var frame_delta_pos = global_position - frame_start_position
-		print("[PlayerDebug] [Frame End] Pos: %s, Delta: %s, Final Vel: %s" % [
-			global_position, frame_delta_pos, velocity
-		])
-		
-		# Detect wall penetration
-		if get_slide_collision_count() > 0:
-			for i in range(get_slide_collision_count()):
-				var col = get_slide_collision(i)
-				if col.get_depth() > 1.0:
-					print("[PlayerDebug] [Warning] PENETRATION DETECTED: Depth %.2f into '%s'. Normal: %s" % [
-						col.get_depth(), col.get_collider().name, col.get_normal()
-					])
 	
 	# 22.5. Update position validity check
 	# Note: Position validity is only meaningful during rewind when we manually set position.
@@ -1172,20 +1173,14 @@ func _is_runnable_wall(collider: Node) -> bool:
 	
 	# Rule 1: "Object" in name or group = Not Runnable
 	if node_name_lower.contains("object") or collider.is_in_group("objects"):
-		if fmod(game_time, 0.5) < 0.016:
-			print("[WallRunDebug] [Surface Check] REJECTED: Surface '%s' matched 'Object' exclusion rule." % node_name)
 		return false
 	
 	# Rule 2: "Platform" in name or group = Runnable
 	if node_name_lower.contains("platform") or collider.is_in_group("platforms"):
-		if fmod(game_time, 0.5) < 0.016:
-			print("[WallRunDebug] [Surface Check] ACCEPTED: Surface '%s' matched 'Platform' inclusion rule." % node_name)
 		return true
 	
 	# Rule 3: Generic TileMap fallback
 	if collider is TileMap:
-		if fmod(game_time, 0.5) < 0.016:
-			print("[WallRunDebug] [Surface Check] ACCEPTED: Surface '%s' is a generic TileMap (Defaulting to Runnable)." % node_name)
 		return true
 	
 	# Rule 4: Everything else is rejected
@@ -1286,16 +1281,10 @@ func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceS
 				current_frame_wall_runnable = _is_runnable_wall(collider)
 				current_frame_wall_normal = Vector2(sign(collision_normal.x), 0)
 				side_str = "LEFT (Fallback)" if current_frame_wall_normal.x > 0 else "RIGHT (Fallback)"
-				
-				if fmod(game_time, 0.5) < 0.016:
-					print("[WallRunDebug] [State Update] Raycasts missed, but collision found. Wall on %s. Runnable: %s." % [side_str, current_frame_wall_runnable])
 				break
 	
 	# PERSISTENCE LOGIC: If we detected a wall, reset buffer. If not, check if we're in buffer period.
 	if current_frame_wall_detected:
-		if not is_on_wall:
-			print("[WallRunDebug] [State Update] CONTACT STARTED. Wall on %s. Type: %s." % [side_str, "PLATFORM" if current_frame_wall_runnable else "OBJECT"])
-		
 		is_on_wall = true
 		is_on_runnable_wall = current_frame_wall_runnable
 		wall_normal = current_frame_wall_normal
@@ -1311,7 +1300,6 @@ func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceS
 			wall_persistence_timer -= 1
 			# Stay on wall during persistence
 		elif is_on_wall:
-			print("[WallRunDebug] [State Update] CONTACT LOST. Normal wall physics resuming.")
 			is_on_wall = false
 			is_on_runnable_wall = false
 			wall_normal = Vector2.ZERO
@@ -1323,12 +1311,8 @@ func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceS
 		# Only wall slide if pressing TOWARD the wall
 		if (wall_normal.x > 0 and input_direction < 0) or (wall_normal.x < 0 and input_direction > 0):
 			is_wall_sliding = true
-			if fmod(game_time, 0.5) < 0.016:
-				var side = "LEFT" if wall_normal.x > 0 else "RIGHT"
-				print("[WallRunDebug] [State Update] Wall SLIDE active on %s. (Pressing toward wall while falling)" % side)
 	elif is_on_wall and not is_on_runnable_wall:
-		if fmod(game_time, 0.5) < 0.016:
-			print("[WallRunDebug] [State Update] Wall SLIDE blocked: Surface is a non-runnable OBJECT.")
+		pass
 
 
 func _is_wall_at_lower_quarter() -> bool:
@@ -1370,12 +1354,7 @@ func _is_wall_at_lower_quarter() -> bool:
 	if result.is_empty():
 		return false
 		
-	var is_runnable = _is_runnable_wall(result.collider)
-	# Detailed debug for lower quarter check
-	if not is_runnable:
-		print("[WallRunDebug] Lower quarter check FAILED: Collider '", result.collider.name, "' is NOT runnable.")
-	
-	return is_runnable
+	return _is_runnable_wall(result.collider)
 	
 	# NOTE: Wall run activation moved to _check_wall_run_activation() 
 	# which runs AFTER move_and_slide() to ensure actual collision
@@ -1416,8 +1395,6 @@ func _start_wall_run(horizontal_speed: float, force: bool = false) -> void:
 	wall_run_timer = 0.0
 	wall_run_start_position = global_position
 	wall_run_frame_count = 0
-	print("[WallRunDebug] [Action] STARTING Upward Movement. Wall Speed: %.1f." % wall_run_speed)
-	
 	
 	# Set upward velocity
 	velocity.y = -wall_run_speed
@@ -1426,8 +1403,6 @@ func _start_wall_run(horizontal_speed: float, force: bool = false) -> void:
 	# If we have no velocity towards wall, add a small nudge to ensure collision detection
 	var towards_wall_x = -wall_normal.x
 	if sign(velocity.x) != sign(towards_wall_x) or abs(velocity.x) < 50.0:
-		var side = "LEFT" if towards_wall_x < 0 else "RIGHT"
-		print("[WallRunDebug] [Action] Nudging player INTO wall on the %s to maintain contact." % side)
 		velocity.x = towards_wall_x * 20.0 # Force a small nudge into the wall
 	else:
 		velocity.x = velocity.x * 0.2 # Keep a small portion of existing momentum into the wall
@@ -1496,7 +1471,6 @@ func _end_wall_run() -> void:
 	if not is_wall_running:
 		return
 	
-	print("[WallRunDebug] [Action] ENDING Wall Run. Sustained for %d frames." % wall_run_frame_count)
 	is_wall_running = false
 	wall_run_timer = 0.0
 	wall_run_speed = 0.0
@@ -1532,13 +1506,10 @@ func _check_wall_run_activation() -> void:
 		# During wall run, use raycast detection to check if still on wall
 		# NEW: Also end if hit head or lost wall contact at the lower quarter point
 		if not is_on_wall:
-			print("[WallRunDebug] [Action] TERMINATED: Lost physical contact with wall.")
 			_end_wall_run()
 		elif is_on_ceiling():
-			print("[WallRunDebug] [Action] TERMINATED: Hit ceiling/head contact.")
 			_end_wall_run()
 		elif not _is_wall_at_lower_quarter():
-			print("[WallRunDebug] [Action] TERMINATED: No longer on a Platform surface (Lower Quarter check failed).")
 			_end_wall_run()
 		return  # Don't check for activation if already running
 	
@@ -1597,20 +1568,12 @@ func _check_wall_run_activation() -> void:
 				var collision = get_slide_collision(i)
 				if abs(collision.get_normal().x) > 0.7:
 					if fmod(game_time, 0.5) < 0.016:
-						var collider_name = collision.get_collider().name
 						var is_runnable = _is_runnable_wall(collision.get_collider())
-						if not is_runnable:
-							print("[WallRunDebug] [Activation] ABORTED: Surface '%s' is an OBJECT. Wall running is only for Platforms." % collider_name)
-						elif not (velocity_reduced or has_slide_collision):
-							print("[WallRunDebug] [Activation] ABORTED: Collision with Platform '%s' detected, but impact velocity was too low." % collider_name)
 		return
 		
 	if not _is_wall_at_lower_quarter():
-		if fmod(game_time, 0.5) < 0.016:
-			print("[WallRunDebug] [Activation] ABORTED: Surface is a Platform, but no wall detected at player's FEET (Lower Quarter check failed).")
 		return
 	
-	print("[WallRunDebug] [Activation] SUCCESS: All criteria met. Starting Wall Run sequence.")
 	# Start wall run with fixed speed of 1000 for consistent wall run behavior
 	_start_wall_run(1000.0, true)
 	
@@ -1628,13 +1591,8 @@ func _apply_gravity(delta: float) -> void:
 			return
 		# WALL SLIDING: Apply gravity but cap at wall slide speed
 		elif is_wall_sliding:
-			var vel_before_slide = velocity.y
 			velocity.y += gravity * delta
 			velocity.y = min(velocity.y, wall_slide_speed)
-			
-			if fmod(game_time, 0.5) < delta: # Throttle logs
-				var side = "LEFT" if wall_normal.x > 0 else "RIGHT"
-				print("[WallRunDebug] [Physics] SLOW DROP: Wall Slide active on %s. Velocity capped at %.1f." % [side, wall_slide_speed])
 		else:
 			var gravity_multiplier := 1.0
 			
@@ -1672,9 +1630,13 @@ func _apply_horizontal_movement(input_direction: float, delta: float) -> void:
 	"""Apply horizontal movement with context-aware acceleration."""
 	var speed := max_speed
 	
-	# Apply run speed multiplier when running
-	if is_running:
+	# Apply run speed multiplier when running (unless speed is capped)
+	if is_running and not is_speed_capped:
 		speed *= run_speed_multiplier
+	
+	# Override speed if capped
+	if is_speed_capped:
+		speed = 300.0
 	
 	var target_velocity := input_direction * speed
 	
@@ -1748,8 +1710,6 @@ func _handle_jump_input() -> void:
 		# Priority: Ground jump > Wall jump > Coyote jump > Buffer
 		if wall_jump_enabled and is_on_wall and is_on_runnable_wall and not is_wall_running and wall_jump_cooldown <= 0 and not is_on_floor():
 			_perform_wall_jump()
-		elif is_on_wall and not is_on_runnable_wall and not can_normal_jump:
-			print("[WallRunDebug] [Jump] Wall jump REJECTED: Surface is a non-runnable OBJECT.")
 		else:
 			# Check if we can jump immediately
 			var can_jump: bool = can_normal_jump
@@ -2055,8 +2015,6 @@ func _start_ledge_climb() -> void:
 	is_ledge_climbing = true
 	ledge_climb_progress = 0.0
 	ledge_climb_start_pos = global_position
-	
-	print("[PlayerDebug] [Action] LEDGE CLIMB STARTED. Snapping from %s toward %s." % [global_position, ledge_climb_target_pos])
 	
 	# Store horizontal velocity if momentum preservation is enabled
 	if ledge_climb_preserve_momentum:
@@ -3083,9 +3041,6 @@ func _post_movement_updates(space_state: PhysicsDirectSpaceState2D) -> void:
 	# CRITICAL FIX: Only allow ledge climb on RUNNABLE walls (Platforms)
 	if ledge_climb_enabled and is_on_wall and is_on_runnable_wall and not is_ledge_climbing and not is_wall_running and not is_rewind_tracing:
 		_check_ledge_climb(space_state)
-	elif ledge_climb_enabled and is_on_wall and not is_on_runnable_wall:
-		if fmod(game_time, 0.5) < 0.016:
-			print("[WallRunDebug] [Ledge] Ledge climb BLOCKED: Surface is a non-runnable OBJECT.")
 	
 	# Handle ceiling collision (stop upward movement)
 	if is_on_ceiling() and velocity.y < 0:
@@ -4257,6 +4212,11 @@ func _create_bullet_parry_indicator() -> void:
 	bullet_parry_indicator.visible = false
 	add_child(bullet_parry_indicator)
 
+func set_speed_cap(enabled: bool) -> void:
+	is_speed_capped = enabled
+	if enabled:
+		velocity.x = clamp(velocity.x, -300.0, 300.0)
+
 func die() -> void:
 	"""Kill the player and restart the level."""
 	if is_dying:
@@ -4264,6 +4224,7 @@ func die() -> void:
 		
 	# Set dying flag to prevent further processing in _physics_process
 	is_dying = true
+	is_speed_capped = false # Reset cap on death
 	
 	# Clean up rewind state if dying during rewind
 	if is_in_rewind_slowmo:
@@ -4692,7 +4653,6 @@ func _handle_dust_effects(delta: float) -> void:
 
 func finish_level(time_taken: float) -> void:
 	"""Called when the player reaches the level finish trigger."""
-	print("[Player] finish_level called with time: ", time_taken)
 	# Pause the game to stop the timer and player movement
 	get_tree().paused = true
 	

@@ -42,6 +42,11 @@ func _on_body_entered(_body: Node2D) -> void:
 	explode()
 
 func explode() -> void:
+	# Lift speed cap from player when rocket hits target
+	var player = get_tree().get_first_node_in_group("player")
+	if player and player.has_method("set_speed_cap"):
+		player.set_speed_cap(false)
+
 	if explosion_scene:
 		var explosion = explosion_scene.instantiate()
 		# Set position BEFORE adding to tree if possible, 
