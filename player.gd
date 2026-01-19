@@ -1739,16 +1739,20 @@ func _handle_jump_input() -> void:
 		# Check if infinite jumps is enabled (assist mode)
 		var infinite_jumps: bool = get_meta("infinite_jumps_enabled", false)
 		
-		# Check for wall jump first (highest priority)
+		# Determine if we can perform a normal jump (floor or coyote time)
+		var can_normal_jump: bool = is_on_floor() or not coyote_timer.is_stopped() or infinite_jumps
+		
+		# Check for wall jump first (highest priority in air, but not on ground)
 		# Note: Wall run jump is handled earlier in _physics_process
 		# CRITICAL FIX: Only allow wall jump on RUNNABLE walls (Platforms)
-		if wall_jump_enabled and is_on_wall and is_on_runnable_wall and not is_wall_running and wall_jump_cooldown <= 0:
+		# Priority: Ground jump > Wall jump > Coyote jump > Buffer
+		if wall_jump_enabled and is_on_wall and is_on_runnable_wall and not is_wall_running and wall_jump_cooldown <= 0 and not is_on_floor():
 			_perform_wall_jump()
-		elif is_on_wall and not is_on_runnable_wall and Input.is_action_just_pressed("jump"):
+		elif is_on_wall and not is_on_runnable_wall and not can_normal_jump:
 			print("[WallRunDebug] [Jump] Wall jump REJECTED: Surface is a non-runnable OBJECT.")
 		else:
 			# Check if we can jump immediately
-			var can_jump: bool = is_on_floor() or not coyote_timer.is_stopped() or infinite_jumps
+			var can_jump: bool = can_normal_jump
 			
 			# NEW: If sliding, only allow jump if we can stand up
 			if can_jump and is_ground_sliding and not _can_stand_up():
@@ -2696,7 +2700,8 @@ func _process_ground_slide(delta: float) -> void:
 
 
 func _can_stand_up() -> bool:
-	"""Check if there is enough space above the player to stand up."""
+	"""Check if there is enough space above the player to stand up.
+	Uses a horizontally inset shape to avoid detecting walls we are touching."""
 	var collision_shape = $CollisionShape2D
 	if not collision_shape or not collision_shape.shape:
 		return true
@@ -2710,9 +2715,10 @@ func _can_stand_up() -> bool:
 		return true
 		
 	# Create a temporary shape for the query to match standing height
-	# We use the original standing height stored in _ready
+	# Use a horizontal inset to ensure we only check for ceilings, not walls we're against
 	var standing_shape = RectangleShape2D.new()
-	standing_shape.size = Vector2(shape.size.x, original_collision_shape_height)
+	var horizontal_inset = 6.0 # Slightly larger inset to be safe from wall contact
+	standing_shape.size = Vector2(max(shape.size.x - horizontal_inset, 1.0), original_collision_shape_height)
 	
 	var query = PhysicsShapeQueryParameters2D.new()
 	query.shape = standing_shape
@@ -3053,6 +3059,24 @@ func _post_movement_updates(space_state: PhysicsDirectSpaceState2D) -> void:
 	"""Handle any post-movement state updates."""
 	# 1. Check for wall run activation AFTER move_and_slide() to ensure actual collision
 	_check_wall_run_activation()
+	
+	# NEW: End ground slide or air dash if we just hit a wall (e.g. non-runnable objects)
+	# This ensures we don't get stuck "sliding" against a wall for the full duration
+	# both object tiles and platform tiles will now end the slide immediately on impact
+	if (is_ground_sliding or is_air_dashing) and get_slide_collision_count() > 0:
+		for i in range(get_slide_collision_count()):
+			var collision = get_slide_collision(i)
+			# A wall collision has a mostly horizontal normal
+			if abs(collision.get_normal().x) > 0.7:
+				if is_ground_sliding:
+					# Only end slide if there's enough space above to stand up
+					if _can_stand_up():
+						_end_ground_slide()
+						break
+				elif is_air_dashing:
+					# Air dash always ends on wall impact if it didn't trigger a wall run
+					_end_air_dash()
+					break
 	
 	# 2. QOL: Check for Ledge Climb Opportunity
 	# Checked AFTER wall run activation so wall run takes priority during high-speed impact
