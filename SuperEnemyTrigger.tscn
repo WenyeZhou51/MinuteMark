@@ -14,3 +14,4 @@ script = ExtResource("1_script")
 shape = SubResource("RectangleShape2D_trigger")
 debug_color = Color(0.9, 0.1, 0.1, 0.4)
 
+

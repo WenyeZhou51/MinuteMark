@@ -18,3 +18,4 @@ func _ready() -> void:
 	# Connect the finished signal to queue_free (Godot 4.x)
 	finished.connect(queue_free)
 
+

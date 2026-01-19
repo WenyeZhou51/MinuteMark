@@ -12,3 +12,4 @@ func _on_body_entered(body: Node2D) -> void:
 			# Disable trigger after use if needed, or keep it for multiple shots
 			# queue_free() 
 
+
