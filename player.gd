@@ -4688,3 +4688,18 @@ func _handle_dust_effects(delta: float) -> void:
 			var dust_offset = Vector2(-facing_direction * 10, 32)
 			_spawn_dust("run", dust_offset, Vector2(-facing_direction, 0))
 			dust_spawn_timer = 0.11 # Increased frequency for running
+
+
+func finish_level(time_taken: float) -> void:
+	"""Called when the player reaches the level finish trigger."""
+	print("[Player] finish_level called with time: ", time_taken)
+	# Pause the game to stop the timer and player movement
+	get_tree().paused = true
+	
+	# Show the victory screen
+	var victory_scene = load("res://VictoryUI.tscn")
+	if victory_scene:
+		var victory_instance = victory_scene.instantiate()
+		get_tree().root.add_child(victory_instance)
+		if victory_instance.has_method("setup"):
+			victory_instance.setup(time_taken)

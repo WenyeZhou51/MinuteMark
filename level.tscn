@@ -1,4 +1,4 @@
-[gd_scene load_steps=19 format=3 uid="uid://clfclx5p38xkv"]
+[gd_scene load_steps=20 format=3 uid="uid://clfclx5p38xkv"]
 
 [ext_resource type="Script" path="res://level_manager.gd" id="1_manager"]
 [ext_resource type="PackedScene" uid="uid://vv3m4nx6g3jo" path="res://player.tscn" id="1_qj3g4"]
@@ -15,6 +15,7 @@
 [ext_resource type="Script" path="res://minor_anim_system.gd" id="14_wxjrc"]
 [ext_resource type="PackedScene" path="res://SuperEnemy.tscn" id="17_super_enemy"]
 [ext_resource type="PackedScene" path="res://SuperEnemyTrigger.tscn" id="18_super_trigger"]
+[ext_resource type="PackedScene" uid="uid://6624qfeempan" path="res://LevelFinishTrigger.tscn" id="19_finish"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_trigger"]
 size = Vector2(481, 196.25)
@@ -330,3 +331,7 @@ position = Vector2(4458, 864)
 [node name="SuperEnemyTrigger" parent="." node_paths=PackedStringArray("super_enemy") instance=ExtResource("18_super_trigger")]
 position = Vector2(4458, 784)
 super_enemy = NodePath("../SuperEnemy")
+
+[node name="LevelFinishTrigger" parent="." instance=ExtResource("19_finish")]
+position = Vector2(4886, 3513)
+scale = Vector2(10, 10)
