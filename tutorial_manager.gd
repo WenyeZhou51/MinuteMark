@@ -19,4 +19,3 @@ func display_message(message: String) -> void:
 func clear_message() -> void:
 	if tutorial_ui_instance:
 		tutorial_ui_instance.hide_message()
-

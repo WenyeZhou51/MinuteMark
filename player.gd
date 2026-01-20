@@ -396,6 +396,10 @@ var is_dying: bool = false  # Flag to prevent further processing after die() is 
 var can_restart_after_death: bool = false
 var rewind_warning_vibration_time: float = 0.0  # Accumulated time for warning vibration effect
 
+# Tutorial state variables
+var is_tutorial_locked: bool = false  # Is player locked in tutorial mode
+var tutorial_allowed_action: String = ""  # The only action allowed during tutorial (empty = none)
+
 # Dust effect state
 var dust_spawn_timer: float = 0.0
 
@@ -528,6 +532,65 @@ func _exit_tree() -> void:
 	"""Ensure time scale is reset when player is removed from scene."""
 	Engine.time_scale = 1.0
 
+func set_tutorial_lock(enabled: bool, allowed_action: String = "") -> void:
+	"""Set tutorial lock state - locks all actions except the allowed one."""
+	is_tutorial_locked = enabled
+	tutorial_allowed_action = allowed_action
+
+func cancel_rewind_and_set_cooldown() -> void:
+	"""Forcefully cancel rewind state and set cooldown. Used when entering tutorial blocks."""
+	if not is_rewind_holding and not is_rewind_tracing:
+		return  # Not in rewind, nothing to cancel
+	
+	# Exit slow-mo and clear ghost path visualization
+	# (_exit_rewind_slowmo() already resets the validity indicator)
+	_exit_rewind_slowmo()
+	_clear_ghost_path_visualization()
+	
+	# Resume music forward playback
+	if AudioManager:
+		AudioManager.stop_rewind()
+	
+	# End rewind state
+	is_rewind_holding = false
+	is_rewind_tracing = false
+	rewind_current_progress = 0.0
+	rewind_traceback_frame_data = []
+	
+	# Ensure slam state is reset
+	is_slamming = false
+	if slam_attack_visual:
+		slam_attack_visual.visible = false
+	
+	# Set cooldown immediately
+	rewind_cooldown_timer = rewind_cooldown
+	
+	# Check if player is inside any tutorial blocks (in case rewind moved them into one)
+	# This handles the case where player rewinds into a tutorial block
+	_check_tutorial_blocks_after_rewind()
+
+func _check_tutorial_blocks_during_rewind() -> void:
+	"""Check if player entered any tutorial blocks during rewind traceback."""
+	# Find all tutorial blocks and check if player is inside
+	_find_tutorial_blocks_recursive(get_tree().root)
+
+func _check_tutorial_blocks_after_rewind() -> void:
+	"""Check if player is inside any tutorial blocks after rewind ends."""
+	print("Player: Checking tutorial blocks after rewind")
+	# Find all tutorial blocks by searching the scene tree
+	# Start from the root and recursively search
+	_find_tutorial_blocks_recursive(get_tree().root)
+
+func _find_tutorial_blocks_recursive(node: Node) -> void:
+	"""Recursively find tutorial block nodes and check if player is inside."""
+	if node.has_method("check_player_inside"):
+		# This is a tutorial block - check if player is inside
+		print("Player: Found tutorial block, checking if player is inside")
+		node.check_player_inside()
+	
+	# Recursively check children
+	for child in node.get_children():
+		_find_tutorial_blocks_recursive(child)
 
 func _connect_to_enemies() -> void:
 	"""Connect to all enemy signals for stun detection."""
@@ -607,6 +670,10 @@ func _physics_process(delta: float) -> void:
 	if is_dying:
 		return
 	
+	# If game is paused, we still need to process input for tutorials
+	# But we should skip most physics/movement updates
+	var is_paused = get_tree().paused
+	
 	# Update timer system (only when not paused)
 	if not get_tree().paused and current_game_time > 0:
 		current_game_time -= delta
@@ -657,6 +724,17 @@ func _physics_process(delta: float) -> void:
 	# 1. Process Input
 	var input_vector := _get_input_vector()
 	
+	# Tutorial lock: Block all input except allowed action
+	if is_tutorial_locked:
+		# Only allow the specific action, block everything else
+		if tutorial_allowed_action != "move":
+			input_vector = Vector2.ZERO  # Block movement unless move is allowed
+		else:
+			# Movement is allowed - detect when player moves
+			if input_vector.x != 0.0 or input_vector.y != 0.0:
+				if TutorialBlockManager:
+					TutorialBlockManager.check_action_performed("move")
+	
 	# Auto-kick Override: Move towards target enemy
 	if auto_kick_active:
 		if is_instance_valid(auto_kick_target) and not auto_kick_target.is_destroyed:
@@ -698,27 +776,59 @@ func _physics_process(delta: float) -> void:
 	
 	# Handle dash input (shift press takes priority over run)
 	if dash_enabled and run_input_just_pressed and not is_ground_sliding and not is_air_dashing and not is_stunned and not is_in_rewind_slowmo:
-		if is_on_floor() and ground_slide_cooldown_timer <= 0:
-			# Ground slide
-			_start_ground_slide(input_vector.x)
-		elif not is_on_floor() and air_dash_cooldown_timer <= 0 and air_dash_available:
-			# Air dash (only if available)
-			_start_air_dash(input_vector.x)
+		# Tutorial lock check
+		if is_tutorial_locked:
+			if tutorial_allowed_action == "dash":
+				# Dash is allowed - proceed and notify tutorial manager
+				if is_on_floor() and ground_slide_cooldown_timer <= 0:
+					_start_ground_slide(input_vector.x)
+					if TutorialBlockManager:
+						TutorialBlockManager.check_action_performed("dash")
+				elif not is_on_floor() and air_dash_cooldown_timer <= 0 and air_dash_available:
+					_start_air_dash(input_vector.x)
+					if TutorialBlockManager:
+						TutorialBlockManager.check_action_performed("dash")
+			# Otherwise, block dash
+		else:
+			# Normal dash handling
+			if is_on_floor() and ground_slide_cooldown_timer <= 0:
+				# Ground slide
+				_start_ground_slide(input_vector.x)
+			elif not is_on_floor() and air_dash_cooldown_timer <= 0 and air_dash_available:
+				# Air dash (only if available)
+				_start_air_dash(input_vector.x)
 	
 	# Handle rewind input (hold-to-rewind)
 	if rewind_enabled and rewind_cooldown_timer <= 0:
-		# Check if rewind button was just pressed (start rewind)
-		if Input.is_action_just_pressed("rewind"):
-			if not is_stunned and not is_slam_frozen and not is_rewind_tracing:
-				_start_rewind_hold()
-		
-		# Check if rewind button was just released (stop and spawn shadow)
-		# This must be checked AFTER the press check to avoid same-frame conflicts
-		if Input.is_action_just_released("rewind") and is_rewind_holding:
-			_stop_rewind_hold()
-			# Check if die() was called during stop
-			if is_dying:
-				return
+		# Tutorial lock check
+		if is_tutorial_locked:
+			if tutorial_allowed_action == "rewind":
+				# Rewind is allowed - check for press to notify tutorial manager
+				if Input.is_action_just_pressed("rewind"):
+					if not is_stunned and not is_slam_frozen and not is_rewind_tracing:
+						_start_rewind_hold()
+						if TutorialBlockManager:
+							TutorialBlockManager.check_action_performed("rewind")
+				# Still allow normal rewind hold/release handling
+				if Input.is_action_just_released("rewind") and is_rewind_holding:
+					_stop_rewind_hold()
+					if is_dying:
+						return
+			# Otherwise, block rewind
+		else:
+			# Normal rewind handling
+			# Check if rewind button was just pressed (start rewind)
+			if Input.is_action_just_pressed("rewind"):
+				if not is_stunned and not is_slam_frozen and not is_rewind_tracing:
+					_start_rewind_hold()
+			
+			# Check if rewind button was just released (stop and spawn shadow)
+			# This must be checked AFTER the press check to avoid same-frame conflicts
+			if Input.is_action_just_released("rewind") and is_rewind_holding:
+				_stop_rewind_hold()
+				# Check if die() was called during stop
+				if is_dying:
+					return
 	
 	# Update run state based on speed (sprint state when speed exceeds threshold)
 	var current_speed = velocity.length()
@@ -1035,6 +1145,14 @@ func _physics_process(delta: float) -> void:
 		# NOTE: We don't call move_and_slide() here because _process_ledge_climb 
 		# sets global_position directly for a guaranteed result.
 		_post_movement_updates(space_state)
+		return
+	
+	# Skip physics/movement when paused (but still process input for tutorials)
+	if is_paused:
+		# Only process input handlers, skip movement/physics
+		_handle_jump_input()
+		_handle_ground_slam_input()
+		_handle_kick_input()
 		return
 	
 	# 15. Apply Gravity
@@ -1695,6 +1813,10 @@ func _apply_horizontal_movement(input_direction: float, delta: float) -> void:
 
 func _handle_jump_input() -> void:
 	"""Process jump input with buffering and state tracking."""
+	# Tutorial lock check
+	if is_tutorial_locked and tutorial_allowed_action != "jump" and tutorial_allowed_action != "slam":
+		return
+	
 	# Can't jump when stunned or in rewind slow-mo
 	if is_stunned or is_in_rewind_slowmo:
 		return
@@ -1750,6 +1872,10 @@ func _execute_buffered_jump() -> void:
 
 func _handle_ground_slam_input() -> void:
 	"""Process ground slam input - trigger slam when pressing down while in air."""
+	# Tutorial lock check
+	if is_tutorial_locked and tutorial_allowed_action != "slam":
+		return
+	
 	# Can't ground slam when stunned, already slamming, or in rewind slow-mo
 	if is_stunned or is_slamming or is_in_rewind_slowmo:
 		return
@@ -1760,11 +1886,20 @@ func _handle_ground_slam_input() -> void:
 		if slam_enabled and not is_on_floor():
 			var input_vector = _get_input_vector()
 			_start_slam(input_vector)
+			# Notify tutorial manager if slam was allowed action
+			if is_tutorial_locked and tutorial_allowed_action == "slam":
+				if TutorialBlockManager:
+					TutorialBlockManager.check_action_performed("slam")
 
 
 func _perform_jump() -> void:
 	"""Execute a jump, with empowered jump if in sprint state or jumping out of slide."""
 	_cancel_ledge_climb()
+	
+	# Notify tutorial manager if jump was allowed action
+	if is_tutorial_locked and tutorial_allowed_action == "jump":
+		if TutorialBlockManager:
+			TutorialBlockManager.check_action_performed("jump")
 	
 	# Check if jumping out of ground slide (empowered jump)
 	if is_slide_jump_available:
@@ -2227,6 +2362,10 @@ func _update_attack_indicator() -> void:
 
 func _handle_kick_input() -> void:
 	"""Process kick input - always start kick animation, trigger effect at frame 5."""
+	# Tutorial lock check
+	if is_tutorial_locked and tutorial_allowed_action != "kick":
+		return
+	
 	# Can't kick when stunned or in rewind slow-mo
 	if is_stunned or is_in_rewind_slowmo:
 		return
@@ -2238,6 +2377,10 @@ func _handle_kick_input() -> void:
 	# Check for kick input (mapped to 'j' key)
 	if Input.is_action_just_pressed("melee_attack"):
 		_start_kick_sequence()
+		# Notify tutorial manager if kick was allowed action
+		if is_tutorial_locked and tutorial_allowed_action == "kick":
+			if TutorialBlockManager:
+				TutorialBlockManager.check_action_performed("kick")
 
 
 func _start_kick_sequence() -> void:
@@ -3563,6 +3706,7 @@ func _process_rewind_traceback(delta: float) -> void:
 	# Get state at current progress and update player position
 	var current_state = _get_state_at_progress(rewind_current_progress)
 	if not current_state.is_empty():
+		var old_position = global_position
 		global_position = current_state["position"]
 		velocity = current_state["velocity"]
 		facing_direction = current_state["facing_direction"]
@@ -3578,6 +3722,11 @@ func _process_rewind_traceback(delta: float) -> void:
 		
 		# Update visual indicator based on position validity
 		_update_rewind_validity_indicator()
+		
+		# Check if player entered any tutorial blocks during rewind
+		# Only check if position changed significantly to avoid performance issues
+		if old_position.distance_to(global_position) > 10.0:
+			_check_tutorial_blocks_during_rewind()
 	
 	# Zero out velocity to prevent physics from interfering
 	# Also clear wall states to prevent wall interactions (wall run, wall slide, etc.)
