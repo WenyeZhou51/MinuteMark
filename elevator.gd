@@ -11,7 +11,7 @@ extends CharacterBody2D
 @export var door_width: float = 200.0  ## Width of the opening on the right side
 @export var wall_thickness: float = 20.0  ## Thickness of the elevator frame walls
 @export var wait_time: float = 2.0  ## Time to wait after player enters before falling
-@export var fall_speed: float = 1000.0  ## Speed at which elevator falls
+@export var fall_speed: float = 10000.0  ## Speed at which elevator falls
 
 @export_group("Visual")
 @export var elevator_color: Color = Color(0.5, 0.5, 0.5, 1.0)  ## Elevator color
@@ -177,15 +177,22 @@ func _physics_process(delta: float) -> void:
 	
 	# Apply gravity and move if falling
 	if is_falling and not has_landed:
-		# Use move_and_slide to handle collisions
-		move_and_slide()
+		# For high-speed movement, split into multiple steps to prevent tunneling
+		var remaining_distance = velocity.y * delta
+		var max_step_size = 50.0  # Maximum distance per step to prevent tunneling
+		var steps = max(1, int(ceil(abs(remaining_distance) / max_step_size)))
+		var step_distance = remaining_distance / steps
 		
-		# Check if we've hit the ground
-		if is_on_floor():
-			has_landed = true
-			velocity = Vector2.ZERO
-			# Stop falling
-			is_falling = false
+		for i in range(steps):
+			velocity.y = step_distance / delta if delta > 0 else 0
+			move_and_slide()
+			
+			# Check if we've hit the ground
+			if is_on_floor():
+				has_landed = true
+				velocity = Vector2.ZERO
+				is_falling = false
+				break
 
 
 func _on_player_entered(body: Node2D) -> void:
