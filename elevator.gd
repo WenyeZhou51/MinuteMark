@@ -57,6 +57,12 @@ func _physics_process(_delta: float) -> void:
 		var state = PhysicsServer2D.body_get_direct_state(main_body.get_rid())
 		if state:
 			for i in range(state.get_contact_count()):
+				# Ignore collisions with the player
+				var collider_id = state.get_contact_collider_id(i)
+				var collider = instance_from_id(collider_id)
+				if collider and (collider.is_in_group("player") or collider.name == "Player"):
+					continue
+					
 				var normal = state.get_contact_local_normal(i)
 				# normal.y < -0.7 means we hit something BELOW us (the floor is pushing up)
 				if normal.y < -0.7:
@@ -67,12 +73,26 @@ func _handle_landing() -> void:
 	impact_triggered = true
 	has_dropped = false
 	
+	# Capture the current global position before freezing
+	var landing_pos = main_body.global_position
+	
 	# Screenshake
 	_trigger_screenshake()
 	
+	# Stop the elevator and freeze it in place
+	main_body.linear_velocity = Vector2.ZERO
+	main_body.freeze = true
+	
+	# Move the root node to the landing position and reset child local position.
+	# This prevents the RigidBody2D from "snapping back" to the root's original origin,
+	# which caused the player to teleport and left an "invisible floor" at the top.
+	global_position = landing_pos
+	main_body.position = Vector2.ZERO
+	
 	# Smoke effects at the point of impact
 	if smoke_particles:
-		smoke_particles.global_position = main_body.global_position + Vector2(0, 385)
+		# Reset smoke position to its intended local offset (bottom of elevator)
+		smoke_particles.position = Vector2(0, 385)
 		smoke_particles.restart()
 		smoke_particles.emitting = true
 	
@@ -82,12 +102,6 @@ func _handle_landing() -> void:
 	var tween = create_tween()
 	tween.tween_property(door, "position:y", DOOR_OPEN_Y, 0.8).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
 	tween.finished.connect(func(): door.visible = false)
-	
-	# Stop the elevator and freeze it in place
-	# Small delay to let it settle
-	await get_tree().create_timer(0.1).timeout
-	main_body.linear_velocity = Vector2.ZERO
-	main_body.freeze = true
 
 func _trigger_screenshake() -> void:
 	var player = get_tree().get_first_node_in_group("player")

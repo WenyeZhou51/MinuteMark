@@ -331,6 +331,8 @@ var dash_direction: float = 1.0  # Horizontal direction of dash (1 = right, -1 =
 var pre_air_dash_horizontal_speed: float = 0.0  # Horizontal speed before air dash
 var velocity_before_move_and_slide: Vector2 = Vector2.ZERO  # Velocity before move_and_slide() for collision detection
 var original_collision_shape_height: float = 64.0  # Original height of collision shape
+var original_collision_layer: int = 1  # Store original collision layer
+var original_collision_mask: int = 1  # Store original collision mask
 var is_slide_jump_available: bool = false  # Can player perform empowered jump from slide
 var is_invulnerable: bool = false  # Is player currently invulnerable (during dashes)
 var run_input_just_pressed: bool = false  # Track if run input was just pressed this frame
@@ -998,6 +1000,7 @@ func _physics_process(delta: float) -> void:
 	
 	# Skip normal movement ONLY during the initial high-speed burst of the kick
 	if is_attacking and kick_post_boost_timer <= 0:
+		_apply_gravity(delta) # Ensure gravity is applied during attack
 		if is_speed_capped:
 			velocity.x = clamp(velocity.x, -300.0, 300.0)
 		move_and_slide()
@@ -1411,6 +1414,7 @@ func _start_wall_run(horizontal_speed: float, force: bool = false) -> void:
 	is_jumping = false
 	is_wall_sliding = false
 	is_slamming = false
+	_cancel_ledge_climb()
 	# Hide slam attack visual
 	if slam_attack_visual:
 		slam_attack_visual.visible = false
@@ -1598,7 +1602,10 @@ func _apply_gravity(delta: float) -> void:
 			
 			# Apply attack gravity scale if currently kicking
 			if is_attacking:
-				gravity_multiplier *= attack_gravity_scale
+				# Only apply reduced gravity during anticipation or if we hit a target
+				# This prevents "flying" when kicking thin air while jumping
+				if not kick_has_fired or current_kick_target_type != KickTargetType.NONE:
+					gravity_multiplier *= attack_gravity_scale
 			
 			# If post-kick boost is active, reduce gravity further
 			if kick_post_boost_timer > 0:
@@ -1757,6 +1764,8 @@ func _handle_ground_slam_input() -> void:
 
 func _perform_jump() -> void:
 	"""Execute a jump, with empowered jump if in sprint state or jumping out of slide."""
+	_cancel_ledge_climb()
+	
 	# Check if jumping out of ground slide (empowered jump)
 	if is_slide_jump_available:
 		# End the slide first
@@ -1799,6 +1808,8 @@ func _perform_jump() -> void:
 
 func _perform_wall_jump() -> void:
 	"""Execute a wall jump away from the wall."""
+	_cancel_ledge_climb()
+	
 	# Store wall normal before clearing wall state (important!)
 	var jump_wall_normal = wall_normal
 	
@@ -2102,6 +2113,15 @@ func _finish_ledge_climb() -> void:
 	# Could trigger landing effects here (particles, sound, etc.)
 
 
+func _cancel_ledge_climb() -> void:
+	"""Interrupt and cancel the current ledge climb."""
+	if is_ledge_climbing:
+		is_ledge_climbing = false
+		ledge_climb_progress = 0.0
+		ledge_climb_stored_velocity = 0.0
+		# We don't restore velocity here as the interrupting action will set its own velocity
+
+
 func _ease_out_cubic(t: float) -> float:
 	"""Ease-out cubic function for smooth deceleration."""
 	var f = t - 1.0
@@ -2231,6 +2251,7 @@ func _start_kick_sequence() -> void:
 	current_kick_target_type = KickTargetType.NONE
 	current_kick_target_node = null
 	attack_velocity = Vector2.ZERO
+	kick_boost_available = false # Initialize boost as unavailable
 	
 	# Determine target based on priority: Bullet > Object > Enemy
 	if parry_enabled and closest_bullet:
@@ -2261,7 +2282,6 @@ func _start_kick_sequence() -> void:
 		if dir_to_target.x != 0:
 			facing_direction = sign(dir_to_target.x)
 	
-	kick_boost_available = true # Make boost available for trigger
 	kick_time_elapsed = 0.0 # Reset friction timer
 	
 	# Reset air dash availability (kick animation counts as a reset)
@@ -2277,6 +2297,7 @@ func _start_kick_sequence() -> void:
 	# Cancel other states
 	is_jumping = false
 	is_slamming = false
+	_cancel_ledge_climb()
 	if slam_attack_visual:
 		slam_attack_visual.visible = false
 	if is_ground_sliding:
@@ -2345,16 +2366,14 @@ func _process_attack(delta: float) -> void:
 			if abs(attack_velocity.y) > 0.01:
 				velocity.y = attack_velocity.y
 		
-		# NOTE: Gravity is now handled by the main _apply_gravity function 
-		# even during attacks, to ensure consistent behavior and boost application.
+		# Gravity is now handled by the main _physics_process loop
 	else:
 		# Before kick - only slow down if we HAVE a target (anticipation)
 		# If no target, just maintain current momentum
 		if current_kick_target_type != KickTargetType.NONE:
 			velocity.x = move_toward(velocity.x, 0, attack_anticipation_slowdown * delta)
 		
-		if not is_on_floor():
-			_apply_gravity(delta)
+		# Gravity is now handled by the main _physics_process loop
 	
 	# End attack ONLY when animation finishes (non-looping kick animation)
 	# This ensures the kick plays to completion as requested
@@ -2376,12 +2395,15 @@ func _execute_kick_effect() -> void:
 		KickTargetType.ENEMY:
 			if current_kick_target_node and is_instance_valid(current_kick_target_node):
 				_execute_enemy_kick(current_kick_target_node)
+				kick_boost_available = true # Successful hit!
 		KickTargetType.OBJECT:
 			if current_kick_target_node and is_instance_valid(current_kick_target_node):
 				_execute_object_kick(current_kick_target_node)
+				kick_boost_available = true # Successful hit!
 		KickTargetType.BULLET:
 			if current_kick_target_node and is_instance_valid(current_kick_target_node):
 				_execute_bullet_parry(current_kick_target_node)
+				kick_boost_available = true # Successful parry!
 		KickTargetType.NONE:
 			pass
 
@@ -2458,7 +2480,7 @@ func _apply_stun_after_grace_period() -> void:
 	# Cancel other states
 	is_attacking = false
 	is_slamming = false
-	is_ledge_climbing = false
+	_cancel_ledge_climb()
 	# Hide slam attack visual
 	if slam_attack_visual:
 		slam_attack_visual.visible = false
@@ -2604,6 +2626,7 @@ func _start_ground_slide(input_x: float) -> void:
 	is_jumping = false
 	is_wall_sliding = false
 	is_slamming = false
+	_cancel_ledge_climb()
 	# Hide slam attack visual
 	if slam_attack_visual:
 		slam_attack_visual.visible = false
@@ -2721,7 +2744,8 @@ func _check_position_validity() -> bool:
 	var query = PhysicsShapeQueryParameters2D.new()
 	query.shape = inset_shape
 	query.transform = collision_shape.global_transform
-	query.collision_mask = collision_mask
+	# Use original mask because current mask is 0 during rewind
+	query.collision_mask = original_collision_mask if is_rewind_tracing else collision_mask
 	query.exclude = [self.get_rid()]  # Exclude self from the check
 	
 	var results = space_state.intersect_shape(query, 1)
@@ -2790,6 +2814,7 @@ func _start_air_dash(input_x: float) -> void:
 	is_jumping = false
 	is_wall_sliding = false
 	is_slamming = false
+	_cancel_ledge_climb()
 	# Hide slam attack visual
 	if slam_attack_visual:
 		slam_attack_visual.visible = false
@@ -2897,6 +2922,7 @@ func _start_slam(input_vector: Vector2) -> void:
 	# Cancel other states
 	is_jumping = false
 	is_wall_sliding = false
+	_cancel_ledge_climb()
 	if is_ground_sliding:
 		_end_ground_slide()
 	if is_air_dashing:
@@ -3357,9 +3383,7 @@ func _start_rewind_hold() -> void:
 	if is_slam_frozen:
 		is_slam_frozen = false
 		slam_freeze_timer = 0.0
-	if is_ledge_climbing:
-		is_ledge_climbing = false
-		ledge_climb_progress = 0.0
+	_cancel_ledge_climb()
 	
 	# Enter slow-mo and create ghost path visualization
 	_enter_rewind_slowmo()
@@ -3763,6 +3787,12 @@ func _enter_rewind_slowmo() -> void:
 	is_in_rewind_slowmo = true
 	Engine.time_scale = rewind_slowmo_scale
 	
+	# Disable physics interactions during rewind slow-mo
+	original_collision_layer = collision_layer
+	original_collision_mask = collision_mask
+	collision_layer = 0
+	collision_mask = 0
+	
 	# Enable grayscale overlay
 	_enable_grayscale_overlay()
 	
@@ -3775,6 +3805,10 @@ func _exit_rewind_slowmo() -> void:
 	
 	is_in_rewind_slowmo = false
 	Engine.time_scale = original_time_scale
+	
+	# Restore physics interactions
+	collision_layer = original_collision_layer
+	collision_mask = original_collision_mask
 	
 	# Disable grayscale overlay
 	_disable_grayscale_overlay()
