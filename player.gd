@@ -395,6 +395,7 @@ var is_position_invalid: bool = false  # Is player's current position invalid (o
 var is_dying: bool = false  # Flag to prevent further processing after die() is called
 var can_restart_after_death: bool = false
 var rewind_warning_vibration_time: float = 0.0  # Accumulated time for warning vibration effect
+var rewind_buffer_initialized: bool = false  # Track if rewind buffer has been pre-filled
 
 # Tutorial state variables
 var is_tutorial_locked: bool = false  # Is player locked in tutorial mode
@@ -669,6 +670,11 @@ func _physics_process(delta: float) -> void:
 	# Skip all processing if dying (scene is being reloaded)
 	if is_dying:
 		return
+	
+	# Initialize rewind buffer on first frame (after position is set by level)
+	if rewind_enabled and not rewind_buffer_initialized:
+		_initialize_rewind_buffer()
+		rewind_buffer_initialized = true
 	
 	# If game is paused, we still need to process input for tutorials
 	# But we should skip most physics/movement updates
@@ -3439,6 +3445,59 @@ func _record_state_snapshot() -> void:
 	state_history.append(snapshot)
 
 
+func _initialize_rewind_buffer() -> void:
+	"""Pre-fill the rewind buffer with 180 copies of the initial position snapshot."""
+	const BUFFER_SIZE = 180
+	
+	# Capture initial animation state
+	# Note: Use idle_scale directly since _update_animations() hasn't run yet
+	# and animated_sprite.scale would be at default (1.0, 1.0) instead of correct tiny scale
+	var animation_name = "idle"
+	var animation_frame = 0
+	var sprite_flip_h = false
+	var sprite_scale = Vector2(idle_scale, idle_scale)  # Use the correct idle scale
+	var sprite_offset = Vector2.ZERO
+	
+	if animated_sprite and animated_sprite.sprite_frames:
+		animation_name = animated_sprite.animation if animated_sprite.animation != "" else "idle"
+		animation_frame = animated_sprite.frame
+		sprite_flip_h = animated_sprite.flip_h
+		# Don't use animated_sprite.scale here - it hasn't been set by _update_animations() yet
+		sprite_offset = animated_sprite.offset
+	
+	# Create timestamps spread across the history duration (from oldest to newest)
+	# This ensures the cleanup function won't remove them immediately
+	var time_step = rewind_history_duration / float(BUFFER_SIZE - 1) if BUFFER_SIZE > 1 else 0.0
+	
+	for i in range(BUFFER_SIZE):
+		# Timestamps go from -rewind_history_duration to 0 (game_time is 0 at start)
+		var timestamp = -rewind_history_duration + (i * time_step)
+		
+		var snapshot = {
+			"timestamp": timestamp,
+			"position": global_position,
+			"velocity": Vector2.ZERO,
+			"is_on_floor": true,
+			"facing_direction": facing_direction,
+			"is_jumping": false,
+			"is_wall_sliding": false,
+			"is_ground_sliding": false,
+			"is_air_dashing": false,
+			"is_wall_running": false,
+			"is_attacking": false,
+			"is_stunned": false,
+			"is_slamming": false,
+			"is_slam_frozen": false,
+			"animation_name": animation_name,
+			"animation_frame": animation_frame,
+			"sprite_flip_h": sprite_flip_h,
+			"sprite_scale": sprite_scale,
+			"sprite_offset": sprite_offset
+		}
+		
+		state_history.append(snapshot)
+
+
 func _cleanup_old_history() -> void:
 	"""Remove state history entries older than rewind_history_duration."""
 	if not rewind_enabled:
@@ -4029,19 +4088,45 @@ func _create_ghost_path_visualization() -> void:
 	# Create ghost markers at evenly-spaced intervals along the path
 	var num_markers = 10
 	
-	# Calculate which path points to use for markers
+	# First, filter path points to only include unique positions (with minimum distance threshold)
+	# This prevents multiple markers from stacking at the same position (e.g., from pre-filled buffer)
+	var unique_path_points: Array[Dictionary] = []
+	var min_distance_threshold = 5.0  # Minimum distance between markers
+	
+	for path_point in rewind_traceback_frame_data:
+		var dominated = false
+		for existing in unique_path_points:
+			if path_point["position"].distance_to(existing["position"]) < min_distance_threshold:
+				dominated = true
+				break
+		if not dominated:
+			unique_path_points.append(path_point)
+	
+	# Always include the oldest point (final rewind destination) even if near another
+	if not rewind_traceback_frame_data.is_empty():
+		var oldest_point = rewind_traceback_frame_data[rewind_traceback_frame_data.size() - 1]
+		var oldest_exists = false
+		for existing in unique_path_points:
+			if existing["timestamp"] == oldest_point["timestamp"]:
+				oldest_exists = true
+				break
+		if not oldest_exists:
+			unique_path_points.append(oldest_point)
+	
+	# Calculate which unique path points to use for markers (evenly spaced)
 	var marker_indices: Array[int] = []
-	if num_markers > 0:
+	var points_to_use = unique_path_points if unique_path_points.size() > 0 else rewind_traceback_frame_data
+	if num_markers > 0 and points_to_use.size() > 0:
 		for i in range(num_markers):
 			var progress = float(i) / float(num_markers - 1) if num_markers > 1 else 0.0
-			var target_index = int(progress * (rewind_traceback_frame_data.size() - 1))
-			target_index = clamp(target_index, 0, rewind_traceback_frame_data.size() - 1)
+			var target_index = int(progress * (points_to_use.size() - 1))
+			target_index = clamp(target_index, 0, points_to_use.size() - 1)
 			marker_indices.append(target_index)
 	
 	# Create ghost markers with animation sprites
 	for i in range(marker_indices.size()):
 		var path_index = marker_indices[i]
-		var path_point = rewind_traceback_frame_data[path_index]
+		var path_point = points_to_use[path_index]
 		
 		# Calculate transparency based on progress (more transparent = further in past)
 		var marker_progress = float(i) / float(marker_indices.size() - 1) if marker_indices.size() > 1 else 0.0
