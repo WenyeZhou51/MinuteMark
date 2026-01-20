@@ -1,0 +1,49 @@
+[gd_scene load_steps=3 format=3 uid="uid://dak2m5n8p3q7r"]
+
+[ext_resource type="Script" path="res://elevator.gd" id="1_elevator"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_detection"]
+size = Vector2(300, 400)
+
+[node name="Elevator" type="CharacterBody2D"]
+script = ExtResource("1_elevator")
+collision_layer = 1
+collision_mask = 1
+elevator_size = Vector2(300, 400)
+door_width = 200.0
+wall_thickness = 20.0
+wait_time = 2.0
+fall_speed = 1000.0
+elevator_color = Color(0.5, 0.5, 0.5, 1)
+
+[node name="LeftWallShape" type="CollisionShape2D" parent="."]
+
+[node name="TopWallShape" type="CollisionShape2D" parent="."]
+
+[node name="BottomWallShape" type="CollisionShape2D" parent="."]
+
+[node name="RightTopWallShape" type="CollisionShape2D" parent="."]
+
+[node name="RightBottomWallShape" type="CollisionShape2D" parent="."]
+
+[node name="LeftWallVisual" type="Polygon2D" parent="."]
+color = Color(0.5, 0.5, 0.5, 1)
+
+[node name="TopWallVisual" type="Polygon2D" parent="."]
+color = Color(0.5, 0.5, 0.5, 1)
+
+[node name="BottomWallVisual" type="Polygon2D" parent="."]
+color = Color(0.5, 0.5, 0.5, 1)
+
+[node name="RightTopWallVisual" type="Polygon2D" parent="."]
+color = Color(0.5, 0.5, 0.5, 1)
+
+[node name="RightBottomWallVisual" type="Polygon2D" parent="."]
+color = Color(0.5, 0.5, 0.5, 1)
+
+[node name="DetectionArea" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 1
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="DetectionArea"]
+shape = SubResource("RectangleShape2D_detection")
