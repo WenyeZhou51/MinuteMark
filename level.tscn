@@ -1,4 +1,4 @@
-[gd_scene load_steps=24 format=3 uid="uid://clfclx5p38xkv"]
+[gd_scene load_steps=25 format=3 uid="uid://clfclx5p38xkv"]
 
 [ext_resource type="Script" uid="uid://c2socii74g5wh" path="res://level_manager.gd" id="1_manager"]
 [ext_resource type="PackedScene" uid="uid://vv3m4nx6g3jo" path="res://player.tscn" id="1_qj3g4"]
@@ -8,14 +8,15 @@
 [ext_resource type="PackedScene" uid="uid://c4k3l8m5n2qar" path="res://kickable_object.tscn" id="4_kickable"]
 [ext_resource type="PackedScene" uid="uid://b7q8n5ck2wh0e" path="res://pause_menu.tscn" id="8_b0gwe"]
 [ext_resource type="PackedScene" uid="uid://b756hnxt8gukc" path="res://dialogue/DialogueUI.tscn" id="9_dialogue"]
-[ext_resource type="Script" uid="uid://b1y4vx8ub8uv5" path="res://tutorial_trigger.gd" id="10_o05kg"]
-[ext_resource type="Script" uid="uid://baf1vsu4t0fhx" path="res://dialogue_trigger.gd" id="10_trigger"]
-[ext_resource type="Script" uid="uid://c45ixkm1xxjhf" path="res://pendulum_trigger.gd" id="11_pendulum_trigger"]
+[ext_resource type="Script" uid="uid://c3f8h1bjbe2xu" path="res://tutorial_trigger.gd" id="10_o05kg"]
+[ext_resource type="Script" uid="uid://b7qrmm1ub7a5l" path="res://dialogue_trigger.gd" id="10_trigger"]
+[ext_resource type="Script" uid="uid://g336vr3eb3sn" path="res://pendulum_trigger.gd" id="11_pendulum_trigger"]
 [ext_resource type="FontFile" uid="uid://baaiikv2041fb" path="res://Fonts/Funkrocker.otf" id="12_font"]
-[ext_resource type="Script" uid="uid://k7nuntbsw4by" path="res://minor_anim_system.gd" id="14_wxjrc"]
+[ext_resource type="Script" uid="uid://r2n5pymd3a5y" path="res://minor_anim_system.gd" id="14_wxjrc"]
 [ext_resource type="PackedScene" path="res://SuperEnemy.tscn" id="17_super_enemy"]
-[ext_resource type="Script" uid="uid://bpt3h6dwgdrnx" path="res://tutorial_block.gd" id="18_4c15r"]
+[ext_resource type="Script" uid="uid://bwb7gicnbx5rs" path="res://tutorial_block.gd" id="18_4c15r"]
 [ext_resource type="PackedScene" path="res://SuperEnemyTrigger.tscn" id="18_super_trigger"]
+[ext_resource type="Texture2D" uid="uid://iqnxi42u7eex" path="res://Sprites/level_backgrounds/IMG_4463.JPG" id="19_ait7k"]
 [ext_resource type="PackedScene" uid="uid://6624qfeempan" path="res://LevelFinishTrigger.tscn" id="19_finish"]
 [ext_resource type="PackedScene" uid="uid://c85yqfkymilcl" path="res://elevator.tscn" id="20_elevator"]
 
@@ -344,3 +345,15 @@ allowed_action = "dash"
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Area2D2"]
 position = Vector2(-7, -237)
 shape = SubResource("RectangleShape2D_4c15r")
+
+[node name="Img4463" type="Sprite2D" parent="."]
+z_index = -1
+position = Vector2(2715.5002, 679.25)
+scale = Vector2(0.9851251, 0.4503125)
+texture = ExtResource("19_ait7k")
+
+[node name="Img4463" type="Sprite2D" parent="Img4463"]
+z_index = -1
+position = Vector2(1451.0845, -1701.5961)
+scale = Vector2(0.9851251, 1.137023)
+texture = ExtResource("19_ait7k")
