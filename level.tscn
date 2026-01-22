@@ -1,6 +1,6 @@
 [gd_scene load_steps=25 format=3 uid="uid://clfclx5p38xkv"]
 
-[ext_resource type="Script" uid="uid://c2socii74g5wh" path="res://level_manager.gd" id="1_manager"]
+[ext_resource type="Script" path="res://level_manager.gd" id="1_manager"]
 [ext_resource type="PackedScene" uid="uid://vv3m4nx6g3jo" path="res://player.tscn" id="1_qj3g4"]
 [ext_resource type="PackedScene" uid="uid://b8x7lam2n4p5q" path="res://enemy.tscn" id="2_enemy"]
 [ext_resource type="Texture2D" uid="uid://d2g7jojkre5ug" path="res://Sprites/Bd.png" id="3_bg_texture"]
@@ -8,13 +8,13 @@
 [ext_resource type="PackedScene" uid="uid://c4k3l8m5n2qar" path="res://kickable_object.tscn" id="4_kickable"]
 [ext_resource type="PackedScene" uid="uid://b7q8n5ck2wh0e" path="res://pause_menu.tscn" id="8_b0gwe"]
 [ext_resource type="PackedScene" uid="uid://b756hnxt8gukc" path="res://dialogue/DialogueUI.tscn" id="9_dialogue"]
-[ext_resource type="Script" uid="uid://c3f8h1bjbe2xu" path="res://tutorial_trigger.gd" id="10_o05kg"]
-[ext_resource type="Script" uid="uid://b7qrmm1ub7a5l" path="res://dialogue_trigger.gd" id="10_trigger"]
-[ext_resource type="Script" uid="uid://g336vr3eb3sn" path="res://pendulum_trigger.gd" id="11_pendulum_trigger"]
+[ext_resource type="Script" path="res://tutorial_trigger.gd" id="10_o05kg"]
+[ext_resource type="Script" path="res://dialogue_trigger.gd" id="10_trigger"]
+[ext_resource type="Script" path="res://pendulum_trigger.gd" id="11_pendulum_trigger"]
 [ext_resource type="FontFile" uid="uid://baaiikv2041fb" path="res://Fonts/Funkrocker.otf" id="12_font"]
-[ext_resource type="Script" uid="uid://r2n5pymd3a5y" path="res://minor_anim_system.gd" id="14_wxjrc"]
+[ext_resource type="Script" path="res://minor_anim_system.gd" id="14_wxjrc"]
 [ext_resource type="PackedScene" path="res://SuperEnemy.tscn" id="17_super_enemy"]
-[ext_resource type="Script" uid="uid://bwb7gicnbx5rs" path="res://tutorial_block.gd" id="18_4c15r"]
+[ext_resource type="Script" path="res://tutorial_block.gd" id="18_4c15r"]
 [ext_resource type="PackedScene" path="res://SuperEnemyTrigger.tscn" id="18_super_trigger"]
 [ext_resource type="Texture2D" uid="uid://iqnxi42u7eex" path="res://Sprites/level_backgrounds/IMG_4463.JPG" id="19_ait7k"]
 [ext_resource type="PackedScene" uid="uid://6624qfeempan" path="res://LevelFinishTrigger.tscn" id="19_finish"]
@@ -33,7 +33,7 @@ radius = 103.238
 size = Vector2(631.5, 384)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_4c15r"]
-size = Vector2(621, 377.0171)
+size = Vector2(621, 377.017)
 
 [node name="Level" type="Node2D"]
 script = ExtResource("1_manager")
@@ -52,6 +52,7 @@ centered = false
 
 [node name="BackgroundTileMap" type="TileMap" parent="."]
 z_index = -1
+position = Vector2(-4, 0)
 scale = Vector2(0.5, 0.5)
 tile_set = ExtResource("4_4gcmt")
 format = 2
@@ -320,7 +321,7 @@ scale = Vector2(-5.69979, 3.69146)
 super_enemy = NodePath("../SuperEnemy")
 
 [node name="LevelFinishTrigger" parent="." instance=ExtResource("19_finish")]
-position = Vector2(4877.0005, 3545.0002)
+position = Vector2(4877, 3545)
 scale = Vector2(10, 10)
 
 [node name="Elevator" parent="." instance=ExtResource("20_elevator")]
@@ -347,13 +348,16 @@ position = Vector2(-7, -237)
 shape = SubResource("RectangleShape2D_4c15r")
 
 [node name="Img4463" type="Sprite2D" parent="."]
-z_index = -1
-position = Vector2(2715.5002, 679.25)
-scale = Vector2(0.9851251, 0.4503125)
+z_index = -2
+position = Vector2(3356, 225.375)
+scale = Vector2(0.985125, 0.861719)
 texture = ExtResource("19_ait7k")
 
 [node name="Img4463" type="Sprite2D" parent="Img4463"]
+visible = false
 z_index = -1
-position = Vector2(1451.0845, -1701.5961)
-scale = Vector2(0.9851251, 1.137023)
+position = Vector2(-1153.1, -1701.6)
+scale = Vector2(0.33408, 1.13702)
 texture = ExtResource("19_ait7k")
+
+[editable path="Player"]

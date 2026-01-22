@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bgmsefjh43mig"
-path="res://.godot/imported/jump_015.png-f2c0daff8805b48f872ec8e2b8013b12.ctex"
+uid="uid://bwlqlb60ws5b6"
+path="res://.godot/imported/Tilemap1.png-1ba29d06e21ef70e1c7625e9372d0fd5.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://Animation/jump/jump_015.png"
-dest_files=["res://.godot/imported/jump_015.png-f2c0daff8805b48f872ec8e2b8013b12.ctex"]
+source_file="res://Sprites/Tilemap1.png"
+dest_files=["res://.godot/imported/Tilemap1.png-1ba29d06e21ef70e1c7625e9372d0fd5.ctex"]
 
 [params]
 
