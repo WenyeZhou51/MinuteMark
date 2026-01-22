@@ -1,9 +1,9 @@
-[gd_resource type="TileSet" load_steps=7 format=3 uid="uid://cu555li7p074q"]
+[gd_resource type="TileSet" load_steps=9 format=3 uid="uid://cu555li7p074q"]
 
 [ext_resource type="Texture2D" uid="uid://x38ownxnwj0h" path="res://Sprites/tile test.png" id="1_x38ow"]
 [ext_resource type="Texture2D" uid="uid://b6y5yfsevcms5" path="res://Sprites/Testtile2.png" id="2_testtile2"]
 [ext_resource type="Texture2D" uid="uid://djms1fxpxuogx" path="res://Sprites/New tile map.png" id="3_new_tile_map"]
-[ext_resource type="Texture2D" uid="uid://d3m1fxpxuogx" path="res://Sprites/Tilemap1.png" id="4_tilemap1"]
+[ext_resource type="Texture2D" uid="uid://bwlqlb60ws5b6" path="res://Sprites/Tilemap1.png" id="4_tilemap1"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_test"]
 texture = ExtResource("1_x38ow")
@@ -7256,22 +7256,31 @@ texture_region_size = Vector2i(128, 128)
 17:16/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
 18:16/0 = 0
 18:16/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
+18:16/0/custom_data_0 = true
 19:16/0 = 0
 19:16/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
+19:16/0/custom_data_0 = true
 20:16/0 = 0
 20:16/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
+20:16/0/custom_data_0 = true
 21:16/0 = 0
 21:16/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
+21:16/0/custom_data_0 = true
 22:16/0 = 0
 22:16/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
+22:16/0/custom_data_0 = true
 23:16/0 = 0
 23:16/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
+23:16/0/custom_data_0 = true
 24:16/0 = 0
 24:16/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
+24:16/0/custom_data_0 = true
 25:16/0 = 0
 25:16/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
+25:16/0/custom_data_0 = true
 26:16/0 = 0
 26:16/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
+26:16/0/custom_data_0 = true
 27:16/0 = 0
 27:16/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
 28:16/0 = 0
@@ -7320,22 +7329,31 @@ texture_region_size = Vector2i(128, 128)
 17:17/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
 18:17/0 = 0
 18:17/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
+18:17/0/custom_data_0 = true
 19:17/0 = 0
 19:17/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
+19:17/0/custom_data_0 = true
 20:17/0 = 0
 20:17/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
+20:17/0/custom_data_0 = true
 21:17/0 = 0
 21:17/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
+21:17/0/custom_data_0 = true
 22:17/0 = 0
 22:17/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
+22:17/0/custom_data_0 = true
 23:17/0 = 0
 23:17/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
+23:17/0/custom_data_0 = true
 24:17/0 = 0
 24:17/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
+24:17/0/custom_data_0 = true
 25:17/0 = 0
 25:17/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
+25:17/0/custom_data_0 = true
 26:17/0 = 0
 26:17/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
+26:17/0/custom_data_0 = true
 27:17/0 = 0
 27:17/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
 28:17/0 = 0
@@ -7382,24 +7400,34 @@ texture_region_size = Vector2i(128, 128)
 16:18/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
 17:18/0 = 0
 17:18/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
+17:18/0/custom_data_0 = true
 18:18/0 = 0
 18:18/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
+18:18/0/custom_data_0 = true
 19:18/0 = 0
 19:18/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
+19:18/0/custom_data_0 = true
 20:18/0 = 0
 20:18/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
+20:18/0/custom_data_0 = true
 21:18/0 = 0
 21:18/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
+21:18/0/custom_data_0 = true
 22:18/0 = 0
 22:18/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
+22:18/0/custom_data_0 = true
 23:18/0 = 0
 23:18/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
+23:18/0/custom_data_0 = true
 24:18/0 = 0
 24:18/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
+24:18/0/custom_data_0 = true
 25:18/0 = 0
 25:18/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
+25:18/0/custom_data_0 = true
 26:18/0 = 0
 26:18/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
+26:18/0/custom_data_0 = true
 27:18/0 = 0
 27:18/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
 28:18/0 = 0
@@ -8267,7 +8295,6 @@ texture_region_size = Vector2i(128, 128)
 30:31/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
 31:31/0 = 0
 31:31/0/physics_layer_0/polygon_0/points = PackedVector2Array(-64, -64, 64, -64, 64, 64, -64, 64)
-
 
 [resource]
 tile_size = Vector2i(128, 128)
