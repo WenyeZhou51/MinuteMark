@@ -1,7 +1,7 @@
 [gd_scene load_steps=4 format=3 uid="uid://deathui002"]
 
-[ext_resource type="FontFile" uid="uid://funkrocker" path="res://Fonts/Funkrocker.otf" id="1_font"]
-[ext_resource type="FontFile" uid="uid://doctorpunk" path="res://Fonts/doctor punk.otf" id="2_font"]
+[ext_resource type="FontFile" uid="uid://baaiikv2041fb" path="res://Fonts/Funkrocker.otf" id="1_font"]
+[ext_resource type="FontFile" uid="uid://qjp835anti7g" path="res://Fonts/doctor punk.otf" id="2_font"]
 
 [sub_resource type="GDScript" id="GDScript_deathui"]
 script/source = "extends CanvasLayer

@@ -4481,9 +4481,13 @@ func _create_bullet_parry_indicator() -> void:
 	add_child(bullet_parry_indicator)
 
 func set_speed_cap(enabled: bool) -> void:
+	print("[Player] set_speed_cap called: ", enabled, " (was: ", is_speed_capped, ")")
 	is_speed_capped = enabled
 	if enabled:
 		velocity.x = clamp(velocity.x, -300.0, 300.0)
+		print("[Player] Speed cap ENABLED, velocity clamped to: ", velocity.x)
+	else:
+		print("[Player] Speed cap DISABLED, player can move at full speed")
 
 func die() -> void:
 	"""Kill the player and restart the level."""
