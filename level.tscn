@@ -18,6 +18,7 @@
 [ext_resource type="PackedScene" path="res://SuperEnemyTrigger.tscn" id="18_super_trigger"]
 [ext_resource type="Texture2D" uid="uid://iqnxi42u7eex" path="res://Sprites/level_backgrounds/IMG_4463.JPG" id="19_ait7k"]
 [ext_resource type="PackedScene" uid="uid://6624qfeempan" path="res://LevelFinishTrigger.tscn" id="19_finish"]
+[ext_resource type="PackedScene" uid="uid://b8lam2n5p7q3r" path="res://window.tscn" id="10_window"]
 [ext_resource type="PackedScene" uid="uid://c85yqfkymilcl" path="res://elevator.tscn" id="20_elevator"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_trigger"]
@@ -328,6 +329,10 @@ super_enemy = NodePath("../SuperEnemy")
 [node name="LevelFinishTrigger" parent="." instance=ExtResource("19_finish")]
 position = Vector2(4877, 3545)
 scale = Vector2(10, 10)
+
+[node name="Window1" parent="KickableObjects" instance=ExtResource("10_window")]
+position = Vector2(7644, 2713)
+window_size = Vector2(30, 200)
 
 [node name="Elevator" parent="." instance=ExtResource("20_elevator")]
 position = Vector2(2830, 1508)
