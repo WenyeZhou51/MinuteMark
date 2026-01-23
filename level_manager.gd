@@ -10,6 +10,9 @@ func _ready() -> void:
 	# Initial state: Game is NOT paused.
 	get_tree().paused = false
 	
+	# Reset tutorials on level load
+	TutorialBlockManager.reset_tutorials()
+	
 	_fix_background_tilemap()
 
 func _on_interrupt_triggered() -> void:
@@ -51,4 +54,5 @@ func _on_dialogue_started(_id: String) -> void:
 	get_tree().paused = true
 
 func _on_dialogue_finished() -> void:
-	get_tree().paused = false
+	# Pause is now handled by DialogueUI to wait for fade out
+	pass

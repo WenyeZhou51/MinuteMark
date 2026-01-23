@@ -1,5 +1,7 @@
 extends Area2D
 
+signal exploded
+
 @export var speed: float = 800.0
 @export var explosion_scene: PackedScene = preload("res://BigExplosion.tscn")
 @export var safe_distance_from_spawn: float = 100.0 ## Disable tile collision within this distance from super enemy
@@ -78,6 +80,7 @@ func explode() -> void:
 		return
 	
 	has_exploded = true
+	emit_signal("exploded")
 	print("[Rocket] EXPLODING at position: ", global_position)
 	
 	var tiles_destroyed = false

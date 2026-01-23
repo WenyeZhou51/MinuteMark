@@ -1198,7 +1198,8 @@ func _physics_process(delta: float) -> void:
 		return
 	
 	# 15. Apply Gravity
-	_apply_gravity(delta)
+	if not (is_tutorial_locked and tutorial_allowed_action == "dash" and not is_air_dashing):
+		_apply_gravity(delta)
 	
 	# 16. Handle Jump Input
 	_handle_jump_input()
@@ -1238,6 +1239,50 @@ func _physics_process(delta: float) -> void:
 	# 24. Update early parry timer
 	if early_parry_timer > 0:
 		early_parry_timer -= delta
+
+# ====================================
+# CAMERA OVERRIDE
+# ====================================
+
+var is_camera_overridden: bool = false
+var original_camera_zoom: Vector2 = Vector2(1, 1)
+
+func start_camera_override(target_global_pos: Vector2, target_zoom: Vector2, duration: float = 1.0) -> void:
+	var camera = $Camera2D
+	if not camera: return
+	
+	if not is_camera_overridden:
+		is_camera_overridden = true
+		original_camera_zoom = camera.zoom
+		camera.top_level = true # Detach from player movement
+		# Initialize the top_level camera at the current global position
+		# to ensure smooth tweening from where it actually is
+		camera.global_position = global_position + camera.offset
+	
+	var tween = create_tween()
+	tween.set_parallel(true)
+	tween.set_ease(Tween.EASE_IN_OUT)
+	tween.set_trans(Tween.TRANS_CUBIC)
+	tween.tween_property(camera, "global_position", target_global_pos, duration)
+	tween.tween_property(camera, "zoom", target_zoom, duration)
+
+func stop_camera_override(duration: float = 1.0) -> void:
+	var camera = $Camera2D
+	if not camera: return
+	
+	if is_camera_overridden:
+		var tween = create_tween()
+		tween.set_parallel(true)
+		tween.set_ease(Tween.EASE_IN_OUT)
+		tween.set_trans(Tween.TRANS_CUBIC)
+		tween.tween_property(camera, "global_position", global_position, duration)
+		tween.tween_property(camera, "zoom", original_camera_zoom, duration)
+		
+		tween.chain().tween_callback(func():
+			is_camera_overridden = false
+			camera.top_level = false
+			camera.position = Vector2.ZERO
+		)
 	
 # ====================================
 # INPUT PROCESSING
@@ -3235,17 +3280,46 @@ func _post_movement_updates(space_state: PhysicsDirectSpaceState2D) -> void:
 	if (is_ground_sliding or is_air_dashing) and get_slide_collision_count() > 0:
 		for i in range(get_slide_collision_count()):
 			var collision = get_slide_collision(i)
+			var collider = collision.get_collider()
+			
+			# Check for kickable object collision (e.g. Window)
+			if collider and collider.is_in_group("kickable_objects") and collider.has_method("kick"):
+				# Break it! Use current velocity or facing direction
+				var kick_dir = velocity.normalized()
+				if kick_dir == Vector2.ZERO:
+					kick_dir = Vector2(facing_direction, 0)
+				
+				# Ensure enough force to break
+				collider.kick(kick_dir, max(velocity.length(), 500.0))
+			
 			# A wall collision has a mostly horizontal normal
 			if abs(collision.get_normal().x) > 0.7:
 				if is_ground_sliding:
 					# Only end slide if there's enough space above to stand up
 					if _can_stand_up():
 						_end_ground_slide()
-						break
 				elif is_air_dashing:
 					# Air dash always ends on wall impact if it didn't trigger a wall run
 					_end_air_dash()
-					break
+	
+	# Explicit collision check for dash (fix for static bodies sometimes not registering slide collision)
+	if (is_ground_sliding or is_air_dashing):
+		var check_dist = 50.0
+		var check_dir = Vector2(facing_direction, 0)
+		if velocity.length() > 10:
+			check_dir = velocity.normalized()
+			
+		var space_state_local = get_world_2d().direct_space_state
+		var query = PhysicsRayQueryParameters2D.create(global_position, global_position + check_dir * check_dist)
+		query.exclude = [self]
+		query.collision_mask = 1 # Match window collision layer
+		var result = space_state_local.intersect_ray(query)
+		
+		if result and result.collider:
+			var collider = result.collider
+			if collider.is_in_group("kickable_objects") and collider.has_method("kick"):
+				# Only kick if we are moving towards it or very close
+				collider.kick(check_dir, max(velocity.length(), 500.0))
 	
 	# 2. QOL: Check for Ledge Climb Opportunity
 	# Checked AFTER wall run activation so wall run takes priority during high-speed impact
@@ -4928,6 +5002,9 @@ func _update_animations() -> void:
 		# If wall_normal.x > 0, wall is on left, we should face right (flip_h = false)
 		# If wall_normal.x < 0, wall is on right, we should face left (flip_h = true)
 		animated_sprite.flip_h = wall_normal.x < 0
+	else:
+		# Fallback: use facing direction (important for manual turns when stationary)
+		animated_sprite.flip_h = facing_direction < 0
 		
 	# Apply additional flip for wall run if requested (flips 180 degrees horizontally)
 	if animated_sprite.animation == "wall_run" and wall_run_base_flip:

@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" path="res://dialogue/dialogue_ui.gd" id="1_60r3g"]
 [ext_resource type="FontFile" uid="uid://baaiikv2041fb" path="res://Fonts/Funkrocker.otf" id="3_funk"]
-[ext_resource type="Texture2D" uid="uid://x6mkifqrqlwb" path="res://dialogue/protag.png" id="4_bob"]
+[ext_resource type="Texture2D" uid="uid://c1fil4nb21uqj" path="res://dialogue/protag_new.png" id="4_bob"]
 [ext_resource type="Texture2D" uid="uid://bgsg7kswc2ky6" path="res://dialogue/dialogue2.png" id="4_dialogue_bg"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn"]
@@ -220,7 +220,7 @@ size_flags_vertical = 3
 
 [node name="InterruptIndicator" type="Button" parent="."]
 visible = false
-custom_minimum_size = Vector2(300, 60)
+custom_minimum_size = Vector2(450, 80)
 layout_mode = 1
 anchors_preset = 3
 anchor_left = 1.0
@@ -229,12 +229,12 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = -780.0
 offset_top = -500.0
-offset_right = -480.0
-offset_bottom = -440.0
+offset_right = -330.0
+offset_bottom = -420.0
 grow_horizontal = 2
 grow_vertical = 0
 rotation = -0.1
-pivot_offset = Vector2(150, 30)
+pivot_offset = Vector2(225, 40)
 theme_override_styles/hover = SubResource("StyleBoxFlat_btn_hover")
 theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_pressed")
 theme_override_styles/normal = SubResource("StyleBoxFlat_btn")
@@ -246,11 +246,11 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_colors/font_outline_color = Color(1, 1, 1, 1)
 theme_override_constants/outline_size = 4
 theme_override_fonts/font = ExtResource("3_funk")
-theme_override_font_sizes/font_size = 36
+theme_override_font_sizes/font_size = 50
 text = "INTERRUPT!"
 horizontal_alignment = 1
 vertical_alignment = 1

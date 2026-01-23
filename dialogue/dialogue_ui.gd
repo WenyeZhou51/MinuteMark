@@ -22,12 +22,12 @@ var button_shader: ShaderMaterial
 # Map speaker names to textures
 # In a real game, you'd have different images for each character
 var portraits = {
-	"Boss": preload("res://dialogue/protag.png"),
-	"Player": preload("res://dialogue/protag.png"), 
-	"Protag": preload("res://dialogue/protag.png"),
-	"Stranger": preload("res://dialogue/protag.png"),
+	"Boss": preload("res://dialogue/protag_new.png"),
+	"Player": preload("res://dialogue/protag_new.png"), 
+	"Protag": preload("res://dialogue/protag_new.png"),
+	"Stranger": preload("res://dialogue/protag_new.png"),
 	"Elevator Guard": preload("res://dialogue/guard_portrait.png"),
-	"???": preload("res://dialogue/protag.png")
+	"???": preload("res://dialogue/protag_new.png")
 }
 
 func _ready():
@@ -53,7 +53,10 @@ func _on_dialogue_started(_id: String) -> void:
 func _on_dialogue_finished() -> void:
 	var tween = create_tween()
 	tween.tween_property(self, "modulate:a", 0.0, 0.5)
-	# tween.finished.connect(queue_free) # Don't free, we might need it again
+	tween.tween_callback(func():
+		visible = false
+		get_tree().paused = false
+	)
 
 func _on_line_changed(line: Dictionary) -> void:
 	if not line:
@@ -103,7 +106,7 @@ func _on_line_changed(line: Dictionary) -> void:
 		progress_tween.kill()
 	
 	typewriter_tween = create_tween()
-	var duration = label.get_total_character_count() * 0.05
+	var duration = label.get_total_character_count() * 0.02
 	
 	# Setup shader progress
 	button_shader.set_shader_parameter("progress", 0.0)
@@ -185,14 +188,12 @@ func _on_typing_finished() -> void:
 	var next_id = current_line.get("next")
 	var choices = current_line.get("choices", [])
 	
-	interrupt_indicator.add_theme_stylebox_override("normal", style_green)
-	interrupt_indicator.add_theme_stylebox_override("hover", style_green)
-	
 	if choices.size() > 0:
 		interrupt_indicator.visible = false
 		_show_choices(choices)
 	else:
 		_play_button_success_effect()
+		_play_text_change_effect() # Added separate effect for text change
 		# Animate text change
 		var tween = create_tween()
 		tween.tween_property(interrupt_label, "modulate:a", 0.0, 0.1)
@@ -208,6 +209,25 @@ func _on_typing_finished() -> void:
 					interrupt_label.text = "NEXT [Enter]"
 		)
 		tween.tween_property(interrupt_label, "modulate:a", 1.0, 0.1)
+
+func _play_text_change_effect() -> void:
+	if not button_shader:
+		return
+	var effect_tween = create_tween()
+	
+	# Small flash and sheen on text change
+	button_shader.set_shader_parameter("flash_amount", 0.5)
+	effect_tween.tween_method(
+		func(val): button_shader.set_shader_parameter("flash_amount", val),
+		0.5, 0.0, 0.3
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	
+	# Metallic sheen sweep
+	button_shader.set_shader_parameter("sheen_progress", -0.5)
+	effect_tween.parallel().tween_method(
+		func(val): button_shader.set_shader_parameter("sheen_progress", val),
+		-0.5, 1.5, 0.5
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
 func _show_choices(choices: Array) -> void:
 	# Clear existing choices
@@ -312,7 +332,7 @@ func _reset_indicator():
 func _unhandled_input(event):
 	# Allow keyboard interaction same as clicking the button (Enter only)
 	if visible and indicator_faded_in and interrupt_indicator.visible:
-		if event.is_action_pressed("ui_accept"):
+		if event is InputEventKey and event.pressed and not event.echo and (event.keycode == KEY_ENTER or event.keycode == KEY_KP_ENTER):
 			_on_interrupt_indicator_pressed()
 			get_viewport().set_input_as_handled()
 

@@ -44,7 +44,7 @@ func setup_from_sprite(source_sprite: AnimatedSprite2D, custom_modulate: Color =
 func _process(delta: float) -> void:
 	elapsed_time += delta
 	
-	# Calculate fade progress (0.0 to 1.0)
+	# Calculate fade progress (0.0 to 1.0)	
 	var fade_progress = elapsed_time / lifetime
 	
 	if fade_progress >= 1.0:

@@ -1,6 +1,6 @@
-[gd_scene load_steps=26 format=3 uid="uid://clfclx5p38xkv"]
+[gd_scene load_steps=27 format=3 uid="uid://clfclx5p38xkv"]
 
-[ext_resource type="Script" uid="uid://c2socii74g5wh" path="res://level_manager.gd" id="1_manager"]
+[ext_resource type="Script" uid="uid://b4i78xyv03saw" path="res://level_manager.gd" id="1_manager"]
 [ext_resource type="PackedScene" uid="uid://vv3m4nx6g3jo" path="res://player.tscn" id="1_qj3g4"]
 [ext_resource type="PackedScene" uid="uid://b8x7lam2n4p5q" path="res://enemy.tscn" id="2_enemy"]
 [ext_resource type="Texture2D" uid="uid://d2g7jojkre5ug" path="res://Sprites/Bd.png" id="3_bg_texture"]
@@ -8,18 +8,18 @@
 [ext_resource type="PackedScene" uid="uid://c4k3l8m5n2qar" path="res://kickable_object.tscn" id="4_kickable"]
 [ext_resource type="PackedScene" uid="uid://b7q8n5ck2wh0e" path="res://pause_menu.tscn" id="8_b0gwe"]
 [ext_resource type="PackedScene" uid="uid://b756hnxt8gukc" path="res://dialogue/DialogueUI.tscn" id="9_dialogue"]
-[ext_resource type="Script" uid="uid://ptet52ansdnc" path="res://tutorial_trigger.gd" id="10_o05kg"]
-[ext_resource type="Script" uid="uid://cweonvix5jlfx" path="res://dialogue_trigger.gd" id="10_trigger"]
+[ext_resource type="Script" uid="uid://b1y4vx8ub8uv5" path="res://tutorial_trigger.gd" id="10_o05kg"]
+[ext_resource type="Script" uid="uid://bev7civrw5tfd" path="res://dialogue_trigger.gd" id="10_trigger"]
 [ext_resource type="PackedScene" uid="uid://b8lam2n5p7q3r" path="res://window.tscn" id="10_window"]
-[ext_resource type="Script" uid="uid://g336vr3eb3sn" path="res://pendulum_trigger.gd" id="11_pendulum_trigger"]
+[ext_resource type="Script" uid="uid://b16888vofurtu" path="res://pendulum_trigger.gd" id="11_pendulum_trigger"]
 [ext_resource type="FontFile" uid="uid://baaiikv2041fb" path="res://Fonts/Funkrocker.otf" id="12_font"]
-[ext_resource type="Script" uid="uid://k7nuntbsw4by" path="res://minor_anim_system.gd" id="14_wxjrc"]
+[ext_resource type="Script" uid="uid://r2n5pymd3a5y" path="res://minor_anim_system.gd" id="14_wxjrc"]
 [ext_resource type="PackedScene" uid="uid://mhvvbafvkfm0" path="res://SuperEnemy.tscn" id="17_super_enemy"]
 [ext_resource type="Script" uid="uid://bwb7gicnbx5rs" path="res://tutorial_block.gd" id="18_4c15r"]
 [ext_resource type="PackedScene" path="res://SuperEnemyTrigger.tscn" id="18_super_trigger"]
 [ext_resource type="Texture2D" uid="uid://iqnxi42u7eex" path="res://Sprites/level_backgrounds/IMG_4463.JPG" id="19_ait7k"]
 [ext_resource type="PackedScene" uid="uid://6624qfeempan" path="res://LevelFinishTrigger.tscn" id="19_finish"]
-[ext_resource type="PackedScene" path="res://elevator.tscn" id="20_elevator"]
+[ext_resource type="PackedScene" uid="uid://c85yqfkymilcl" path="res://elevator.tscn" id="20_elevator"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_trigger"]
 size = Vector2(365.25, 218.25)
@@ -29,6 +29,9 @@ size = Vector2(455, 194)
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_minor_anim"]
 radius = 103.238
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_window_tutorial"]
+size = Vector2(800, 1200)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_ait7k"]
 size = Vector2(631.5, 384)
@@ -161,10 +164,6 @@ position = Vector2(3175, 1736)
 position = Vector2(3702, 855)
 fragment_count = 3
 
-[node name="Window1" parent="KickableObjects" instance=ExtResource("10_window")]
-position = Vector2(4067, 1356)
-window_size = Vector2(60, 800)
-
 [node name="PauseMenu" parent="." instance=ExtResource("8_b0gwe")]
 visible = false
 
@@ -200,15 +199,6 @@ script = ExtResource("10_o05kg")
 tutorial_message = "J to Kick"
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Tutorial Trigger5"]
-position = Vector2(-757, 539.875)
-shape = SubResource("RectangleShape2D_trigger")
-
-[node name="Tutorial Trigger6" type="Area2D" parent="."]
-position = Vector2(5636, 674)
-script = ExtResource("10_o05kg")
-tutorial_message = "Shift midair to dash"
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Tutorial Trigger6"]
 position = Vector2(-757, 539.875)
 shape = SubResource("RectangleShape2D_trigger")
 
@@ -329,6 +319,31 @@ position = Vector2(4764, 846)
 position = Vector2(4612, 547)
 scale = Vector2(-5.69979, 3.69146)
 super_enemy = NodePath("../SuperEnemy")
+
+[node name="TutorialWindow" parent="." instance=ExtResource("10_window")]
+position = Vector2(4878, 1634)
+
+[node name="TutorialTurnLeft" type="Area2D" parent="."]
+position = Vector2(4877, 1500)
+script = ExtResource("18_4c15r")
+block_id = "tutorial_turn_left"
+instruction_message = "Press A to turn LEFT"
+allowed_action = "turn_left"
+pre_freeze_slow_mo_time = 2.0
+pre_freeze_slow_mo_scale = 0.2
+forced_facing_direction = 1
+next_tutorial_block_id = "tutorial_window_break_dash"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="TutorialTurnLeft"]
+position = Vector2(490, 29)
+shape = SubResource("RectangleShape2D_window_tutorial")
+
+[node name="TutorialWindowBreakDash" type="Area2D" parent="."]
+position = Vector2(4877, 1500)
+script = ExtResource("18_4c15r")
+block_id = "tutorial_window_break_dash"
+instruction_message = "Dash LEFT to break the window"
+allowed_action = "dash"
 
 [node name="LevelFinishTrigger" parent="." instance=ExtResource("19_finish")]
 position = Vector2(4877, 3545)

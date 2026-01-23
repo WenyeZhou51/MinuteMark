@@ -221,6 +221,11 @@ func _input(event):
 		# Don't toggle pause if we're in an inner menu
 		if current_inner_menu != null:
 			return
+			
+		# Don't toggle pause if dialogue is active
+		if DialogueManager.current_id != "":
+			return
+			
 		toggle_pause()
 
 
