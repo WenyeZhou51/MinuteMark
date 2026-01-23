@@ -103,8 +103,7 @@ offset_bottom = -404.0
 grow_horizontal = 2
 grow_vertical = 2
 rotation = -0.0348246
-theme_override_colors/font_color = Color(0, 0, 0, 1)
-theme_override_colors/font_outline_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 8
 theme_override_fonts/font = ExtResource("2_t4l2a")
 theme_override_font_sizes/font_size = 200
@@ -121,13 +120,13 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -420.0
-offset_top = -300.0
+offset_top = -350.0
 offset_right = -120.0
-offset_bottom = -220.0
+offset_bottom = -270.0
 grow_horizontal = 2
 grow_vertical = 2
 rotation = -0.0607904
-focus_neighbor_bottom = NodePath("../VideoButton")
+focus_neighbor_bottom = NodePath("../RestartButton")
 mouse_filter = 1
 theme = SubResource("Theme_buttons")
 flat = true
@@ -142,19 +141,19 @@ position = Vector2(178.482, 69.813)
 
 [node name="RedPolygon" type="Polygon2D" parent="MenuContainer/ResumeButton/SelectingIndicator"]
 position = Vector2(-150, -40)
-color = Color(0, 0, 0, 0.2)
+color = Color(0, 1, 0, 0.5)
 polygon = PackedVector2Array(-91.25, 45, 388.75, 105, 381.25, 45, -68.75, -15)
 script = ExtResource("7_wiggle")
-polygon_color = Color(0, 0, 0, 0.2)
+polygon_color = Color(0, 1, 0, 0.5)
 intensity = 10.0
 duration = 0.1
 
 [node name="CyanPolygon" type="Polygon2D" parent="MenuContainer/ResumeButton/SelectingIndicator"]
 position = Vector2(-155, -35)
-color = Color(1, 1, 1, 0.2)
+color = Color(1, 1, 0, 0.5)
 polygon = PackedVector2Array(-57.125, 81.25, 370.375, 61.25, 388.375, -18.75, -64.625, 15.25)
 script = ExtResource("7_wiggle")
-polygon_color = Color(1, 1, 1, 0.2)
+polygon_color = Color(1, 1, 0, 0.5)
 intensity = 10.0
 duration = 0.1
 
@@ -163,14 +162,19 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_left = 28.4815
+offset_top = 29.813
+offset_right = 28.4815
+offset_bottom = 34.813
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
 [node name="Label" type="Label" parent="MenuContainer/ResumeButton/ButtonContent"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0, 0, 0, 1)
-theme_override_colors/font_outline_color = Color(1, 1, 1, 1)
+theme_override_colors/font_shadow_color = Color(0, 1, 0.2, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_x = 15
 theme_override_constants/outline_size = 4
 theme_override_fonts/font = ExtResource("2_t4l2a")
 theme_override_font_sizes/font_size = 120
@@ -227,6 +231,123 @@ duration = 0.0
 [node name="Confirm" type="Node" parent="MenuContainer/ResumeButton"]
 script = ExtResource("3_player")
 
+[node name="RestartButton" type="Button" parent="MenuContainer"]
+custom_minimum_size = Vector2(300, 80)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -405.0
+offset_top = -170.0
+offset_right = -105.0
+offset_bottom = -90.0
+grow_horizontal = 2
+grow_vertical = 2
+rotation = -0.015
+focus_neighbor_top = NodePath("../ResumeButton")
+focus_neighbor_bottom = NodePath("../VideoButton")
+mouse_filter = 1
+theme = SubResource("Theme_buttons")
+flat = true
+script = ExtResource("2_juicy_button")
+auto_pivot_center = true
+
+[node name="SelectingIndicator" type="Node2D" parent="MenuContainer/RestartButton"]
+process_mode = 4
+visible = false
+z_index = -1
+position = Vector2(178.482, 69.813)
+
+[node name="RedPolygon" type="Polygon2D" parent="MenuContainer/RestartButton/SelectingIndicator"]
+position = Vector2(-150, -40)
+color = Color(0, 0.8, 0.8, 0.5)
+polygon = PackedVector2Array(-91.25, 45, 388.75, 105, 381.25, 45, -68.75, -15)
+script = ExtResource("7_wiggle")
+polygon_color = Color(0, 0.8, 0.8, 0.5)
+intensity = 10.0
+duration = 0.1
+
+[node name="CyanPolygon" type="Polygon2D" parent="MenuContainer/RestartButton/SelectingIndicator"]
+position = Vector2(-155, -35)
+color = Color(0, 1, 0.5, 0.5)
+polygon = PackedVector2Array(-57.125, 81.25, 370.375, 61.25, 388.375, -18.75, -64.625, 15.25)
+script = ExtResource("7_wiggle")
+polygon_color = Color(0, 1, 0.5, 0.5)
+intensity = 10.0
+duration = 0.1
+
+[node name="ButtonContent" type="CenterContainer" parent="MenuContainer/RestartButton"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Label" type="Label" parent="MenuContainer/RestartButton/ButtonContent"]
+layout_mode = 2
+theme_override_colors/font_shadow_color = Color(0, 0.8, 0.8, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_x = 15
+theme_override_constants/outline_size = 4
+theme_override_fonts/font = ExtResource("2_t4l2a")
+theme_override_font_sizes/font_size = 120
+text = "RESTART"
+
+[node name="Focus" type="Node" parent="MenuContainer/RestartButton"]
+script = ExtResource("3_player")
+
+[node name="ScaleButton" type="Node" parent="MenuContainer/RestartButton/Focus" node_paths=PackedStringArray("target_node")]
+script = ExtResource("4_scale")
+target_node = NodePath("../../ButtonContent")
+target_scale = Vector3(1.2, 1.2, 1)
+curve = SubResource("Curve_focus_scale")
+revert_on_exit = false
+duration = 0.1
+
+[node name="ShowSelecting" type="Node" parent="MenuContainer/RestartButton/Focus" node_paths=PackedStringArray("target_node")]
+script = ExtResource("5_active")
+target_node = NodePath("../../SelectingIndicator")
+initial_state = 1
+play_start_state = 1
+also_set_process = true
+duration = 0.0
+
+[node name="BringToFront" type="Node" parent="MenuContainer/RestartButton/Focus" node_paths=PackedStringArray("target_node")]
+script = ExtResource("6_order")
+target_node = NodePath("../..")
+set_to = 1
+duration = 0.0
+
+[node name="Unfocus" type="Node" parent="MenuContainer/RestartButton"]
+script = ExtResource("3_player")
+
+[node name="ScaleButton" type="Node" parent="MenuContainer/RestartButton/Unfocus" node_paths=PackedStringArray("target_node")]
+script = ExtResource("4_scale")
+target_node = NodePath("../../ButtonContent")
+curve = SubResource("Curve_unfocus_scale")
+revert_on_exit = false
+duration = 0.1
+
+[node name="HideSelecting" type="Node" parent="MenuContainer/RestartButton/Unfocus" node_paths=PackedStringArray("target_node")]
+script = ExtResource("5_active")
+target_node = NodePath("../../SelectingIndicator")
+initial_state = 1
+action = 1
+also_set_process = true
+duration = 0.0
+
+[node name="RestoreOrder" type="Node" parent="MenuContainer/RestartButton/Unfocus" node_paths=PackedStringArray("target_node")]
+script = ExtResource("6_order")
+target_node = NodePath("../..")
+duration = 0.0
+
+[node name="Confirm" type="Node" parent="MenuContainer/RestartButton"]
+script = ExtResource("3_player")
+
 [node name="VideoButton" type="Button" parent="MenuContainer"]
 custom_minimum_size = Vector2(300, 80)
 layout_mode = 1
@@ -236,13 +357,13 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -390.0
-offset_top = -95.0
+offset_top = -20.0
 offset_right = -90.0
-offset_bottom = -15.0
+offset_bottom = 60.0
 grow_horizontal = 2
 grow_vertical = 2
 rotation = 0.035
-focus_neighbor_top = NodePath("../ResumeButton")
+focus_neighbor_top = NodePath("../RestartButton")
 focus_neighbor_bottom = NodePath("../AudioButton")
 mouse_filter = 1
 theme = SubResource("Theme_buttons")
@@ -258,19 +379,19 @@ position = Vector2(150, 40)
 
 [node name="RedPolygon" type="Polygon2D" parent="MenuContainer/VideoButton/SelectingIndicator"]
 position = Vector2(-150, -40)
-color = Color(0, 0, 0, 0.2)
+color = Color(0, 0.5, 1, 0.5)
 polygon = PackedVector2Array(-91.25, 45, 388.75, 105, 381.25, 45, -68.75, -15)
 script = ExtResource("7_wiggle")
-polygon_color = Color(0, 0, 0, 0.2)
+polygon_color = Color(0, 0.5, 1, 0.5)
 intensity = 10.0
 duration = 0.1
 
 [node name="CyanPolygon" type="Polygon2D" parent="MenuContainer/VideoButton/SelectingIndicator"]
 position = Vector2(-155, -35)
-color = Color(1, 1, 1, 0.2)
+color = Color(1, 0.2, 0.8, 0.5)
 polygon = PackedVector2Array(-57.125, 81.25, 370.375, 61.25, 388.375, -18.75, -64.625, 15.25)
 script = ExtResource("7_wiggle")
-polygon_color = Color(1, 1, 1, 0.2)
+polygon_color = Color(1, 0.2, 0.8, 0.5)
 intensity = 10.0
 duration = 0.1
 
@@ -285,8 +406,9 @@ mouse_filter = 2
 
 [node name="Label" type="Label" parent="MenuContainer/VideoButton/ButtonContent"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0, 0, 0, 1)
-theme_override_colors/font_outline_color = Color(1, 1, 1, 1)
+theme_override_colors/font_shadow_color = Color(0.2, 0.5, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_x = 15
 theme_override_constants/outline_size = 4
 theme_override_fonts/font = ExtResource("2_t4l2a")
 theme_override_font_sizes/font_size = 115
@@ -352,9 +474,9 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -410.0
-offset_top = 90.0
+offset_top = 130.0
 offset_right = -110.0
-offset_bottom = 170.0
+offset_bottom = 210.0
 grow_horizontal = 2
 grow_vertical = 2
 rotation = -0.045
@@ -374,19 +496,19 @@ position = Vector2(150, 40)
 
 [node name="RedPolygon" type="Polygon2D" parent="MenuContainer/AudioButton/SelectingIndicator"]
 position = Vector2(-150, -40)
-color = Color(0, 0, 0, 0.2)
+color = Color(0.8, 0, 1, 0.5)
 polygon = PackedVector2Array(-91.25, 45, 388.75, 105, 381.25, 45, -68.75, -15)
 script = ExtResource("7_wiggle")
-polygon_color = Color(0, 0, 0, 0.2)
+polygon_color = Color(0.8, 0, 1, 0.5)
 intensity = 10.0
 duration = 0.1
 
 [node name="CyanPolygon" type="Polygon2D" parent="MenuContainer/AudioButton/SelectingIndicator"]
 position = Vector2(-155, -35)
-color = Color(1, 1, 1, 0.2)
+color = Color(1, 0, 0.3, 0.5)
 polygon = PackedVector2Array(-57.125, 81.25, 370.375, 61.25, 388.375, -18.75, -64.625, 15.25)
 script = ExtResource("7_wiggle")
-polygon_color = Color(1, 1, 1, 0.2)
+polygon_color = Color(1, 0, 0.3, 0.5)
 intensity = 10.0
 duration = 0.1
 
@@ -401,8 +523,9 @@ mouse_filter = 2
 
 [node name="Label" type="Label" parent="MenuContainer/AudioButton/ButtonContent"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0, 0, 0, 1)
-theme_override_colors/font_outline_color = Color(1, 1, 1, 1)
+theme_override_colors/font_shadow_color = Color(0.8, 0.3, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_x = 15
 theme_override_constants/outline_size = 4
 theme_override_fonts/font = ExtResource("2_t4l2a")
 theme_override_font_sizes/font_size = 115
@@ -468,9 +591,9 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -400.0
-offset_top = 275.0
+offset_top = 280.0
 offset_right = -100.0
-offset_bottom = 355.0
+offset_bottom = 360.0
 grow_horizontal = 2
 grow_vertical = 2
 rotation = 0.025
@@ -490,19 +613,19 @@ position = Vector2(150, 40)
 
 [node name="RedPolygon" type="Polygon2D" parent="MenuContainer/InputButton/SelectingIndicator"]
 position = Vector2(-150, -40)
-color = Color(0, 0, 0, 0.2)
+color = Color(1, 0.5, 0, 0.5)
 polygon = PackedVector2Array(-91.25, 45, 388.75, 105, 381.25, 45, -68.75, -15)
 script = ExtResource("7_wiggle")
-polygon_color = Color(0, 0, 0, 0.2)
+polygon_color = Color(1, 0.5, 0, 0.5)
 intensity = 10.0
 duration = 0.1
 
 [node name="CyanPolygon" type="Polygon2D" parent="MenuContainer/InputButton/SelectingIndicator"]
 position = Vector2(-155, -35)
-color = Color(1, 1, 1, 0.2)
+color = Color(1, 0.9, 0, 0.5)
 polygon = PackedVector2Array(-57.125, 81.25, 370.375, 61.25, 388.375, -18.75, -64.625, 15.25)
 script = ExtResource("7_wiggle")
-polygon_color = Color(1, 1, 1, 0.2)
+polygon_color = Color(1, 0.9, 0, 0.5)
 intensity = 10.0
 duration = 0.1
 
@@ -511,14 +634,19 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_left = -48.5849
+offset_top = -22.7926
+offset_right = 144.415
+offset_bottom = 18.2074
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
 [node name="Label" type="Label" parent="MenuContainer/InputButton/ButtonContent"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0, 0, 0, 1)
-theme_override_colors/font_outline_color = Color(1, 1, 1, 1)
+theme_override_colors/font_shadow_color = Color(1, 0.6, 0, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_x = 15
 theme_override_constants/outline_size = 4
 theme_override_fonts/font = ExtResource("2_t4l2a")
 theme_override_font_sizes/font_size = 115
@@ -584,9 +712,9 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -468.0
-offset_top = 460.0
+offset_top = 430.0
 offset_right = -168.0
-offset_bottom = 540.0
+offset_bottom = 510.0
 grow_horizontal = 2
 grow_vertical = 2
 rotation = -0.04
@@ -605,19 +733,19 @@ position = Vector2(150, 40)
 
 [node name="RedPolygon" type="Polygon2D" parent="MenuContainer/QuitButton/SelectingIndicator"]
 position = Vector2(-150, -40)
-color = Color(0, 0, 0, 0.2)
+color = Color(1, 0, 0, 0.5)
 polygon = PackedVector2Array(-91.25, 45, 388.75, 105, 381.25, 45, -68.75, -15)
 script = ExtResource("7_wiggle")
-polygon_color = Color(0, 0, 0, 0.2)
+polygon_color = Color(1, 0, 0, 0.5)
 intensity = 10.0
 duration = 0.1
 
 [node name="CyanPolygon" type="Polygon2D" parent="MenuContainer/QuitButton/SelectingIndicator"]
 position = Vector2(-155, -35)
-color = Color(1, 1, 1, 0.2)
+color = Color(0, 0.4, 1, 0.5)
 polygon = PackedVector2Array(-57.125, 81.25, 370.375, 61.25, 388.375, -18.75, -64.625, 15.25)
 script = ExtResource("7_wiggle")
-polygon_color = Color(1, 1, 1, 0.2)
+polygon_color = Color(0, 0.4, 1, 0.5)
 intensity = 10.0
 duration = 0.1
 
@@ -632,9 +760,10 @@ mouse_filter = 2
 
 [node name="Label" type="Label" parent="MenuContainer/QuitButton/ButtonContent"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0, 0, 0, 1)
-theme_override_colors/font_outline_color = Color(1, 1, 1, 1)
-theme_override_constants/outline_size = 4
+theme_override_colors/font_shadow_color = Color(1, 0.1, 0.1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/shadow_offset_x = 15
+theme_override_constants/outline_size = 5
 theme_override_fonts/font = ExtResource("2_t4l2a")
 theme_override_font_sizes/font_size = 125
 text = "QUIT"
@@ -700,6 +829,7 @@ visible = false
 visible = false
 
 [connection signal="pressed" from="MenuContainer/ResumeButton" to="." method="_on_resume_pressed"]
+[connection signal="pressed" from="MenuContainer/RestartButton" to="." method="_on_restart_pressed"]
 [connection signal="pressed" from="MenuContainer/VideoButton" to="." method="_on_video_pressed"]
 [connection signal="pressed" from="MenuContainer/AudioButton" to="." method="_on_audio_pressed"]
 [connection signal="pressed" from="MenuContainer/InputButton" to="." method="_on_inputs_pressed"]

@@ -277,17 +277,3 @@ func check_action_performed(action: String) -> bool:
 		return true
 		
 	return false
-	
-func reset_tutorials() -> void:
-	"""Reset all tutorial progress and state."""
-	completed_blocks.clear()
-	
-	# If a tutorial is active, end it properly
-	if is_tutorial_active:
-		end_tutorial()
-	
-	# Also ensure UI is hidden
-	if tutorial_ui_instance:
-		tutorial_ui_instance.hide_message()
-		
-	print("TutorialBlockManager: All tutorials reset")

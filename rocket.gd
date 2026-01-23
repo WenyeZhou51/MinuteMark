@@ -125,4 +125,3 @@ func explode() -> void:
 		print("[Rocket] No tiles destroyed, speed cap remains active")
 	
 	queue_free()
-
