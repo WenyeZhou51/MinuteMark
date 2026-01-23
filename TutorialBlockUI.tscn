@@ -1,7 +1,15 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://tutorial_block_ui.gd" id="1_script"]
 [ext_resource type="FontFile" uid="uid://baaiikv2041fb" path="res://Fonts/Funkrocker.otf" id="2_font"]
+[ext_resource type="Shader" path="res://tutorial_spotlight.gdshader" id="3_shader"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_spotlight"]
+shader = ExtResource("3_shader")
+shader_parameter/spotlight_position = Vector2(0.5, 0.5)
+shader_parameter/spotlight_radius = 0.08
+shader_parameter/edge_softness = 0.08
+shader_parameter/darkness = 0.5
 
 [node name="TutorialBlockUI" type="Control"]
 layout_mode = 3
@@ -12,6 +20,17 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 script = ExtResource("1_script")
+
+[node name="SpotlightOverlay" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 1)
+material = SubResource("ShaderMaterial_spotlight")
 
 [node name="Label" type="Label" parent="."]
 layout_mode = 1

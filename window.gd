@@ -21,13 +21,30 @@ extends StaticBody2D
 @export var window_frame_color: Color = Color(0.3, 0.2, 0.1, 1.0)  ## Frame color (brown)
 @export var frame_thickness: float = 4.0  ## Thickness of window frame
 
+@export_group("Break Text")
+@export var break_text_content: String = "CRASH"  ## Text to display when window breaks
+@export var break_text_font_size: int = 64  ## Initial font size of break text
+@export var break_text_font: Font = null  ## Font to use for break text (optional, uses default if null)
+@export var break_text_expansion_rate: float = 1.5  ## How much the text expands (1.0 = no expansion, 2.0 = doubles in size)
+@export var break_text_color: Color = Color.WHITE  ## Color of the break text
+@export var slow_mo_duration: float = 0.7  ## Duration of slow motion effect in seconds
+@export var text_shake_intensity: float = 8.0  ## How much the text shakes (in pixels)
+@export var text_shake_speed: float = 30.0  ## How fast the text shakes (higher = faster)
+
 # Internal state
 var is_shattered: bool = false
+var player_direction: Vector2 = Vector2.ZERO  # Store player direction when broken
+var spawned_fragments: Array = []  # Track spawned fragments for color changes
 
 # Visual references
 @onready var glass_visual: Polygon2D = $GlassVisual
 @onready var frame_visual: Polygon2D = $FrameVisual
 @onready var collision_shape: CollisionShape2D = $CollisionShape2D
+@onready var break_text_marker: Node2D = $BreakTextMarker
+
+# Break text overlay
+var break_text_label: Label = null
+var original_time_scale: float = 1.0
 
 
 func _ready() -> void:
@@ -83,7 +100,217 @@ func kick(direction: Vector2, speed: float = 0.0) -> void:
 		return  # Already shattered
 	
 	is_shattered = true
-	_shatter(direction)
+	player_direction = direction.normalized()
+	
+	# Shatter in the direction the player is dashing BEFORE time slow
+	_shatter(player_direction)
+	
+	# Trigger time slow effect with tile hiding and break text
+	_trigger_break_effect()
+
+
+func _trigger_break_effect() -> void:
+	"""Trigger time slow, make tiles and fragments black, add red background overlay, and show break text with animation."""
+	# Store original time scale
+	original_time_scale = Engine.time_scale
+	
+	# Slow time to 30%
+	Engine.time_scale = 0.3
+	
+	# Find all TileMapLayer nodes and make them pure black
+	var tilemaps = _find_all_tilemaps(get_tree().root)
+	var original_tilemap_colors = {}
+	for tilemap in tilemaps:
+		# Store original color
+		original_tilemap_colors[tilemap] = tilemap.modulate
+		# Set to pure black
+		tilemap.modulate = Color.BLACK
+	
+	# Make glass fragments pure black
+	var original_fragment_colors = {}
+	for fragment in spawned_fragments:
+		if is_instance_valid(fragment):
+			original_fragment_colors[fragment] = fragment.modulate
+			fragment.modulate = Color.BLACK
+	
+	# Create a red rectangle that covers the entire screen
+	var red_overlay = ColorRect.new()
+	red_overlay.color = Color.RED
+	red_overlay.z_index = -100  # Behind everything
+	
+	# Get the viewport size to cover entire screen
+	var viewport = get_viewport()
+	if viewport:
+		var viewport_size = viewport.get_visible_rect().size
+		red_overlay.size = viewport_size * 10  # Make it huge to cover everything
+		red_overlay.position = -viewport_size * 5  # Center it
+	else:
+		# Fallback: very large rectangle
+		red_overlay.size = Vector2(100000, 100000)
+		red_overlay.position = Vector2(-50000, -50000)
+	
+	# Add to a CanvasLayer so it follows camera
+	var canvas_layer = CanvasLayer.new()
+	canvas_layer.layer = -100  # Behind everything
+	get_tree().root.add_child(canvas_layer)
+	canvas_layer.add_child(red_overlay)
+	
+	# Hide parallax background and background tilemaps
+	var hidden_nodes = []
+	var parallax_bg = get_tree().root.find_child("ParallaxBackground", true, false)
+	if parallax_bg:
+		hidden_nodes.append(parallax_bg)
+		parallax_bg.visible = false
+	
+	var bg_tilemap = get_tree().root.find_child("BackgroundTileMap", true, false)
+	if bg_tilemap:
+		hidden_nodes.append(bg_tilemap)
+		bg_tilemap.visible = false
+	
+	# Apply camera shake for the duration of the slow-mo effect
+	var player = get_tree().get_first_node_in_group("player")
+	if player and player.has_method("apply_camera_shake"):
+		player.apply_camera_shake(15.0, slow_mo_duration)  # Match slow-mo duration
+	
+	# Create and show break text at marker position
+	if break_text_marker:
+		break_text_label = Label.new()
+		break_text_label.text = break_text_content
+		break_text_label.z_index = 1000  # Render on top of everything
+		
+		# Setup label settings
+		break_text_label.add_theme_font_size_override("font_size", break_text_font_size)
+		if break_text_font:
+			break_text_label.add_theme_font_override("font", break_text_font)
+		break_text_label.add_theme_color_override("font_color", break_text_color)
+		break_text_label.add_theme_color_override("font_outline_color", Color.BLACK)
+		break_text_label.add_theme_constant_override("outline_size", 4)
+		
+		# Center the text horizontally and vertically
+		break_text_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		break_text_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		
+		# Add to a CanvasLayer so it renders in screen space
+		var text_canvas_layer = CanvasLayer.new()
+		text_canvas_layer.layer = 100  # On top of everything
+		get_tree().root.add_child(text_canvas_layer)
+		text_canvas_layer.add_child(break_text_label)
+		
+		# Position at marker location in screen space
+		# Get camera to convert world position to screen position
+		var camera = get_viewport().get_camera_2d()
+		if camera:
+			var screen_pos = break_text_marker.global_position - camera.get_screen_center_position() + get_viewport().get_visible_rect().size / 2
+			break_text_label.position = screen_pos
+		else:
+			# Fallback: use viewport center
+			break_text_label.position = get_viewport().get_visible_rect().size / 2
+		
+		# Wait one frame for label to calculate its size
+		await get_tree().process_frame
+		
+		# Now set pivot to center for proper scaling
+		break_text_label.pivot_offset = break_text_label.size / 2
+		
+		# Adjust position to account for pivot (so it's truly centered)
+		break_text_label.position -= break_text_label.size / 2
+		
+		# Start and wait for animation coroutine to complete
+		await _animate_break_text()
+	
+	# Restore everything
+	Engine.time_scale = original_time_scale
+	
+	# Restore tilemap colors
+	for tilemap in tilemaps:
+		if is_instance_valid(tilemap) and tilemap in original_tilemap_colors:
+			tilemap.modulate = original_tilemap_colors[tilemap]
+	
+	# Restore fragment colors
+	for fragment in spawned_fragments:
+		if is_instance_valid(fragment) and fragment in original_fragment_colors:
+			fragment.modulate = original_fragment_colors[fragment]
+	
+	# Show hidden nodes again
+	for node in hidden_nodes:
+		if is_instance_valid(node):
+			node.visible = true
+	
+	# Remove red overlay
+	if is_instance_valid(canvas_layer):
+		canvas_layer.queue_free()
+	
+	# Remove break text and its canvas layer
+	if break_text_label and is_instance_valid(break_text_label):
+		var text_canvas = break_text_label.get_parent()
+		if text_canvas and is_instance_valid(text_canvas):
+			text_canvas.queue_free()
+		break_text_label = null
+	
+	# Now that restoration is complete, clean up the window node
+	queue_free()
+
+
+func _animate_break_text() -> void:
+	"""Animate the break text with slow expansion and shake effect."""
+	if not break_text_label or not is_instance_valid(break_text_label):
+		return
+	
+	var start_time = Time.get_ticks_msec() / 1000.0
+	var duration = slow_mo_duration  # Use configurable duration
+	var original_pos = break_text_label.position
+	var start_scale = 1.0
+	var end_scale = break_text_expansion_rate
+	
+	# Run animation loop
+	while Time.get_ticks_msec() / 1000.0 - start_time < duration:
+		# Safety check: ensure label still exists
+		if not break_text_label or not is_instance_valid(break_text_label):
+			return
+		
+		var elapsed = Time.get_ticks_msec() / 1000.0 - start_time
+		var progress = elapsed / duration
+		
+		# Expand: smoothly scale from start_scale to end_scale over the duration
+		var scale_factor = lerp(start_scale, end_scale, progress)
+		break_text_label.scale = Vector2(scale_factor, scale_factor)
+		
+		# Shake/Vibrate: Add random offset to position
+		var shake_offset = Vector2(
+			randf_range(-text_shake_intensity, text_shake_intensity),
+			randf_range(-text_shake_intensity, text_shake_intensity)
+		)
+		# Increase shake intensity slightly over time for impact
+		var shake_multiplier = 1.0 + progress * 0.5
+		shake_offset *= shake_multiplier
+		
+		break_text_label.position = original_pos + shake_offset
+		
+		# Wait for next frame (using process_always to work during time_scale)
+		await get_tree().process_frame
+	
+	# Reset to final state
+	if break_text_label and is_instance_valid(break_text_label):
+		break_text_label.scale = Vector2(end_scale, end_scale)
+		break_text_label.position = original_pos
+
+
+func _find_all_tilemaps(node: Node) -> Array:
+	"""Recursively find all TileMapLayer nodes in the scene tree."""
+	var tilemaps = []
+	
+	# Check if current node is a TileMapLayer
+	if node is TileMapLayer:
+		tilemaps.append(node)
+	# Also check for TileMap (Godot 3.x compatibility)
+	elif node.get_class() == "TileMap":
+		tilemaps.append(node)
+	
+	# Recursively check children
+	for child in node.get_children():
+		tilemaps.append_array(_find_all_tilemaps(child))
+	
+	return tilemaps
 
 
 func _shatter(kick_direction: Vector2) -> void:
@@ -151,15 +378,15 @@ func _shatter(kick_direction: Vector2) -> void:
 		# Direction from window center to fragment center
 		var radial_dir = fragment_center.normalized() if fragment_center.length() > 0 else Vector2(randf_range(-1, 1), randf_range(-1, 1)).normalized()
 		
-		# Combine kick direction with radial explosion
-		var shatter_dir = (kick_direction.normalized() * 0.3 + radial_dir * 0.7).normalized()
+		# Combine kick direction with slight radial spread (mostly in kick direction)
+		var shatter_dir = (kick_direction.normalized() * 0.85 + radial_dir * 0.15).normalized()
 		var shatter_vel = shatter_dir * randf_range(
 			shatter_force - shatter_force_variation,
 			shatter_force + shatter_force_variation
 		)
 		
-		# Add some random rotation
-		shatter_vel = shatter_vel.rotated(randf_range(-0.3, 0.3))
+		# Add minimal random rotation to keep some variation
+		shatter_vel = shatter_vel.rotated(randf_range(-0.15, 0.15))
 		
 		# Add slight color variation for glass effect
 		var fragment_color = window_color
@@ -179,6 +406,9 @@ func _shatter(kick_direction: Vector2) -> void:
 			fragment_color,
 			2000.0
 		)
+		
+		# Track this fragment so we can change its color during timeslow
+		spawned_fragments.append(fragment)
 	
 	# Hide the window visuals
 	if glass_visual:
@@ -194,9 +424,6 @@ func _shatter(kick_direction: Vector2) -> void:
 	
 	# Remove from group so it can't be kicked again
 	remove_from_group("kickable_objects")
-	
-	# Clean up after a short delay (in case we want to keep the frame visible)
-	_cleanup_after_delay()
 
 
 func _generate_fragment_polygon(seed_point: Vector2, all_seeds: Array[Vector2], glass_half: Vector2) -> PackedVector2Array:
@@ -319,10 +546,6 @@ func _create_simple_irregular_polygon(center: Vector2, glass_half: Vector2) -> P
 	return points
 
 
-func _cleanup_after_delay() -> void:
-	"""Clean up the window after a short delay."""
-	await get_tree().create_timer(0.1).timeout
-	queue_free()
 
 
 func can_be_kicked() -> bool:

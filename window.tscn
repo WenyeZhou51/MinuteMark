@@ -1,4 +1,4 @@
-[gd_scene load_steps=3 format=3 uid="uid://bsd4k3s1lgtgr"]
+[gd_scene load_steps=3 format=3 uid="uid://dyetqoxdfluq0"]
 
 [ext_resource type="Script" path="res://window.gd" id="1_window"]
 
@@ -18,3 +18,5 @@ polygon = PackedVector2Array(-30, -40, 30, -40, 30, 40, -30, 40)
 [node name="GlassVisual" type="Polygon2D" parent="."]
 color = Color(0.7, 0.9, 1, 0.6)
 polygon = PackedVector2Array(-26, -36, 26, -36, 26, 36, -26, 36)
+
+[node name="BreakTextMarker" type="Node2D" parent="."]
