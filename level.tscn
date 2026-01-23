@@ -10,7 +10,7 @@
 [ext_resource type="PackedScene" uid="uid://b756hnxt8gukc" path="res://dialogue/DialogueUI.tscn" id="9_dialogue"]
 [ext_resource type="Script" uid="uid://b1y4vx8ub8uv5" path="res://tutorial_trigger.gd" id="10_o05kg"]
 [ext_resource type="Script" uid="uid://b7qrmm1ub7a5l" path="res://dialogue_trigger.gd" id="10_trigger"]
-[ext_resource type="PackedScene" path="res://window.tscn" id="10_window"]
+[ext_resource type="PackedScene" uid="uid://dyetqoxdfluq0" path="res://window.tscn" id="10_window"]
 [ext_resource type="Script" uid="uid://c45ixkm1xxjhf" path="res://pendulum_trigger.gd" id="11_pendulum_trigger"]
 [ext_resource type="FontFile" uid="uid://baaiikv2041fb" path="res://Fonts/Funkrocker.otf" id="12_font"]
 [ext_resource type="Script" uid="uid://r2n5pymd3a5y" path="res://minor_anim_system.gd" id="14_wxjrc"]
@@ -34,7 +34,7 @@ radius = 103.238
 size = Vector2(631.5, 384)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_4c15r"]
-size = Vector2(621, 377.017)
+size = Vector2(951.75, 478.25424)
 
 [node name="Level" type="Node2D"]
 script = ExtResource("1_manager")
@@ -390,7 +390,7 @@ instruction_message = "Shift to dash "
 allowed_action = "dash"
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Area2D3"]
-position = Vector2(-7, -237)
+position = Vector2(-246, -16)
 shape = SubResource("RectangleShape2D_4c15r")
 
 [node name="Img4463" type="Sprite2D" parent="."]
