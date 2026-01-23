@@ -15,6 +15,20 @@ var base_time_scale: float = 1.0  # Normal game speed
 func _ready():
 	super._ready()
 	
+	# IMPROVEMENT: Ensure BackButton is correctly accessible and on top
+	# We reparent it to the root node to match the structure of input_menu.tscn
+	# This fixes the "stuck hover color" issue caused by container focus/layout interference
+	if has_node("MenuContainer/BackButton"):
+		var back_btn = $MenuContainer/BackButton
+		$MenuContainer.remove_child(back_btn)
+		add_child(back_btn)
+		
+		# Set position to match input_menu (bottom right)
+		back_btn.position = Vector2(1497, 1101)
+		
+		# Explicitly set mouse filter to STOP
+		back_btn.mouse_filter = Control.MOUSE_FILTER_STOP
+	
 	# Load saved settings
 	load_settings()
 	

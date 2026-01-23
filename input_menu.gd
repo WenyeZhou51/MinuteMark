@@ -22,6 +22,13 @@ func get_menu_title() -> String:
 func _ready():
 	super._ready()
 	
+	# Ensure BackButton is on top of MenuContainer so it receives input and hover events
+	if has_node("BackButton"):
+		# Move to end of child list (draw on top)
+		move_child($BackButton, get_child_count() - 1)
+		# Explicitly set mouse filter to STOP just in case
+		$BackButton.mouse_filter = Control.MOUSE_FILTER_STOP
+			
 	# Setup button labels and signals
 	for action in ACTIONS:
 		var button_node = get_node_or_null("MenuContainer/ScrollContainer/GridContainer/" + action + "/RebindButton")
@@ -29,6 +36,23 @@ func _ready():
 			button_node.pressed.connect(_on_rebind_pressed.bind(action))
 	
 	update_button_labels()
+
+func _focus_first_control():
+	"""Focus the first focusable control in the menu"""
+	# In input menu, the first rebind button is deep inside the grid
+	var grid = get_node_or_null("MenuContainer/ScrollContainer/GridContainer")
+	if grid:
+		for child in grid.get_children():
+			if child.has_node("RebindButton"):
+				child.get_node("RebindButton").grab_focus()
+				return
+	
+	# Fallback to back button
+	if has_node("BackButton"):
+		# Ensure Back button is focusable
+		var back_btn = $BackButton
+		back_btn.mouse_filter = Control.MOUSE_FILTER_STOP
+		back_btn.grab_focus()
 
 func update_button_labels():
 	for action in ACTIONS:
@@ -64,12 +88,21 @@ func _input(event):
 			if (event is InputEventKey and event.pressed) or (event is InputEventJoypadButton and event.pressed) or (event is InputEventJoypadMotion and abs(event.axis_value) > 0.5):
 				
 				# Ignore Esc for rebinding to allow it as a "Cancel" action if needed?
-				# Actually, let's just let them rebind anything. 
+				# But for now, allow binding anything.
+				# If user clicks mouse, we should probably ignore it for rebind unless we support mouse buttons.
 				
 				rebind_action(rebinding_action, event)
 				get_viewport().set_input_as_handled()
 				return
 	
+	# Explicitly handle mouse click on Back button if focusing is weird
+	if event is InputEventMouseButton and event.pressed:
+		# Just let standard GUI handling work first by NOT consuming it here
+		# unless it's a rebind action.
+		# The parent's _input might consume it though?
+		# No, base_inner_menu only consumes "ui_cancel".
+		pass
+		
 	super._input(event)
 
 func start_rebind(action: String):

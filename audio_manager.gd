@@ -99,3 +99,23 @@ func play_music(new_stream: AudioStream):
 		music_player.stop()
 		music_player.stream = new_stream
 		music_player.play()
+
+func restart_music() -> void:
+	"""Restart the music from the beginning (used for game restart)."""
+	print("AudioManager: restart_music called")
+	if music_player:
+		# Stop any rewinding
+		if _is_rewinding:
+			stop_rewind()
+			
+		# Reset pitch and other properties
+		music_player.pitch_scale = 1.0
+		music_player.stream_paused = false
+		
+		# Stop first to ensure clean state
+		music_player.stop()
+		# Play from start
+		music_player.play(0.0)
+		print("AudioManager: Music restarted")
+	else:
+		print("AudioManager: No music_player found!")

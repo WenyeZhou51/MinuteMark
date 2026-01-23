@@ -1,6 +1,6 @@
 [gd_scene load_steps=7 format=3 uid="uid://bkjwbsnu7x3jf"]
 
-[ext_resource type="Script" path="res://assist_menu.gd" id="1_assist"]
+[ext_resource type="Script" uid="uid://dgkf0dd3cxq5d" path="res://assist_menu.gd" id="1_assist"]
 [ext_resource type="Texture2D" uid="uid://bpr70dxba6rqr" path="res://Sprites/Bg white overlay .png" id="3_white_overlay"]
 [ext_resource type="FontFile" uid="uid://baaiikv2041fb" path="res://Fonts/Funkrocker.otf" id="4_font"]
 

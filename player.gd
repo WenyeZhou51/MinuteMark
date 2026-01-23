@@ -475,6 +475,42 @@ func _ready() -> void:
 	paper_tear_effect.name = "PaperTearEffect"
 	# Add it to parent so it stays in the level
 	var parent = get_parent()
+	
+	# 1. Reset Tutorials (Always safe to do on level load)
+	if TutorialBlockManager:
+		TutorialBlockManager.reset_tutorials()
+	
+	# 2. Handle Global UI Cleanup & Music Restart
+	var root = get_tree().root
+	var victory_ui = root.get_node_or_null("VictoryUI")
+	var death_ui = root.get_node_or_null("DeathUI")
+	
+	print("Player: _ready - VictoryUI: ", victory_ui != null, " DeathUI: ", death_ui != null)
+	
+	if victory_ui:
+		print("Player: Cleaning up VictoryUI and restarting music immediately")
+		victory_ui.queue_free()
+		# For Victory, we transition immediately, so restart music now
+		if AudioManager:
+			AudioManager.restart_music()
+			
+	elif death_ui:
+		print("Player: Cleaning up DeathUI and restarting music immediately")
+		death_ui.queue_free()
+		# For Death, we restart immediately because we just reloaded
+		if AudioManager:
+			AudioManager.restart_music()
+			
+	else:
+		print("Player: No UI found, checking music status")
+		# Normal load or manual restart (Pause Menu restart falls here)
+		# Since PauseMenu is destroyed on reload, we arrive here "fresh".
+		# We should restart music here to ensure timing is reset for the new run.
+		if AudioManager:
+			AudioManager.restart_music()
+			
+	# Ensure mouse is captured for gameplay
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	if parent:
 		parent.add_child.call_deferred(paper_tear_effect)
 
@@ -4553,6 +4589,7 @@ func die() -> void:
 	# 4. Show Death UI (Add to Root to persist)
 	if DeathUIScene:
 		var death_ui = DeathUIScene.instantiate()
+		death_ui.name = "DeathUI" # Name it to find it later
 		get_tree().root.add_child(death_ui)
 	
 	# 5. Stop Velocity
@@ -4565,6 +4602,11 @@ func die() -> void:
 
 func _input(event: InputEvent) -> void:
 	if can_restart_after_death and (event is InputEventKey or event is InputEventMouseButton) and event.pressed:
+		# Manual restart (usually debug or fallback)
+		
+		# Reset mouse mode to default (Visible) for fresh start feel
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+			
 		get_tree().reload_current_scene()
 
 func _update_bullet_detection() -> void:
@@ -4932,6 +4974,7 @@ func finish_level(time_taken: float) -> void:
 	var victory_scene = load("res://VictoryUI.tscn")
 	if victory_scene:
 		var victory_instance = victory_scene.instantiate()
+		victory_instance.name = "VictoryUI" # Name it for easy finding/cleanup
 		get_tree().root.add_child(victory_instance)
 		if victory_instance.has_method("setup"):
 			victory_instance.setup(time_taken)

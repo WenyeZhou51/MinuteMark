@@ -29,13 +29,45 @@ var is_animating_in: bool = false
 var current_inner_menu: Control = null
 var inner_menus: Dictionary = {}
 
+# Keep track of the last focused button in the main menu
+var last_focused_button: Control = null
+
 # Audio
 var menu_transition_player: AudioStreamPlayer
 var menu_select_player: AudioStreamPlayer
 
+# Keep track of where we came from
+var opened_from_victory: bool = false
+
 func _ready():
 	# Initialize pause menu
 	hide()
+	
+	# Set Level Name
+	if has_node("MenuContainer/Title"):
+		var title = $MenuContainer/Title
+		title.text = "The First Second"
+		# Make it more distinct but keep B&W style: 
+		# Bigger, Black with White outline (inverted from buttons which are often black text)
+		title.add_theme_font_size_override("font_size", 280)
+		title.add_theme_color_override("font_color", Color(0, 0, 0, 1)) # Black
+		title.add_theme_color_override("font_outline_color", Color(1, 1, 1, 1)) # White outline
+		title.add_theme_constant_override("outline_size", 25) # Thicker outline
+		title.rotation_degrees = -8 # Tilted more aggressively
+		
+		# Reset any previous offset first to avoid accumulation if this runs multiple times (though _ready runs once)
+		# But wait, original .tscn might have offsets. We should be careful about " += ".
+		# The original offset_top is -613 and offset_bottom -404.
+		# Let's set absolute position if possible or just use what we have.
+		# A safer way to "move down" is to just set position relative to anchor center.
+		# It's anchored to center (0.5, 0.5).
+		
+		# Original offsets: top -613, bottom -404.
+		# We want to move it down by 150.
+		# New target: top -463, bottom -254.
+		
+		title.offset_top = -463
+		title.offset_bottom = -254
 	
 	# Load default transition texture if not set
 	if transition_texture == null:
@@ -62,6 +94,14 @@ func _ready():
 		inner_menus["audio"] = $AudioMenu
 	if has_node("InputMenu"):
 		inner_menus["inputs"] = $InputMenu
+	
+	# Setup Restart Button if it doesn't exist (Dynamic injection)
+	if has_node("MenuContainer") and not has_node("MenuContainer/RestartButton"):
+		_inject_restart_button()
+	elif has_node("MenuContainer/RestartButton"):
+		# Connect if already exists (e.g. from manual edit)
+		if not $MenuContainer/RestartButton.pressed.is_connected(_on_restart_pressed):
+			$MenuContainer/RestartButton.pressed.connect(_on_restart_pressed)
 	
 	# Setup audio players
 	setup_audio_players()
@@ -93,6 +133,89 @@ func setup_pocket_watch_animation():
 		push_warning("No pocket watch frames found! Make sure to run convert_gif_to_frames.py")
 
 
+func _inject_restart_button():
+	var resume_btn = $MenuContainer/ResumeButton
+	if not resume_btn:
+		return
+		
+	var restart_btn = resume_btn.duplicate()
+	restart_btn.name = "RestartButton"
+	restart_btn.text = "RESTART" # This sets button text property if using standard button
+	
+	# If using custom setup with child Label (as seen in .tscn)
+	var label = restart_btn.get_node_or_null("ButtonContent/Label")
+	if label:
+		label.text = "RESTART"
+		
+	# Adjust properties
+	restart_btn.focus_neighbor_top = resume_btn.get_path()
+	restart_btn.focus_neighbor_bottom = resume_btn.focus_neighbor_bottom
+	
+	# Add to container
+	$MenuContainer.add_child(restart_btn)
+	# Position it below Resume (this is tricky with manual layout, let's try to infer)
+	# Resume is at y=-300 (top) to -220 (bottom)
+	# There is a gap. Video is at -95.
+	# We can put Restart in between? Or re-layout.
+	# Let's put it at y=-150 roughly.
+	
+	restart_btn.anchor_left = 0.5
+	restart_btn.anchor_top = 0.5
+	restart_btn.anchor_right = 0.5
+	restart_btn.anchor_bottom = 0.5
+	
+	# Current Resume: top=-300, bottom=-220.
+	# Current Video: top=-95.
+	# Current Audio: top=90.
+	# Current Input: top=275.
+	# Current Quit: top=460.
+	
+	# We have 5 buttons now (Resume, Restart, Video, Audio, Input, Quit) -> 6 buttons!
+	# The screen height is ~1600 based on project.godot
+	# Center is 0.
+	
+	# Let's redistribute ALL buttons evenly if we are injecting
+	
+	var spacing = 150 # Increased spacing (was 120, originally 140)
+	var start_y = -200 # Moved down slightly (was -250, originally -150)
+	
+	var buttons = []
+	if has_node("MenuContainer/ResumeButton"): buttons.append($MenuContainer/ResumeButton)
+	buttons.append(restart_btn) # The new one
+	if has_node("MenuContainer/VideoButton"): buttons.append($MenuContainer/VideoButton)
+	if has_node("MenuContainer/AudioButton"): buttons.append($MenuContainer/AudioButton)
+	if has_node("MenuContainer/InputButton"): buttons.append($MenuContainer/InputButton)
+	if has_node("MenuContainer/QuitButton"): buttons.append($MenuContainer/QuitButton)
+	
+	for i in range(buttons.size()):
+		var btn = buttons[i]
+		var y_pos = start_y + (i * spacing)
+		
+		# Keep horizontal centering but update vertical
+		btn.anchor_top = 0.5
+		btn.anchor_bottom = 0.5
+		btn.offset_top = y_pos - 40 # Height 80/2
+		btn.offset_bottom = y_pos + 40
+		
+		# Reset rotation to look cleaner or alternate slightly
+		btn.rotation = randf_range(-0.03, 0.03) 
+		
+	# Connect signal (need to disconnect old one from duplicate)
+	if restart_btn.pressed.is_connected(_on_resume_pressed):
+		restart_btn.pressed.disconnect(_on_resume_pressed)
+	
+	if not restart_btn.pressed.is_connected(_on_restart_pressed):
+		restart_btn.pressed.connect(_on_restart_pressed)
+	
+	# Update focus neighbors based on new order
+	for i in range(buttons.size()):
+		var btn = buttons[i]
+		var prev = buttons[i-1] if i > 0 else buttons[buttons.size()-1]
+		var next = buttons[i+1] if i < buttons.size()-1 else buttons[0]
+		
+		btn.focus_neighbor_top = prev.get_path()
+		btn.focus_neighbor_bottom = next.get_path()
+
 func _input(event):
 	if event.is_action_pressed("ui_cancel") and not is_transitioning and not is_animating_in:  # ESC key by default
 		# Don't toggle pause if we're in an inner menu
@@ -101,19 +224,56 @@ func _input(event):
 		toggle_pause()
 
 
+func _process(_delta):
+	# Safeguard: Ensure mouse is visible when menu is open
+	if visible and Input.mouse_mode != Input.MOUSE_MODE_VISIBLE:
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+func open_pause_menu(from_victory: bool = false):
+	"""Explicitly open the pause menu (used by VictoryUI)"""
+	if visible and not from_victory:
+		return
+		
+	print("PauseMenu: Opening from victory=", from_victory)
+	opened_from_victory = from_victory
+	
+	get_tree().paused = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	visible = true
+	
+	# Explicitly pause music immediately
+	if AudioManager:
+		print("PauseMenu: Pausing music")
+		AudioManager.pause_music()
+	
+	play_menu_transition_sound()
+	play_pause_menu_intro()
+	
+	# Update buttons state based on context
+	_update_buttons_state()
+	
+	# Hide other UI
+	_set_other_ui_visible(false)
+
+
 func toggle_pause():
 	var is_paused = not get_tree().paused
 	get_tree().paused = is_paused
 	
 	if is_paused:
+		opened_from_victory = false # Normal pause is not from victory
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 		visible = true
+		
+		# Explicitly pause music immediately when pausing
+		if AudioManager:
+			AudioManager.pause_music()
+			
 		play_menu_transition_sound()  # Play transition sound when entering pause menu
 		play_pause_menu_intro()
 		
-		# Pause music
-		if AudioManager:
-			AudioManager.pause_music()
+		# Update buttons state
+		_update_buttons_state()
 		
 		# Hide other UI (timer, dialogue, etc.)
 		_set_other_ui_visible(false)
@@ -135,6 +295,62 @@ func toggle_pause():
 			visible = false
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 			_set_other_ui_visible(true)
+
+func _update_buttons_state():
+	if not has_node("MenuContainer"):
+		return
+		
+	# Handle Resume button visibility/state
+	if has_node("MenuContainer/ResumeButton"):
+		var resume_btn = $MenuContainer/ResumeButton
+		if opened_from_victory:
+			# Disable resume if came from victory
+			resume_btn.visible = true
+			resume_btn.disabled = true
+			resume_btn.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			resume_btn.focus_mode = Control.FOCUS_NONE
+			# Grey it out
+			resume_btn.modulate = Color(0.5, 0.5, 0.5, 0.5)
+			
+			# If we have a restart button, focus that instead
+			if has_node("MenuContainer/RestartButton"):
+				$MenuContainer/RestartButton.grab_focus()
+		else:
+			# Enable resume normally
+			resume_btn.visible = true
+			resume_btn.disabled = false
+			resume_btn.mouse_filter = Control.MOUSE_FILTER_STOP
+			resume_btn.focus_mode = Control.FOCUS_ALL
+			resume_btn.modulate = Color(1, 1, 1, 1)
+			resume_btn.grab_focus()
+
+func _on_restart_pressed():
+	# Logic similar to victory_ui restart
+	
+	# 1. Block input to prevent double clicks
+	if has_node("MenuContainer"):
+		$MenuContainer.mouse_filter = Control.MOUSE_FILTER_STOP
+	
+	# 2. Trigger reload (Don't reset music/tutorials yet - wait for scene load)
+	get_tree().paused = false
+	get_tree().reload_current_scene()
+	
+	# 3. Don't hide the menu immediately?
+	# The menu is on a CanvasLayer. If it's part of the scene, it will disappear naturally.
+	# If it's an autoload (which it doesn't seem to be), we'd need to handle it.
+	# But wait, if we reload scene, the current pause menu instance will be destroyed.
+	# So we don't need to do anything else.
+	
+	# HOWEVER, player.gd expects to find a persisting UI to clean up (like VictoryUI).
+	# PauseMenu is usually destroyed instantly. 
+	# This means the "ugly" reload frame might be visible.
+	# If we want to hide that, we'd need PauseMenu to persist or be an autoload.
+	# But the user asked for music/timing not to restart until beginning scene.
+	# Since PauseMenu is destroyed, logic in player.gd _ready will run.
+	# We need to make sure we don't reset things HERE.
+	
+	# Removed explicit resets here. They are handled in player.gd _ready().
+	pass
 
 
 func _set_other_ui_visible(p_visible: bool):
@@ -162,7 +378,7 @@ func play_pause_menu_intro():
 		tween_bg.tween_property($PauseBg, "modulate:a", 1.0, pause_bg_fade_duration)
 	
 	# Step 2: Wait a moment, then show pocket watch
-	await get_tree().create_timer(pause_bg_fade_duration).timeout
+	await get_tree().create_timer(pause_bg_fade_duration, true, false, true).timeout
 	
 	if has_node("PocketWatch") and pocket_watch_frames.size() > 0:
 		$PocketWatch.visible = true
@@ -178,7 +394,7 @@ func play_pause_menu_intro():
 		var time_per_frame = 1.0 / pocket_watch_fps
 		
 		for i in range(pocket_watch_frames.size()):
-			await get_tree().create_timer(time_per_frame).timeout
+			await get_tree().create_timer(time_per_frame, true, false, true).timeout
 			if has_node("PocketWatch"):
 				$PocketWatch.texture = pocket_watch_frames[i]
 		
@@ -325,6 +541,21 @@ func show_inner_menu(menu_name: String):
 	if not inner_menus.has(menu_name):
 		return
 	
+	# Store current focus to restore it later
+	var focused = get_viewport().gui_get_focus_owner()
+	# Only store if it's one of our main menu buttons or inside the main menu container
+	if focused and has_node("MenuContainer") and $MenuContainer.is_ancestor_of(focused):
+		last_focused_button = focused
+	elif has_node("MenuContainer") and $MenuContainer.get_child_count() > 0:
+		# Fallback: manually map buttons if focus was lost or mouse was used
+		# (This logic is implicit; if we clicked Video, Video button is likely focused or at least the intended target)
+		if menu_name == "video" and has_node("MenuContainer/VideoButton"):
+			last_focused_button = $MenuContainer/VideoButton
+		elif menu_name == "audio" and has_node("MenuContainer/AudioButton"):
+			last_focused_button = $MenuContainer/AudioButton
+		elif menu_name == "inputs" and has_node("MenuContainer/InputButton"):
+			last_focused_button = $MenuContainer/InputButton
+	
 	# Play transition sound when entering inner menu
 	play_menu_transition_sound()
 	
@@ -357,8 +588,10 @@ func show_main_menu():
 		$WhiteOverlay.visible = true
 	if has_node("MenuContainer"):
 		$MenuContainer.visible = true
-		# Focus the first button
-		if has_node("MenuContainer/ResumeButton"):
+		# Restore focus to last used button
+		if last_focused_button and is_instance_valid(last_focused_button) and last_focused_button.is_visible_in_tree():
+			last_focused_button.grab_focus()
+		elif has_node("MenuContainer/ResumeButton"):
 			$MenuContainer/ResumeButton.grab_focus()
 
 
@@ -384,8 +617,10 @@ func show_main_menu_after_transition():
 		$WhiteOverlay.visible = true
 	if has_node("MenuContainer"):
 		$MenuContainer.visible = true
-		# Focus the first button
-		if has_node("MenuContainer/ResumeButton"):
+		# Restore focus to last used button
+		if last_focused_button and is_instance_valid(last_focused_button) and last_focused_button.is_visible_in_tree():
+			last_focused_button.grab_focus()
+		elif has_node("MenuContainer/ResumeButton"):
 			$MenuContainer/ResumeButton.grab_focus()
 
 
@@ -434,8 +669,9 @@ func setup_button_audio_connections():
 	# Connect to inner menu buttons
 	for menu_name in inner_menus:
 		var menu = inner_menus[menu_name]
-		if menu.has_node("MenuContainer"):
-			_connect_controls_recursive(menu.get_node("MenuContainer"))
+		# Recursively connect to the WHOLE menu, not just MenuContainer
+		# This ensures buttons outside MenuContainer (like BackButton in InputMenu) are connected
+		_connect_controls_recursive(menu)
 
 
 func _connect_controls_recursive(node: Node):
@@ -466,8 +702,10 @@ func _connect_controls_recursive(node: Node):
 			if not child.toggled.is_connected(_on_toggle_changed):
 				child.toggled.connect(_on_toggle_changed)
 		
-		# Recurse into children
-		_connect_controls_recursive(child)
+		# Recurse into children, but ONLY if they are containers or Control nodes that might contain buttons
+		# We should be careful not to recurse into something that isn't a container if it has many children
+		if child.get_child_count() > 0:
+			_connect_controls_recursive(child)
 
 
 func _on_menu_item_focused():

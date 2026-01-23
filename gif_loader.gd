@@ -37,4 +37,3 @@ static func create_texture_animation(sprite: Sprite2D, textures: Array[Texture2D
 		tween.tween_interval(time_per_frame)
 	
 	return tween
-

@@ -20,8 +20,47 @@ func _ready():
 	time_label.pivot_offset = time_label.size / 2
 	rank_label.pivot_offset = rank_label.size / 2
 	rank_impact_label.pivot_offset = rank_impact_label.size / 2
+	
+	# Ensure buttons are clickable even when paused
+	var restart_btn = $Control/Panel/HBoxContainer/RestartButton
+	var menu_btn = $Control/Panel/HBoxContainer/MenuButton
+	
+	restart_btn.process_mode = Node.PROCESS_MODE_ALWAYS
+	menu_btn.process_mode = Node.PROCESS_MODE_ALWAYS
+	
+	# Explicitly set focus mode to allow interaction
+	restart_btn.focus_mode = Control.FOCUS_ALL
+	menu_btn.focus_mode = Control.FOCUS_ALL
+	
+	# Ensure buttons are on top and not blocked
+	restart_btn.mouse_filter = Control.MOUSE_FILTER_STOP
+	menu_btn.mouse_filter = Control.MOUSE_FILTER_STOP
+	
+	# Grab focus on restart button for gamepad/keyboard support
+	restart_btn.grab_focus()
+	
+	# Ensure background elements don't block input
+	$Control/YellowBackground.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	$Control/SpeedLines.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	$Control.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	$Control/Panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	$Control/Panel/HBoxContainer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	
+	# Connect signals manually to be sure
+	if not restart_btn.pressed.is_connected(_on_restart_button_pressed):
+		restart_btn.pressed.connect(_on_restart_button_pressed)
+	if not menu_btn.pressed.is_connected(_on_menu_button_pressed):
+		menu_btn.pressed.connect(_on_menu_button_pressed)
 
 func _process(delta):
+	# Ensure mouse is visible (sometimes it gets hidden by other scripts)
+	if Input.mouse_mode != Input.MOUSE_MODE_VISIBLE:
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		
+	# DEBUG: Check if buttons are valid
+	# if $Control/Panel/HBoxContainer/RestartButton.is_hovered():
+	#	 print("Hovering Restart")
+		
 	if shake_timer > 0:
 		shake_timer -= delta
 		var offset = Vector2(
@@ -35,6 +74,7 @@ func _process(delta):
 func setup(time_taken: float):
 	# Stop all game logic and timer
 	get_tree().paused = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	
 	# Stop background music if AudioManager exists
 	var audio_manager = get_node_or_null("/root/AudioManager")
@@ -113,6 +153,15 @@ func setup(time_taken: float):
 	
 	# 5. Buttons appear last
 	tween.tween_property($Control/Panel/HBoxContainer, "modulate:a", 1.0, 0.3)
+	
+func _input(event):
+	# Fallback: Allow pressing 'R' or 'Enter' or 'Space' to restart if button fails
+	if not get_tree().paused:
+		return
+		
+	if event is InputEventKey and event.pressed:
+		if event.keycode == KEY_R or event.keycode == KEY_ENTER or event.keycode == KEY_SPACE:
+			_perform_restart()
 
 func apply_ui_shake(intensity: float, duration: float):
 	current_shake_intensity = intensity
@@ -131,12 +180,48 @@ func calculate_rank(time: float) -> String:
 		return "Delayed"
 
 func _on_restart_button_pressed():
+	print("VictoryUI: Restart button pressed")
+	_perform_restart()
+
+func _perform_restart():
+	# 1. Block input to prevent double clicks
+	$Control.mouse_filter = Control.MOUSE_FILTER_STOP
+	
+	# 2. Trigger reload
 	get_tree().paused = false
 	get_tree().reload_current_scene()
+	
+	# 3. Do NOT remove UI immediately. 
+	# It will be removed by player.gd in the new scene's _ready().
+	# This covers the ugly reload frame/freeze.
 
 func _on_menu_button_pressed():
-	get_tree().paused = false
-	# Change to main menu scene if exists
-	# get_tree().change_scene_to_file("res://MainMenu.tscn")
-	pass
+	print("VictoryUI: Menu button pressed")
+	# 1. Block input
+	$Control.mouse_filter = Control.MOUSE_FILTER_STOP
+	
+	# 2. Open Pause Menu
+	var pause_menu = get_tree().root.find_child("PauseMenu", true, false)
+	if pause_menu:
+		print("VictoryUI: Found PauseMenu, opening it")
+		# We are currently paused. 
+		
+		# Let's hide Victory UI first
+		visible = false
+		
+		# Force pause menu to open using the new explicit method
+		if pause_menu.has_method("open_pause_menu"):
+			pause_menu.open_pause_menu(true)
+		elif pause_menu.has_method("toggle_pause"):
+			# Fallback if old version
+			get_tree().paused = false
+			pause_menu.toggle_pause()
+			
+		# And destroy ourselves
+		queue_free()
+	else:
+		# Fallback: Just reload the level if we can't find menu (or print error)
+		print("VictoryUI: Could not find PauseMenu to switch to. Trying direct scene change.")
+		# Try to find a MainMenu scene or just reload
+		# get_tree().change_scene_to_file("res://MainMenu.tscn")
 

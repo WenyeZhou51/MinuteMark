@@ -178,6 +178,7 @@ func _input(event):
 
 func _on_back_pressed():
 	"""Return to main pause menu with reverse animation"""
+	print("BaseInnerMenu: Back pressed")
 	hide_menu()
 
 

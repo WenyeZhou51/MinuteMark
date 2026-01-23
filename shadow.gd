@@ -142,4 +142,3 @@ func set_path(new_path_points: Array[Dictionary], anim_duration: float) -> void:
 func _on_despawn_timer_timeout() -> void:
 	"""Called when the despawn timer expires."""
 	queue_free()
-

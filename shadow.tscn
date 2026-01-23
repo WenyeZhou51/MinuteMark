@@ -1,14 +1,12 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=3 format=3 uid="uid://bbxxor3bc3w4n"]
 
-[ext_resource type="Script" path="res://shadow.gd" id="1_shadow"]
+[ext_resource type="Script" uid="uid://b1241y5sqmcan" path="res://shadow.gd" id="1_shadow"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_shadow"]
 size = Vector2(32, 64)
 
 [node name="Shadow" type="StaticBody2D" groups=["shadow"]]
 script = ExtResource("1_shadow")
-lifetime = 3.0
-shadow_color = Color(0.5, 0.2, 0.8, 0.7)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("RectangleShape2D_shadow")
@@ -20,4 +18,3 @@ polygon = PackedVector2Array(-16, -32, 16, -32, 16, 32, -16, 32)
 [node name="DespawnTimer" type="Timer" parent="."]
 wait_time = 3.0
 one_shot = true
-
