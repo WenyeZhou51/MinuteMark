@@ -9,7 +9,7 @@ extends StaticBody2D
 
 # CONFIGURATION
 @export_group("Window Properties")
-@export var window_size: Vector2 = Vector2(60, 80)  ## Size of the window
+@export var window_size: Vector2 = Vector2(60, 800)  ## Size of the window
 @export var fragment_count: int = 20  ## Number of fragments when shattered (more for glass effect)
 @export var fragment_lifetime: float = 1.5  ## How long fragments last
 @export var shatter_force: float = 500.0  ## Base force for fragment explosion

@@ -7,7 +7,7 @@ size = Vector2(30, 200)
 
 [node name="Window" type="StaticBody2D" groups=["kickable_objects"]]
 script = ExtResource("1_window")
-window_size = Vector2(60, 80)
+window_size = Vector2(60, 800)
 fragment_count = 20
 fragment_lifetime = 1.5
 shatter_force = 500.0
