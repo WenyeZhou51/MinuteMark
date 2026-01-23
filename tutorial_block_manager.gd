@@ -13,8 +13,14 @@ var is_tutorial_active: bool = false
 var current_allowed_action: String = ""
 var current_block_id: String = ""
 
+# Map block IDs to TutorialBlock instances for chaining
+var registered_blocks: Dictionary = {}
+
 signal tutorial_started(block_id: String, action: String, message: String)
 signal tutorial_ended(block_id: String)
+
+func register_block(block_id: String, node: Node) -> void:
+	registered_blocks[block_id] = node
 
 func _ready() -> void:
 	# Create a CanvasLayer to hold the tutorial UI
@@ -165,6 +171,39 @@ func end_tutorial() -> void:
 	
 	tutorial_ended.emit(block_id)
 
+func switch_to_tutorial(target_block_id: String) -> void:
+	"""Switch directly to another tutorial block without unpausing."""
+	if not registered_blocks.has(target_block_id):
+		push_error("TutorialBlockManager: Cannot switch to unknown block " + target_block_id)
+		end_tutorial()
+		return
+		
+	var target_block = registered_blocks[target_block_id]
+	if not target_block:
+		end_tutorial()
+		return
+		
+	# Complete current block
+	if current_block_id != "":
+		complete_block(current_block_id)
+		tutorial_ended.emit(current_block_id)
+	
+	# Start new block
+	current_block_id = target_block_id
+	current_allowed_action = target_block.allowed_action
+	
+	# Show new message
+	if tutorial_ui_instance:
+		tutorial_ui_instance.show_message(target_block.instruction_message)
+	
+	# Update player lock
+	var player = get_tree().get_first_node_in_group("player")
+	if player and player.has_method("set_tutorial_lock"):
+		player.set_tutorial_lock(true, current_allowed_action)
+		
+	print("TutorialBlockManager: Switched to block: ", current_block_id)
+	tutorial_started.emit(current_block_id, current_allowed_action, target_block.instruction_message)
+
 func _process(_delta: float) -> void:
 	"""Process input during tutorial pause to detect allowed actions."""
 	if not is_tutorial_active:
@@ -201,14 +240,54 @@ func _process(_delta: float) -> void:
 			)
 			if input_vec.length() > 0.1:  # Dead zone check
 				check_action_performed("move")
+		"turn_left":
+			if Input.is_action_pressed("move_left"):
+				# Manually flip player
+				var player = get_tree().get_first_node_in_group("player")
+				if player and "facing_direction" in player:
+					player.facing_direction = -1
+					if player.has_method("_update_animations"):
+						player._update_animations()
+				check_action_performed("turn_left")
+		"turn_right":
+			if Input.is_action_pressed("move_right"):
+				# Manually flip player
+				var player = get_tree().get_first_node_in_group("player")
+				if player and "facing_direction" in player:
+					player.facing_direction = 1
+					if player.has_method("_update_animations"):
+						player._update_animations()
+				check_action_performed("turn_right")
 
 func check_action_performed(action: String) -> bool:
 	"""Check if the allowed action was performed. Called by player or _process."""
 	if not is_tutorial_active:
 		return false
 	
-	if action == current_allowed_action:
-		end_tutorial()
+	# If this is the expected action
+	if action == current_allowed_action or (current_allowed_action == "move" and action in ["move_left", "move_right", "move_up", "move_down"]):
+		print("TutorialBlockManager: Action performed: ", action)
+		
+		# Check if current block has a next block
+		var current_block = registered_blocks.get(current_block_id)
+		if current_block and "next_tutorial_block_id" in current_block and current_block.next_tutorial_block_id != "":
+			switch_to_tutorial(current_block.next_tutorial_block_id)
+		else:
+			end_tutorial()
 		return true
-	
+		
 	return false
+	
+func reset_tutorials() -> void:
+	"""Reset all tutorial progress and state."""
+	completed_blocks.clear()
+	
+	# If a tutorial is active, end it properly
+	if is_tutorial_active:
+		end_tutorial()
+	
+	# Also ensure UI is hidden
+	if tutorial_ui_instance:
+		tutorial_ui_instance.hide_message()
+		
+	print("TutorialBlockManager: All tutorials reset")

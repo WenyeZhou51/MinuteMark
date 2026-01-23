@@ -6,13 +6,30 @@ extends Area2D
 @export var prerequisite_block_id: String = ""  # Empty = no prerequisite
 @export_multiline var instruction_message: String = "Press and hold R to rewind"
 @export var allowed_action: String = "rewind"  # "rewind", "dash", "jump", "kick", "move", "slam"
+@export_group("Slow Motion Entry")
+@export var pre_freeze_slow_mo_time: float = 0.0 ## Duration of slow motion before freezing (in real seconds)
+@export var pre_freeze_slow_mo_scale: float = 0.1 ## Time scale during the slow motion phase
+@export var forced_facing_direction: int = 0 ## If non-zero, forces the player to face this direction (1=Right, -1=Left)
+@export var next_tutorial_block_id: String = "" ## ID of the next tutorial block to chain to immediately
 
 var triggered: bool = false
 
 func _ready() -> void:
+	# Register with manager
+	TutorialBlockManager.register_block(block_id, self)
+	
 	body_entered.connect(_on_body_entered)
 	# Set process mode so we can still detect when paused
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	# Connect to tutorial manager signal to handle cleanup
+	if not TutorialBlockManager.tutorial_ended.is_connected(_on_tutorial_ended):
+		TutorialBlockManager.tutorial_ended.connect(_on_tutorial_ended)
+
+func _on_tutorial_ended(ended_block_id: String) -> void:
+	# If our block ended and we modified time scale, restore it
+	if ended_block_id == block_id and pre_freeze_slow_mo_time > 0:
+		Engine.time_scale = 1.0
+		print("TutorialBlock: Restored time scale to 1.0 after block ", block_id)
 
 func _on_body_entered(body: Node2D) -> void:
 	print("TutorialBlock: body_entered - ", body.name if body else "null")
@@ -48,7 +65,35 @@ func _on_body_entered(body: Node2D) -> void:
 	# Trigger the tutorial
 	print("TutorialBlock: Triggering tutorial for block: ", block_id)
 	triggered = true
-	TutorialBlockManager.start_tutorial(block_id, allowed_action, instruction_message)
+	
+	if pre_freeze_slow_mo_time > 0:
+		Engine.time_scale = pre_freeze_slow_mo_scale
+		
+		# Lock player input and force state during the slow mo fall
+		var player = get_tree().get_first_node_in_group("player")
+		if player:
+			# Lock input (block all actions but allow physics/gravity)
+			if player.has_method("set_tutorial_lock"):
+				player.set_tutorial_lock(true, "none")
+			
+			# Force vertical fall only (kill horizontal velocity)
+			if "velocity" in player:
+				player.velocity.x = 0
+			
+			# Force facing direction immediately if requested
+			if forced_facing_direction != 0 and "facing_direction" in player:
+				player.facing_direction = forced_facing_direction
+				if player.has_method("_update_animations"):
+					player._update_animations()
+
+		get_tree().create_timer(pre_freeze_slow_mo_time, true, false, true).timeout.connect(func():
+			# Restore time scale before freezing/pausing
+			Engine.time_scale = 1.0
+			
+			TutorialBlockManager.start_tutorial(block_id, allowed_action, instruction_message)
+		)
+	else:
+		TutorialBlockManager.start_tutorial(block_id, allowed_action, instruction_message)
 
 func check_player_inside() -> void:
 	"""Check if player is currently inside this block. Used when rewind ends or during rewind."""

@@ -1,5 +1,7 @@
 extends Node2D
 
+signal rocket_created(rocket)
+
 @export var rocket_scene: PackedScene = preload("res://Rocket.tscn")
 @export var target_spot: Node2D # A Marker2D or other node to aim at
 
@@ -13,12 +15,12 @@ extends Node2D
 
 @export_group("Grunt Effect")
 @export var grunt_texture: Texture2D = preload("res://Sprites/Super enemy grunt.png") ## Texture for the grunt effect
-@export var grunt_offset: Vector2 = Vector2(0, -80) ## Offset of the grunt relative to super enemy
+@export var grunt_offset: Vector2 = Vector2(-300, -80) ## Offset of the grunt relative to super enemy
 @export var grunt_base_scale: float = 1.0 ## Base scale multiplier for the grunt size
 @export var grunt_duration: float = 1.0 ## Duration the grunt lasts (seconds)
 @export var grunt_fade_duration: float = 0.8 ## Duration of the fade out effect (seconds)
-@export var grunt_scale_start: float = 1.0 ## Starting scale multiplier (relative to base scale)
-@export var grunt_scale_end: float = 1.5 ## Ending scale multiplier (relative to base scale, for expansion)
+@export var grunt_scale_start: Vector2 = Vector2(0.3, 0.3) ## Starting scale of the grunt
+@export var grunt_scale_end: Vector2 = Vector2(0.5, 0.5) ## Ending scale of the grunt (expansion)
 
 func fire_at_target() -> void:
 	if not rocket_scene: return
@@ -79,48 +81,69 @@ func fire_rockets() -> void:
 		# Then initialize with target
 		rocket.initialize(target.global_position, self)
 		
+		emit_signal("rocket_created", rocket)
+		
 		print("[SuperEnemy] Rocket #", i, " spawned at: ", rocket.global_position, 
 			  " targeting: ", target.global_position,
 			  " distance: ", spawn_pos.distance_to(target.global_position))
 
 func _show_grunt_effect() -> void:
 	"""Show the grunt effect above the super enemy when firing."""
-	if not grunt_texture:
-		return
+	if not grunt_texture: return
 	
-	# Create a sprite for the grunt
+	var grunt = Sprite2D.new()
+	grunt.texture = grunt_texture
+	grunt.position = grunt_offset
+	grunt.scale = grunt_scale_start
+	grunt.modulate.a = 0.0
+	add_child(grunt)
+	
+	# Animate appearance
+	var tween = create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(grunt, "modulate:a", 1.0, 0.2)
+	tween.tween_property(grunt, "scale", grunt_scale_end, grunt_duration)
+	
+	# Animate disappearance after duration
+	tween.chain().tween_property(grunt, "modulate:a", 0.0, grunt_fade_duration)
+	tween.tween_callback(grunt.queue_free)
+
+func speak(text: String, duration: float = 2.0) -> void:
+	if not grunt_texture:
+		push_warning("[SuperEnemy] No grunt_texture assigned for speak()!")
+		return
+		
+	# Create a sprite for the grunt instead of a Label
 	var grunt_sprite = Sprite2D.new()
 	grunt_sprite.texture = grunt_texture
 	grunt_sprite.position = grunt_offset
 	# Apply base scale multiplied by start scale
 	grunt_sprite.scale = Vector2.ONE * grunt_base_scale * grunt_scale_start
 	grunt_sprite.z_index = 100
-	grunt_sprite.modulate = Color.RED  # Start with red
+	grunt_sprite.modulate.a = 0.0 # Start invisible
 	add_child(grunt_sprite)
 	
-	# Create tween for fade out and expansion
-	var tween = grunt_sprite.create_tween()
+	var tween = create_tween()
 	tween.set_parallel(true)
 	
-	# Calculate end scale (base scale * end scale multiplier)
+	# Fade in
+	tween.tween_property(grunt_sprite, "modulate:a", 1.0, 0.2)
+	
+	# Calculate final scale
 	var final_scale = Vector2.ONE * grunt_base_scale * grunt_scale_end
 	
-	# Expand the grunt
-	tween.tween_property(grunt_sprite, "scale", final_scale, grunt_fade_duration).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	# Expand slightly while visible
+	tween.tween_property(grunt_sprite, "scale", final_scale, 0.3)
 	
-	# Fade out the grunt (only fade alpha, preserve color)
-	tween.tween_property(grunt_sprite, "modulate:a", 0.0, grunt_fade_duration).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	# Chain a fade out after the duration
+	tween.chain().tween_interval(duration) 
+	tween.tween_property(grunt_sprite, "modulate:a", 0.0, 0.5)
 	
-	# Create separate tween for color flashing (red/yellow)
-	var color_tween = grunt_sprite.create_tween()
-	color_tween.set_loops()  # Loop indefinitely
-	# Flash to yellow
-	color_tween.tween_property(grunt_sprite, "modulate", Color.YELLOW, 0.15)
-	# Flash back to red
-	color_tween.tween_property(grunt_sprite, "modulate", Color.RED, 0.15)
-	
-	# Clean up after duration
-	await get_tree().create_timer(grunt_duration).timeout
-	if is_instance_valid(grunt_sprite):
-		grunt_sprite.queue_free()
+	tween.tween_callback(grunt_sprite.queue_free)
 
+func stop_speaking() -> void:
+	for child in get_children():
+		if child is Sprite2D and child.texture == grunt_texture:
+			var tween = create_tween()
+			tween.tween_property(child, "modulate:a", 0.0, 0.2)
+			tween.tween_callback(child.queue_free)

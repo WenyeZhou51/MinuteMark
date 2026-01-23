@@ -6,54 +6,90 @@ var has_triggered: bool = false
 
 func _ready() -> void:
 	body_entered.connect(_on_body_entered)
-	print("[SuperEnemyTrigger] Ready at position: ", global_position)
 	if super_enemy:
-		print("[SuperEnemyTrigger] Super enemy assigned: ", super_enemy.name, " at position: ", super_enemy.global_position)
+		if super_enemy.has_signal("rocket_created"):
+			super_enemy.rocket_created.connect(_on_rocket_created)
 	else:
 		push_error("[SuperEnemyTrigger] ERROR: No super enemy assigned!")
 
 func _on_body_entered(body: Node2D) -> void:
-	print("[SuperEnemyTrigger] Body entered: ", body.name)
+	if has_triggered: return
 	
-	if has_triggered:
-		print("[SuperEnemyTrigger] Already triggered, ignoring")
-		return
-		
 	if body.is_in_group("player") or body.name == "Player":
 		has_triggered = true
 		print("[SuperEnemyTrigger] PLAYER DETECTED! Triggering super enemy sequence")
 		
-		# Get timing values from super_enemy
-		var pause_duration = super_enemy.player_pause_duration if super_enemy else 0.5
-		var grunt_delay = super_enemy.grunt_delay if super_enemy else 0.5
-		var fire_delay = super_enemy.fire_delay if super_enemy else 1.0
-		
-		# Immediately set speed cap (pause player)
+		# Set speed cap immediately
 		if body.has_method("set_speed_cap"):
 			body.set_speed_cap(true)
-			print("[SuperEnemyTrigger] Player paused (speed cap ENABLED)")
-		else:
-			push_error("[SuperEnemyTrigger] ERROR: Player doesn't have set_speed_cap method!")
 		
-		# Unpause player after pause_duration
-		get_tree().create_timer(pause_duration).timeout.connect(func():
-			if body and body.has_method("set_speed_cap"):
-				body.set_speed_cap(false)
-				print("[SuperEnemyTrigger] Player unpaused after ", pause_duration, " seconds")
+		# 1. Camera Zoom Out to see full view
+		var midpoint = (body.global_position + super_enemy.global_position) / 2
+		
+		# Calculate dynamic zoom to fit both characters
+		var view_size = get_viewport_rect().size
+		var dist_vec = (body.global_position - super_enemy.global_position).abs()
+		var margin = Vector2(400, 300) # Margin around the characters
+		var required_size = dist_vec + margin
+		
+		# Calculate zoom factor (Viewport / RequiredSize)
+		# NOTE: zoom > 1 is zoomed in (smaller view), zoom < 1 is zoomed out (larger view) in Godot 4 logic for Camera2D.zoom
+		# Wait, actually Camera2D.zoom (2,2) means 2x magnification (objects look 2x bigger, so visible area is 1/2).
+		# So VisibleArea = ViewportSize / Zoom.
+		# We need VisibleArea >= RequiredSize.
+		# ViewportSize / Zoom >= RequiredSize
+		# Zoom <= ViewportSize / RequiredSize
+		
+		var max_zoom_x = view_size.x / required_size.x
+		var max_zoom_y = view_size.y / required_size.y
+		var safe_zoom = min(max_zoom_x, max_zoom_y)
+		
+		# Clamp zoom to reasonable values
+		safe_zoom = clamp(safe_zoom, 0.4, 1.2)
+		var target_zoom = Vector2(safe_zoom, safe_zoom)
+		
+		if body.has_method("start_camera_override"):
+			# Move camera over 2.0 seconds (normal time) for a slower, more cinematic feel
+			body.start_camera_override(midpoint, target_zoom, 2.0)
+		
+		# 2. Wait for camera to settle, THEN Slow Motion
+		# Using a timer that ignores time scale (though time scale is 1.0 here anyway)
+		get_tree().create_timer(2.0, true, false, true).timeout.connect(func():
+			# Start Slow Motion
+			Engine.time_scale = 0.2
+
+			
+			# 3. Super Enemy Speaks
+			if super_enemy.has_method("speak"):
+				# Speak duration 0.5s game time = 2.5s real time at 0.2 scale
+				super_enemy.speak("I've been waiting...", 0.5)
+			
+			# 4. Fire Rocket after a delay
+			# 1.5s real time delay = 0.3s game time wait? 
+			# Or just use real time timer.
+			get_tree().create_timer(1.5, true, false, true).timeout.connect(func():
+				if super_enemy.has_method("stop_speaking"):
+					super_enemy.stop_speaking()
+				if super_enemy.has_method("fire_rockets"):
+					super_enemy.fire_rockets()
+			)
 		)
-		
-		# Show grunt at grunt_delay
-		if super_enemy and super_enemy.has_method("show_grunt"):
-			print("[SuperEnemyTrigger] Scheduling grunt at ", grunt_delay, " seconds")
-			get_tree().create_timer(grunt_delay).timeout.connect(super_enemy.show_grunt)
-		else:
-			push_error("[SuperEnemyTrigger] ERROR: Super enemy doesn't have show_grunt method!")
-		
-		# Fire rockets at fire_delay
-		if super_enemy and super_enemy.has_method("fire_rockets"):
-			print("[SuperEnemyTrigger] Scheduling rocket fire at ", fire_delay, " seconds")
-			get_tree().create_timer(fire_delay).timeout.connect(super_enemy.fire_rockets)
-		else:
-			push_error("[SuperEnemyTrigger] ERROR: Super enemy doesn't have fire_rockets method!") 
 
+func _on_rocket_created(rocket: Node2D) -> void:
+	if rocket.has_signal("exploded"):
+		rocket.exploded.connect(_on_rocket_exploded)
 
+func _on_rocket_exploded() -> void:
+	print("[SuperEnemyTrigger] Rocket exploded, restoring normal time")
+	# Restore normal speed and camera after a short delay
+	get_tree().create_timer(1.0, true, false, true).timeout.connect(func():
+		Engine.time_scale = 1.0
+		var player = get_tree().get_first_node_in_group("player")
+		if player:
+			if player.has_method("stop_camera_override"):
+				player.stop_camera_override(1.0)
+			
+			# Disable speed cap so player can dash freely
+			if player.has_method("set_speed_cap"):
+				player.set_speed_cap(false)
+	)
