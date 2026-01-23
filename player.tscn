@@ -61,7 +61,7 @@ default_color = Color(1, 0.2, 0.2, 0.8)
 [node name="AttackTarget" type="Marker2D" parent="AttackVisual"]
 
 [node name="Camera2D" type="Camera2D" parent="."]
-zoom = Vector2(2, 2)
+zoom = Vector2(1.5, 1.5)
 process_callback = 0
 position_smoothing_enabled = true
 position_smoothing_speed = 8.0

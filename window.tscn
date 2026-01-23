@@ -1,20 +1,12 @@
-[gd_scene load_steps=4 format=3 uid="uid://b8lam2n5p7q3r"]
+[gd_scene load_steps=3 format=3 uid="uid://bsd4k3s1lgtgr"]
 
 [ext_resource type="Script" path="res://window.gd" id="1_window"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_window"]
-size = Vector2(30, 200)
+size = Vector2(84, 823)
 
 [node name="Window" type="StaticBody2D" groups=["kickable_objects"]]
 script = ExtResource("1_window")
-window_size = Vector2(60, 800)
-fragment_count = 20
-fragment_lifetime = 1.5
-shatter_force = 500.0
-shatter_force_variation = 300.0
-window_color = Color(0.7, 0.9, 1.0, 0.6)
-window_frame_color = Color(0.3, 0.2, 0.1, 1.0)
-frame_thickness = 4.0
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("RectangleShape2D_window")
@@ -24,5 +16,5 @@ color = Color(0.3, 0.2, 0.1, 1)
 polygon = PackedVector2Array(-30, -40, 30, -40, 30, 40, -30, 40)
 
 [node name="GlassVisual" type="Polygon2D" parent="."]
-color = Color(0.7, 0.9, 1.0, 0.6)
+color = Color(0.7, 0.9, 1, 0.6)
 polygon = PackedVector2Array(-26, -36, 26, -36, 26, 36, -26, 36)

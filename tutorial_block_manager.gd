@@ -38,6 +38,34 @@ func complete_block(block_id: String) -> void:
 	"""Mark a tutorial block as completed."""
 	completed_blocks[block_id] = true
 
+func reset_tutorials() -> void:
+	"""Reset all tutorial state - clears completed blocks and current tutorial."""
+	completed_blocks.clear()
+	
+	# If a tutorial is currently active, end it
+	if is_tutorial_active:
+		# Hide tutorial UI
+		if tutorial_ui_instance:
+			tutorial_ui_instance.hide_message()
+		
+		# Get player reference and reset their process_mode
+		var player = get_tree().get_first_node_in_group("player")
+		if player:
+			player.process_mode = Node.PROCESS_MODE_INHERIT
+			# Unlock actions
+			if player.has_method("set_tutorial_lock"):
+				player.set_tutorial_lock(false, "")
+		
+		# Unfreeze game time
+		get_tree().paused = false
+		
+		# Reset state variables
+		is_tutorial_active = false
+		current_allowed_action = ""
+		current_block_id = ""
+	
+	print("TutorialBlockManager: All tutorials reset")
+
 func start_tutorial(block_id: String, allowed_action: String, message: String) -> void:
 	"""Start a tutorial block - freeze time, lock actions, show UI."""
 	print("TutorialBlockManager: start_tutorial called for block: ", block_id)

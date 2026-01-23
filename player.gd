@@ -3415,6 +3415,10 @@ func _execute_object_kick(obj: Node2D) -> void:
 	if not obj.has_method("kick"):
 		return
 	
+	# Skip windows - they should only break when dashed through, not kicked
+	if obj.get_script() and obj.get_script().get_path() == "res://window.gd":
+		return
+	
 	# Calculate kick direction (horizontal, in facing direction)
 	var kick_direction = Vector2(facing_direction, 0)
 	
