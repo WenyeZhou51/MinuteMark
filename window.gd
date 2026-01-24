@@ -3,10 +3,10 @@ extends StaticBody2D
 # ====================================
 # WINDOW OBJECT
 # ====================================
-# A window that shatters into many pieces when the player dashes through it
+# A window that shatters into many pieces when the player kicks or dashes through it
 # Unlike kickable objects, it doesn't fly away - it just breaks immediately
 # Acts as a physical barrier until shattered
-# NOTE: Windows only break when dashed through, not when kicked normally
+# NOTE: Windows can be broken by both kick and dash actions
 
 # CONFIGURATION
 @export_group("Window Properties")
@@ -94,8 +94,7 @@ func _update_visuals() -> void:
 
 
 func kick(direction: Vector2, speed: float = 0.0) -> void:
-	"""Called when player dashes through this window - shatter immediately.
-	Note: This is only called during dashes, not regular kicks (player code skips windows for kicks)."""
+	"""Called when player kicks or dashes through this window - shatter immediately."""
 	if is_shattered:
 		return  # Already shattered
 	
