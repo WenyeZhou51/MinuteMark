@@ -3,6 +3,9 @@ extends CharacterBody2D
 var first_kick_dialogue_triggered: bool = false
 var auto_kick_active: bool = false
 var auto_kick_target: Node2D = null
+var auto_kick_timer: float = 0.0
+const AUTO_KICK_TIMEOUT: float = 2.0
+var pending_disable_guard: bool = false
 # ====================================
 # 2D PLATFORMER CONTROLLER
 # ====================================
@@ -418,6 +421,7 @@ func _ready() -> void:
 	# Connect to dialogue interrupt signal for kick
 	DialogueManager.interrupt_triggered.connect(_on_dialogue_interrupt_kick)
 	DialogueManager.action_triggered.connect(_on_dialogue_action)
+	DialogueManager.dialogue_finished.connect(_on_dialogue_finished)
 
 	# Ensure time scale is normal on start
 	Engine.time_scale = 1.0
@@ -517,6 +521,11 @@ func _ready() -> void:
 
 func _on_dialogue_interrupt_kick() -> void:
 	# Force kick action immediately when interrupt is triggered
+	
+	# If we interrupt to kick, we CANCEL any pending disable action
+	# (so the guard stays there to be kicked!)
+	pending_disable_guard = false
+	
 	# Wait a tiny bit for the pause state to clear (unpause happens in level_manager)
 	get_tree().create_timer(0.05).timeout.connect(func():
 		_trigger_kick_on_closest_enemy()
@@ -529,20 +538,31 @@ func _on_dialogue_action(action_name: String) -> void:
 			_trigger_kick_on_closest_enemy()
 		)
 	elif action_name == "disable_guard":
-		# Non-violently disable the guard
-		var enemies = get_tree().get_nodes_in_group("enemies")
-		var closest_enemy = null
-		var closest_dist = INF
-		for enemy in enemies:
-			if not is_instance_valid(enemy) or enemy.is_destroyed:
-				continue
-			var dist = global_position.distance_to(enemy.global_position)
-			if dist < closest_dist:
-				closest_dist = dist
-				closest_enemy = enemy
-		
-		if closest_enemy and closest_enemy.has_method("disable"):
-			closest_enemy.disable()
+		# Don't disable immediately! If player interrupts now, we want to kick.
+		# Queue it for when dialogue finishes successfully.
+		pending_disable_guard = true
+
+func _on_dialogue_finished() -> void:
+	# Execute pending disable if dialogue finished normally (not interrupted)
+	if pending_disable_guard:
+		_execute_disable_guard()
+		pending_disable_guard = false
+
+func _execute_disable_guard() -> void:
+	# Non-violently disable the guard
+	var enemies = get_tree().get_nodes_in_group("enemies")
+	var closest_enemy = null
+	var closest_dist = INF
+	for enemy in enemies:
+		if not is_instance_valid(enemy) or enemy.is_destroyed:
+			continue
+		var dist = global_position.distance_to(enemy.global_position)
+		if dist < closest_dist:
+			closest_dist = dist
+			closest_enemy = enemy
+	
+	if closest_enemy and closest_enemy.has_method("disable"):
+		closest_enemy.disable(true) # Show smiley face
 
 func _trigger_kick_on_closest_enemy() -> void:
 	# Find closest enemy to auto-move towards
@@ -561,6 +581,7 @@ func _trigger_kick_on_closest_enemy() -> void:
 	if closest_enemy:
 		auto_kick_target = closest_enemy
 		auto_kick_active = true
+		auto_kick_timer = AUTO_KICK_TIMEOUT
 	else:
 		# Fallback if no enemy found
 		_start_kick_sequence()
@@ -779,7 +800,11 @@ func _physics_process(delta: float) -> void:
 	
 	# Auto-kick Override: Move towards target enemy
 	if auto_kick_active:
-		if is_instance_valid(auto_kick_target) and not auto_kick_target.is_destroyed:
+		auto_kick_timer -= delta
+		if auto_kick_timer <= 0:
+			auto_kick_active = false
+			input_vector.x = 0
+		elif is_instance_valid(auto_kick_target) and not auto_kick_target.is_destroyed:
 			var dir_to_target = auto_kick_target.global_position.x - global_position.x
 			input_vector.x = sign(dir_to_target)
 			
@@ -984,7 +1009,8 @@ func _physics_process(delta: float) -> void:
 	
 	# 3. Update Wall State
 	# Skip wall state updates during rewind tracing to prevent wall interactions
-	if wall_jump_enabled and not is_rewind_tracing:
+	# Also skip during auto-kick to prevent climbing walls while moving to target
+	if wall_jump_enabled and not is_rewind_tracing and not auto_kick_active:
 		_update_wall_state(input_vector.x, space_state)
 	else:
 		# Ensure wall state is reset when disabled or during rewind

@@ -28,8 +28,8 @@ freeze_mode = 1
 contact_monitor = true
 max_contacts_reported = 4
 
-[node name="LeftWall" type="CollisionShape2D" parent="RigidBody2D"]
-position = Vector2(-198, 0)
+[node name="RightWall" type="CollisionShape2D" parent="RigidBody2D"]
+position = Vector2(198, 0)
 shape = SubResource("RectangleShape2D_left")
 
 [node name="TopWall" type="CollisionShape2D" parent="RigidBody2D"]
@@ -50,12 +50,12 @@ polygon = PackedVector2Array(-208, -390, 208, -390, 208, 390, -208, 390)
 color = Color(0.301961, 0.301961, 0.301961, 1)
 polygon = PackedVector2Array(-188, -370, 188, -370, 188, 370, -188, 370)
 
-[node name="RightWallFrame" type="Polygon2D" parent="RigidBody2D/Visuals"]
+[node name="LeftWallFrame" type="Polygon2D" parent="RigidBody2D/Visuals"]
 color = Color(0.5, 0.5, 0.5, 1)
-polygon = PackedVector2Array(188, -390, 208, -390, 208, 390, 188, 390)
+polygon = PackedVector2Array(-208, -390, -188, -390, -188, 390, -208, 390)
 
-[node name="RightWallStripe" type="Line2D" parent="RigidBody2D/Visuals"]
-points = PackedVector2Array(198, -390, 198, 390)
+[node name="LeftWallStripe" type="Line2D" parent="RigidBody2D/Visuals"]
+points = PackedVector2Array(-198, -390, -198, 390)
 width = 4.0
 
 [node name="Outline" type="Line2D" parent="RigidBody2D/Visuals"]
@@ -64,7 +64,7 @@ width = 6.0
 default_color = Color(0, 0, 0, 1)
 
 [node name="Door" type="CollisionShape2D" parent="RigidBody2D"]
-position = Vector2(198, 0)
+position = Vector2(-198, 0)
 shape = SubResource("RectangleShape2D_door")
 
 [node name="DoorVisual" type="Line2D" parent="RigidBody2D/Door"]
