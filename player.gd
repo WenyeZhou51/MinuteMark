@@ -239,7 +239,7 @@ const DeathEffectScene = preload("res://DeathEffect.tscn")
 @export var game_timer_duration: float = 300.0  ## Initial time on the clock
 @export var timer_ui_scene: PackedScene = preload("res://TimerUI.tscn")
 
-var current_game_time: float = 300.0
+var current_game_time: float = 60.0
 var timer_ui_instance: Node = null
 @export var rewind_history_duration: float = 3.0  ## How long to keep state history (seconds)
 @export var rewind_traceback_speed: float = 2.0  ## Speed of traceback while holding in slow-mo (2.0 = 2x relative to slow-mo time)
@@ -3418,11 +3418,39 @@ func _update_kickable_object_detection() -> void:
 	
 	for obj in objects:
 		if obj and is_instance_valid(obj) and obj.has_method("can_be_kicked") and obj.can_be_kicked():
-			# Check distance
-			var distance = global_position.distance_to(obj.global_position)
-			if distance <= kick_object_detection_range:
+			# Calculate distance to object - use closest point on object for large objects like windows
+			var obj_pos = obj.global_position
+			var distance = global_position.distance_to(obj_pos)
+			
+			# For objects with collision shapes, check distance to closest point on the shape
+			var collision_shape = obj.get_node_or_null("CollisionShape2D")
+			if collision_shape and collision_shape.shape:
+				if collision_shape.shape is RectangleShape2D:
+					var rect_shape = collision_shape.shape as RectangleShape2D
+					var shape_size = rect_shape.size
+					var shape_pos = collision_shape.global_position
+					var shape_half = shape_size / 2.0
+					var shape_min = shape_pos - shape_half
+					var shape_max = shape_pos + shape_half
+					
+					# Find closest point on rectangle to player
+					var closest_point = Vector2(
+						clamp(global_position.x, shape_min.x, shape_max.x),
+						clamp(global_position.y, shape_min.y, shape_max.y)
+					)
+					distance = global_position.distance_to(closest_point)
+					obj_pos = closest_point
+			
+			# Use extended range for large objects (like windows)
+			var effective_range = kick_object_detection_range
+			if collision_shape and collision_shape.shape is RectangleShape2D:
+				var rect_shape = collision_shape.shape as RectangleShape2D
+				# Extend range by half the object's width for large objects
+				effective_range += rect_shape.size.x / 2.0
+			
+			if distance <= effective_range:
 				# Check if object is in front of player (not behind)
-				var direction_to_obj = (obj.global_position - global_position).normalized()
+				var direction_to_obj = (obj_pos - global_position).normalized()
 				var dot_product = facing_vec.dot(direction_to_obj)
 				
 				# Check cone angle - dot product > cos(angle/2) means within cone
@@ -3468,10 +3496,6 @@ func _execute_object_kick(obj: Node2D) -> void:
 		return
 	
 	if not obj.has_method("kick"):
-		return
-	
-	# Skip windows - they should only break when dashed through, not kicked
-	if obj.get_script() and obj.get_script().get_path() == "res://window.gd":
 		return
 	
 	# Calculate kick direction (horizontal, in facing direction)

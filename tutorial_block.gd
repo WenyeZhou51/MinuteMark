@@ -11,14 +11,18 @@ extends Area2D
 @export var pre_freeze_slow_mo_scale: float = 0.1 ## Time scale during the slow motion phase
 @export var forced_facing_direction: int = 0 ## If non-zero, forces the player to face this direction (1=Right, -1=Left)
 @export var next_tutorial_block_id: String = "" ## ID of the next tutorial block to chain to immediately
+@export var trigger_delay: float = 0.0 ## Delay in seconds before triggering after player enters (0 = immediate)
 
 var triggered: bool = false
+var player_inside: bool = false
+var delay_timer: Timer = null
 
 func _ready() -> void:
 	# Register with manager
 	TutorialBlockManager.register_block(block_id, self)
 	
 	body_entered.connect(_on_body_entered)
+	body_exited.connect(_on_body_exited)
 	# Set process mode so we can still detect when paused
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	# Connect to tutorial manager signal to handle cleanup
@@ -39,6 +43,7 @@ func _on_body_entered(body: Node2D) -> void:
 		return
 	
 	print("TutorialBlock: Player entered block: ", block_id)
+	player_inside = true
 	
 	# Check if this block was already completed
 	if TutorialBlockManager.is_block_completed(block_id):
@@ -62,6 +67,46 @@ func _on_body_entered(body: Node2D) -> void:
 		print("TutorialBlock: Already triggered, ignoring")
 		return
 	
+	# If there's a delay, start a timer
+	if trigger_delay > 0.0:
+		print("TutorialBlock: Starting delay timer of ", trigger_delay, " seconds")
+		# Cancel any existing timer
+		if delay_timer:
+			delay_timer.queue_free()
+		
+		delay_timer = Timer.new()
+		delay_timer.wait_time = trigger_delay
+		delay_timer.one_shot = true
+		delay_timer.timeout.connect(_on_delay_timer_timeout)
+		add_child(delay_timer)
+		delay_timer.start()
+	else:
+		# No delay, trigger immediately
+		_trigger_tutorial()
+
+func _on_body_exited(body: Node2D) -> void:
+	if not body.is_in_group("player"):
+		return
+	
+	print("TutorialBlock: Player exited block: ", block_id)
+	player_inside = false
+	
+	# Cancel the delay timer if player leaves before delay completes
+	if delay_timer and delay_timer.time_left > 0:
+		print("TutorialBlock: Player left before delay completed, canceling timer")
+		delay_timer.queue_free()
+		delay_timer = null
+
+func _on_delay_timer_timeout() -> void:
+	print("TutorialBlock: Delay timer completed for block: ", block_id)
+	
+	# Only trigger if player is still inside
+	if player_inside and not triggered:
+		_trigger_tutorial()
+	
+	delay_timer = null
+
+func _trigger_tutorial() -> void:
 	# Trigger the tutorial
 	print("TutorialBlock: Triggering tutorial for block: ", block_id)
 	triggered = true
