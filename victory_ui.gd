@@ -168,13 +168,13 @@ func apply_ui_shake(intensity: float, duration: float):
 	shake_timer = duration
 
 func calculate_rank(time: float) -> String:
-	if time < 20.0:
+	if time < 100.0:
 		return "Sonic"
-	elif time < 35.0:
+	elif time < 175.0:
 		return "Agile"
-	elif time < 45.0:
+	elif time < 225.0:
 		return "Brisks"
-	elif time < 55.0:
+	elif time < 275.0:
 		return "Casual"
 	else:
 		return "Delayed"
