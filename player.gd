@@ -1950,6 +1950,22 @@ func _handle_jump_input() -> void:
 		# Note: Wall run jump is handled earlier in _physics_process
 		# CRITICAL FIX: Only allow wall jump on RUNNABLE walls (Platforms)
 		# Priority: Ground jump > Wall jump > Coyote jump > Buffer
+		
+		# DEBUG: Log wall jump conditions when near a wall
+		if is_on_wall or wall_persistence_timer > 0:
+			print("[WALL JUMP DEBUG] Jump pressed near wall:")
+			print("  wall_jump_enabled: ", wall_jump_enabled)
+			print("  is_on_wall: ", is_on_wall)
+			print("  is_on_runnable_wall: ", is_on_runnable_wall)
+			print("  is_wall_running: ", is_wall_running)
+			print("  wall_jump_cooldown: ", wall_jump_cooldown)
+			print("  is_on_floor: ", is_on_floor())
+			print("  wall_normal: ", wall_normal)
+			print("  wall_persistence_timer: ", wall_persistence_timer)
+			print("  velocity: ", velocity)
+			var all_conditions_met = wall_jump_enabled and is_on_wall and is_on_runnable_wall and not is_wall_running and wall_jump_cooldown <= 0 and not is_on_floor()
+			print("  ALL CONDITIONS MET: ", all_conditions_met)
+		
 		if wall_jump_enabled and is_on_wall and is_on_runnable_wall and not is_wall_running and wall_jump_cooldown <= 0 and not is_on_floor():
 			_perform_wall_jump()
 		else:
@@ -2061,12 +2077,20 @@ func _perform_wall_jump() -> void:
 	# Store wall normal before clearing wall state (important!)
 	var jump_wall_normal = wall_normal
 	
+	# DEBUG: Log wall jump execution
+	print("[WALL JUMP DEBUG] *** EXECUTING WALL JUMP ***")
+	print("  Initial wall_normal: ", wall_normal)
+	print("  velocity before: ", velocity)
+	print("  is_wall_running: ", is_wall_running)
+	
 	# If wall_normal is zero, we might have lost it, try to infer from velocity
 	if jump_wall_normal.length_squared() == 0:
+		print("  WARNING: wall_normal is zero, inferring from velocity")
 		if velocity.x < 0:
 			jump_wall_normal = Vector2.RIGHT  # Was on left wall
 		else:
 			jump_wall_normal = Vector2.LEFT  # Was on right wall
+		print("  Inferred wall_normal: ", jump_wall_normal)
 	
 	
 	# Check if jumping from a wall run (empowered wall jump)
@@ -2074,7 +2098,7 @@ func _perform_wall_jump() -> void:
 		# Empowered wall jump with higher velocities
 		velocity.y = wall_run_empowered_jump_vertical
 		velocity.x = jump_wall_normal.x * wall_run_empowered_jump_horizontal
-		
+		print("  EMPOWERED wall jump applied")
 		
 		# End wall run
 		_end_wall_run()
@@ -2082,6 +2106,7 @@ func _perform_wall_jump() -> void:
 		# Normal wall jump
 		velocity.y = wall_jump_vertical_velocity
 		velocity.x = jump_wall_normal.x * wall_jump_horizontal_velocity
+		print("  NORMAL wall jump applied")
 		
 	
 	# Set jump state
@@ -2094,6 +2119,10 @@ func _perform_wall_jump() -> void:
 	# Clear wall state to prevent immediate re-attachment
 	is_on_wall = false
 	is_wall_sliding = false
+	
+	print("  Final velocity: ", velocity)
+	print("  wall_jump_cooldown set to: ", wall_jump_cooldown)
+	print("  wall_jump_forced_direction: ", wall_jump_forced_direction)
 	
 	# Trigger wall jump dust effect
 	# Spawn at side of player touching wall, pointing away from wall
@@ -4999,6 +5028,15 @@ func _update_animations() -> void:
 			if animated_sprite.animation != "idle" or not animated_sprite.is_playing():
 				animated_sprite.play("idle")
 			animated_sprite.speed_scale = 1.0
+	elif is_wall_sliding:
+		# TUTORIAL FIX: When wall sliding, freeze on specific frame
+		current_scale = wall_run_scale
+		current_offset = wall_run_offset
+		if animated_sprite.animation != "wall_run":
+			animated_sprite.play("wall_run")
+		animated_sprite.stop()
+		animated_sprite.frame = 7  # Display "Wall run 复制_008.png" (frame index 7)
+		animated_sprite.speed_scale = 1.0
 	elif is_wall_running:
 		current_scale = wall_run_scale
 		current_offset = wall_run_offset
@@ -5009,8 +5047,16 @@ func _update_animations() -> void:
 		# In air
 		current_scale = jump_scale
 		current_offset = jump_offset
-		if animated_sprite.animation != "jump" or not animated_sprite.is_playing():
-			animated_sprite.play("jump")
+		
+		# TUTORIAL FIX: When in air during tutorial trigger (speed capped), freeze on specific frame
+		if is_speed_capped:
+			if animated_sprite.animation != "jump":
+				animated_sprite.play("jump")
+			animated_sprite.stop()
+			animated_sprite.frame = 0  # Display "jump_001.png" (frame index 0)
+		else:
+			if animated_sprite.animation != "jump" or not animated_sprite.is_playing():
+				animated_sprite.play("jump")
 		
 		# For jump animation, we can tie frame to vertical velocity for a more dynamic look
 		# or just let it play. Since it has 28 frames, let's play it.

@@ -1,6 +1,6 @@
 [gd_scene load_steps=24 format=3 uid="uid://clfclx5p38xkv"]
 
-[ext_resource type="Script" uid="uid://c2socii74g5wh" path="res://level_manager.gd" id="1_manager"]
+[ext_resource type="Script" path="res://level_manager.gd" id="1_manager"]
 [ext_resource type="PackedScene" uid="uid://vv3m4nx6g3jo" path="res://player.tscn" id="1_qj3g4"]
 [ext_resource type="PackedScene" uid="uid://b8x7lam2n4p5q" path="res://enemy.tscn" id="2_enemy"]
 [ext_resource type="Texture2D" uid="uid://d2g7jojkre5ug" path="res://Sprites/Bd.png" id="3_bg_texture"]
@@ -8,16 +8,16 @@
 [ext_resource type="PackedScene" uid="uid://c4k3l8m5n2qar" path="res://kickable_object.tscn" id="4_kickable"]
 [ext_resource type="PackedScene" uid="uid://b7q8n5ck2wh0e" path="res://pause_menu.tscn" id="8_b0gwe"]
 [ext_resource type="PackedScene" uid="uid://b756hnxt8gukc" path="res://dialogue/DialogueUI.tscn" id="9_dialogue"]
-[ext_resource type="Script" uid="uid://ptet52ansdnc" path="res://tutorial_trigger.gd" id="10_o05kg"]
-[ext_resource type="Script" uid="uid://cweonvix5jlfx" path="res://dialogue_trigger.gd" id="10_trigger"]
+[ext_resource type="Script" path="res://tutorial_trigger.gd" id="10_o05kg"]
+[ext_resource type="Script" path="res://dialogue_trigger.gd" id="10_trigger"]
 [ext_resource type="PackedScene" uid="uid://dyetqoxdfluq0" path="res://window.tscn" id="10_window"]
-[ext_resource type="Script" uid="uid://g336vr3eb3sn" path="res://pendulum_trigger.gd" id="11_pendulum_trigger"]
+[ext_resource type="Script" path="res://pendulum_trigger.gd" id="11_pendulum_trigger"]
 [ext_resource type="FontFile" uid="uid://baaiikv2041fb" path="res://Fonts/Funkrocker.otf" id="12_font"]
-[ext_resource type="Script" uid="uid://k7nuntbsw4by" path="res://minor_anim_system.gd" id="14_wxjrc"]
-[ext_resource type="Script" uid="uid://bwb7gicnbx5rs" path="res://tutorial_block.gd" id="18_4c15r"]
+[ext_resource type="Script" path="res://minor_anim_system.gd" id="14_wxjrc"]
+[ext_resource type="Script" path="res://tutorial_block.gd" id="18_4c15r"]
 [ext_resource type="Texture2D" uid="uid://iqnxi42u7eex" path="res://Sprites/level_backgrounds/IMG_4463.JPG" id="19_ait7k"]
 [ext_resource type="PackedScene" uid="uid://6624qfeempan" path="res://LevelFinishTrigger.tscn" id="19_finish"]
-[ext_resource type="PackedScene" path="res://elevator.tscn" id="20_elevator"]
+[ext_resource type="PackedScene" uid="uid://c85yqfkymilcl" path="res://elevator.tscn" id="20_elevator"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_trigger"]
 size = Vector2(365.25, 218.25)
@@ -32,7 +32,7 @@ radius = 103.238
 size = Vector2(631.5, 384)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_4c15r"]
-size = Vector2(589.9375, 503)
+size = Vector2(589.938, 503)
 
 [node name="Level" type="Node2D"]
 script = ExtResource("1_manager")
@@ -73,16 +73,16 @@ layer_0/tile_data = PackedInt32Array(1048598, 393219, 20, 1048599, 393219, 20, 1
 position = Vector2(6218, 633)
 max_speed = 1500.0
 ground_acceleration = 2000.0
-ground_deceleration = 1500.0
+ground_deceleration = 5000.0
 air_acceleration = 2000.0
-air_deceleration = 3000.0
+air_deceleration = 5000.0
 jump_velocity = -1700.0
 coyote_time = 0.25
 empowered_jump_velocity_multiplier = 1.2
 gravity = 4000.0
 max_fall_speed = 4000.0
 jump_peak_threshold = 20.0
-turnaround_multiplier = 4.0
+turnaround_multiplier = 5.0
 corner_correction_distance = 30.0
 ledge_climb_enabled = true
 ledge_climb_detection_height = 15.0
@@ -90,12 +90,14 @@ ledge_climb_duration = 0.5
 grace_period_duration = 0.05
 wall_check_distance = 4.0
 wall_slide_speed = 400.0
+wall_jump_horizontal_velocity = 800.0
 wall_jump_vertical_velocity = -1700.0
 wall_run_min_velocity = 200.0
 wall_run_min_speed = 200.0
 wall_run_max_speed = 1500.0
 wall_run_speed_decay = 2000.0
-wall_run_empowered_jump_vertical = -950.0
+wall_run_empowered_jump_horizontal = 800.0
+wall_run_empowered_jump_vertical = -1700.0
 idle_scale = 0.07
 idle_fps = 6.0
 idle_offset = Vector2(0, -35)
@@ -185,7 +187,7 @@ scale = Vector2(0.952381, 0.953864)
 polygon = PackedVector2Array(-39, -275, 44, -271.855, 43, 592, -40, 592)
 
 [node name="BreakTextMarker" parent="KickableObjects/Window1" index="3"]
-position = Vector2(1, 169.23236)
+position = Vector2(1, 169.232)
 
 [node name="PauseMenu" parent="." instance=ExtResource("8_b0gwe")]
 visible = false
@@ -214,7 +216,7 @@ tutorial_message = "Long press K to jump higher"
 
 [node name="longK" type="CollisionShape2D" parent="Tutorial Trigger"]
 position = Vector2(5, -3)
-rotation = 1.5707964
+rotation = 1.5708
 shape = SubResource("RectangleShape2D_trigger")
 
 [node name="Tutorial Trigger5" type="Area2D" parent="."]
@@ -352,13 +354,13 @@ Shift in the air to dash further"
 allowed_action = "dash"
 
 [node name="AirdashTutor" type="CollisionShape2D" parent="AirdashTutor"]
-position = Vector2(-17.03125, -129.5)
+position = Vector2(-17.0313, -129.5)
 shape = SubResource("RectangleShape2D_4c15r")
 
 [node name="Img4463" type="Sprite2D" parent="."]
 z_index = -2
-position = Vector2(3250.9377, 388.00003)
-scale = Vector2(1.1222343, 1.0494922)
+position = Vector2(3250.94, 388)
+scale = Vector2(1.12223, 1.04949)
 texture = ExtResource("19_ait7k")
 
 [node name="Img4463" type="Sprite2D" parent="Img4463"]
