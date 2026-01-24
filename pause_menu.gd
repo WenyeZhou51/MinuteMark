@@ -330,32 +330,37 @@ func _update_buttons_state():
 			resume_btn.grab_focus()
 
 func _on_restart_pressed():
-	# Logic similar to victory_ui restart
+	# Use fast soft reset instead of slow full scene reload
 	
 	# 1. Block input to prevent double clicks
 	if has_node("MenuContainer"):
 		$MenuContainer.mouse_filter = Control.MOUSE_FILTER_STOP
 	
-	# 2. Trigger reload (Don't reset music/tutorials yet - wait for scene load)
+	# 2. Unpause the game
 	get_tree().paused = false
-	get_tree().reload_current_scene()
 	
-	# 3. Don't hide the menu immediately?
-	# The menu is on a CanvasLayer. If it's part of the scene, it will disappear naturally.
-	# If it's an autoload (which it doesn't seem to be), we'd need to handle it.
-	# But wait, if we reload scene, the current pause menu instance will be destroyed.
-	# So we don't need to do anything else.
+	# 3. Try to use soft reset (much faster than full reload)
+	var level_manager = get_tree().current_scene
 	
-	# HOWEVER, player.gd expects to find a persisting UI to clean up (like VictoryUI).
-	# PauseMenu is usually destroyed instantly. 
-	# This means the "ugly" reload frame might be visible.
-	# If we want to hide that, we'd need PauseMenu to persist or be an autoload.
-	# But the user asked for music/timing not to restart until beginning scene.
-	# Since PauseMenu is destroyed, logic in player.gd _ready will run.
-	# We need to make sure we don't reset things HERE.
-	
-	# Removed explicit resets here. They are handled in player.gd _ready().
-	pass
+	if level_manager and level_manager.has_method("soft_reset_level"):
+		# Use fast soft reset instead of slow full scene reload
+		print("PauseMenu: Using fast soft reset")
+		level_manager.soft_reset_level()
+		
+		# Hide the pause menu
+		visible = false
+		reset_animation_elements()
+		
+		# Restore mouse mode
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		
+		# Resume music (soft reset restarts it, so we need to ensure it's not paused)
+		if AudioManager:
+			AudioManager.resume_music()
+	else:
+		# Fallback to full reload if soft reset not available
+		print("PauseMenu: LevelManager not found, falling back to full scene reload")
+		get_tree().reload_current_scene()
 
 
 func _set_other_ui_visible(p_visible: bool):

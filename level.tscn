@@ -101,13 +101,13 @@ wall_run_empowered_jump_vertical = -1700.0
 idle_scale = 0.07
 idle_fps = 6.0
 idle_offset = Vector2(0, -35)
-run_scale = 0.07
+run_scale = 0.09
 run_fps = 48.0
 run_offset = Vector2(0, -25)
-jump_scale = 0.07
-wall_run_scale = 0.07
+jump_scale = 0.09
+wall_run_scale = 0.09
 wall_run_offset = Vector2(-30, 0)
-ground_slide_scale = 0.07
+ground_slide_scale = 0.09
 ground_slide_fps = 48.0
 ground_slide_offset = Vector2(0, -20)
 ground_slide_duration = 0.7
@@ -176,7 +176,7 @@ break_text_expansion_rate = 1.2
 break_text_color = Color(0.00351917, 0.00351917, 0.00351917, 1)
 
 [node name="CollisionShape2D" parent="KickableObjects/Window1" index="0"]
-position = Vector2(-3, 180.77098)
+position = Vector2(-3, 180.771)
 
 [node name="FrameVisual" parent="KickableObjects/Window1" index="1"]
 polygon = PackedVector2Array(-34, -234, 41, -228, 43, 598, -37, 598)
@@ -187,11 +187,7 @@ scale = Vector2(0.952381, 0.953864)
 polygon = PackedVector2Array(-39, -275, 44, -271.855, 43, 592, -40, 592)
 
 [node name="BreakTextMarker" parent="KickableObjects/Window1" index="3"]
-<<<<<<< HEAD
-position = Vector2(1, 169.232)
-=======
-position = Vector2(1, 171.1555)
->>>>>>> refs/remotes/origin/main
+position = Vector2(1, 171.156)
 
 [node name="PauseMenu" parent="." instance=ExtResource("8_b0gwe")]
 visible = false
