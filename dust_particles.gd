@@ -63,4 +63,3 @@ func setup(mode: String, direction_vec: Vector2 = Vector2.ZERO) -> void:
 			initial_velocity_max = 200.0
 			scale_amount_min = 10.0
 			scale_amount_max = 20.0
-

@@ -103,4 +103,3 @@ func _physics_process(delta: float) -> void:
 	# Clean up
 	if timer >= life_time:
 		queue_free()
-
