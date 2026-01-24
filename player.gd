@@ -737,8 +737,17 @@ func _physics_process(delta: float) -> void:
 	# But we should skip most physics/movement updates
 	var is_paused = get_tree().paused
 	
-	# Update timer system (only when not paused)
-	if not get_tree().paused and current_game_time > 0:
+	# Check if tutorial is active (freezes player position and timer, but game continues)
+	var is_tutorial_active = false
+	if TutorialBlockManager:
+		is_tutorial_active = TutorialBlockManager.get_is_tutorial_active()
+	
+	# Freeze player position immediately when tutorial is active (before any input processing)
+	if is_tutorial_active:
+		velocity = Vector2.ZERO
+	
+	# Update timer system (only when not paused and not in tutorial)
+	if not get_tree().paused and not is_tutorial_active and current_game_time > 0:
 		current_game_time -= delta
 		if current_game_time <= 0:
 			current_game_time = 0
@@ -754,9 +763,9 @@ func _physics_process(delta: float) -> void:
 	var frame_start_position = global_position
 	var frame_start_velocity = velocity
 	
-	# Update game time for rewind system (only when not paused)
+	# Update game time for rewind system (only when not paused and not in tutorial)
 	# When paused, _physics_process doesn't run, so time doesn't advance
-	if not get_tree().paused:
+	if not get_tree().paused and not is_tutorial_active:
 		game_time += delta
 		
 		# Record state snapshot for rewind system
@@ -1221,6 +1230,25 @@ func _physics_process(delta: float) -> void:
 		_handle_jump_input()
 		_handle_ground_slam_input()
 		_handle_kick_input()
+		return
+	
+	# Skip physics/movement when tutorial is active (freeze player position)
+	# But still process input handlers for the allowed action
+	if is_tutorial_active:
+		# Freeze player position by zeroing velocity before any movement processing
+		velocity = Vector2.ZERO
+		# Still process input handlers for the allowed action (they will notify tutorial manager)
+		_handle_jump_input()
+		_handle_ground_slam_input()
+		_handle_kick_input()
+		# Process dash and rewind input (but they won't execute movement due to frozen velocity)
+		# Dash and rewind are already processed above in the main flow, but we need to ensure
+		# they don't cause movement. The tutorial lock check in their code should handle this,
+		# but we freeze velocity here as a safeguard.
+		# Call move_and_slide with zero velocity to maintain collision detection
+		move_and_slide()
+		# Update post-movement state
+		_post_movement_updates(space_state)
 		return
 	
 	# 15. Apply Gravity
