@@ -144,3 +144,16 @@ func _fade_out() -> void:
 		if spotlight_overlay:
 			spotlight_overlay.visible = false
 	)
+
+func reset() -> void:
+	"""Instantly reset the UI to hidden state (no animation)."""
+	if fade_tween:
+		fade_tween.kill()
+	
+	modulate.a = 0.0
+	visible = false
+	is_active = false
+	
+	if spotlight_overlay:
+		spotlight_overlay.visible = false
+		spotlight_overlay.modulate.a = 0.0

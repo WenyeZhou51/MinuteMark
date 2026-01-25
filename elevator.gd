@@ -15,6 +15,9 @@ var sfx_player: AudioStreamPlayer
 var fall_sfx: AudioStream
 var ride_sfx: AudioStream
 
+# Reference to the elevator guard
+var guard_ref: Node2D = null
+
 # Door vertical positions (relative to RigidBody2D)
 # Slide down to open so it doesn't protrude above
 const DOOR_CLOSED_Y = 0
@@ -35,6 +38,10 @@ func _ready() -> void:
 	detection_area.body_entered.connect(_on_player_entered)
 	timer.timeout.connect(_on_timer_timeout)
 	# We use _integrate_forces for better collision normal detection
+	
+	# Find guard reference (assuming it's a sibling in the scene tree)
+	# We use call_deferred to ensure the parent and siblings are ready
+	call_deferred("_find_and_connect_guard")
 	
 	# Setup audio
 	sfx_player = AudioStreamPlayer.new()
@@ -58,23 +65,53 @@ func _ready() -> void:
 	elif ResourceLoader.exists("res://audio/elevatorRiding.mp3"):
 		ride_sfx = load("res://audio/elevatorRiding.mp3")
 
+func _find_and_connect_guard() -> void:
+	var parent = get_parent()
+	if parent:
+		guard_ref = parent.get_node_or_null("Elevator Guard")
+		if guard_ref and guard_ref.has_signal("enemy_destroyed"):
+			if not guard_ref.enemy_destroyed.is_connected(_on_guard_destroyed):
+				guard_ref.enemy_destroyed.connect(_on_guard_destroyed)
+
+func _on_guard_destroyed() -> void:
+	# Guard died - check if player is waiting in the elevator
+	if player_inside:
+		return
+		
+	var overlapping_bodies = detection_area.get_overlapping_bodies()
+	for body in overlapping_bodies:
+		if body.is_in_group("player") or body.name == "Player":
+			_start_elevator_sequence()
+			break
+
 func _on_player_entered(body: Node2D) -> void:
 	if (body.is_in_group("player") or body.name == "Player") and not player_inside:
-		player_inside = true
-		# Slide door closed
-		door.visible = true
-		door.set_deferred("disabled", false)
-		var tween = create_tween()
-		tween.tween_property(door, "position:y", DOOR_CLOSED_Y, 0.8).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		# Check if guard is still active (not destroyed)
+		if guard_ref and is_instance_valid(guard_ref):
+			if "is_destroyed" in guard_ref and not guard_ref.is_destroyed:
+				return # Guard is alive, elevator won't start
 		
-		# Start 3 second delay
-		timer.start(3.0)
+		_start_elevator_sequence()
+
+func _start_elevator_sequence() -> void:
+	if player_inside:
+		return
 		
-		# Play riding sound (while waiting for drop)
-		if ride_sfx:
-			sfx_player.stream = ride_sfx
-			sfx_player.volume_db = -5.0
-			sfx_player.play()
+	player_inside = true
+	# Slide door closed
+	door.visible = true
+	door.set_deferred("disabled", false)
+	var tween = create_tween()
+	tween.tween_property(door, "position:y", DOOR_CLOSED_Y, 0.8).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	
+	# Start 3 second delay
+	timer.start(3.0)
+	
+	# Play riding sound (while waiting for drop)
+	if ride_sfx:
+		sfx_player.stream = ride_sfx
+		sfx_player.volume_db = -5.0
+		sfx_player.play()
 
 func _on_timer_timeout() -> void:
 	# Become physics object and drop straight down

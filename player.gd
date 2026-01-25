@@ -633,12 +633,13 @@ func _trigger_kick_on_closest_enemy() -> void:
 	var enemies = get_tree().get_nodes_in_group("enemies")
 	var closest_enemy = null
 	var closest_dist = INF
+	var max_range = 1000.0 # Limit range to avoid flying across map
 	
 	for enemy in enemies:
 		if not is_instance_valid(enemy) or enemy.is_destroyed:
 			continue
 		var dist = global_position.distance_to(enemy.global_position)
-		if dist < closest_dist:
+		if dist < closest_dist and dist < max_range:
 			closest_dist = dist
 			closest_enemy = enemy
 	
