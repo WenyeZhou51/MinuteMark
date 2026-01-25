@@ -10,6 +10,11 @@ var player_inside: bool = false
 var has_dropped: bool = false
 var impact_triggered: bool = false
 
+# Audio
+var sfx_player: AudioStreamPlayer
+var fall_sfx: AudioStream
+var ride_sfx: AudioStream
+
 # Door vertical positions (relative to RigidBody2D)
 # Slide down to open so it doesn't protrude above
 const DOOR_CLOSED_Y = 0
@@ -30,6 +35,28 @@ func _ready() -> void:
 	detection_area.body_entered.connect(_on_player_entered)
 	timer.timeout.connect(_on_timer_timeout)
 	# We use _integrate_forces for better collision normal detection
+	
+	# Setup audio
+	sfx_player = AudioStreamPlayer.new()
+	sfx_player.name = "SFXPlayer"
+	# Use Master bus for elevator fall as it's a big event, or Game if preferred
+	if AudioServer.get_bus_index("Game") != -1:
+		sfx_player.bus = "Game"
+	else:
+		sfx_player.bus = "Master"
+	add_child(sfx_player)
+	
+	# Load elevator fall sound
+	if ResourceLoader.exists("res://audio/elevatorFall.wav"):
+		fall_sfx = load("res://audio/elevatorFall.wav")
+	elif ResourceLoader.exists("res://audio/elevatorFall.mp3"):
+		fall_sfx = load("res://audio/elevatorFall.mp3")
+
+	# Load riding sound
+	if ResourceLoader.exists("res://audio/elevatorRiding.wav"):
+		ride_sfx = load("res://audio/elevatorRiding.wav")
+	elif ResourceLoader.exists("res://audio/elevatorRiding.mp3"):
+		ride_sfx = load("res://audio/elevatorRiding.mp3")
 
 func _on_player_entered(body: Node2D) -> void:
 	if (body.is_in_group("player") or body.name == "Player") and not player_inside:
@@ -42,6 +69,12 @@ func _on_player_entered(body: Node2D) -> void:
 		
 		# Start 3 second delay
 		timer.start(3.0)
+		
+		# Play riding sound (while waiting for drop)
+		if ride_sfx:
+			sfx_player.stream = ride_sfx
+			sfx_player.volume_db = -5.0
+			sfx_player.play()
 
 func _on_timer_timeout() -> void:
 	# Become physics object and drop straight down
@@ -49,6 +82,10 @@ func _on_timer_timeout() -> void:
 	has_dropped = true
 	# Lock rotation to keep it upright
 	main_body.lock_rotation = true
+	
+	# Stop riding sound when drop starts
+	if sfx_player.playing and sfx_player.stream == ride_sfx:
+		sfx_player.stop()
 
 # Physics callback to detect ground specifically
 func _physics_process(_delta: float) -> void:
@@ -75,6 +112,12 @@ func _handle_landing() -> void:
 	
 	# Capture the current global position before freezing
 	var landing_pos = main_body.global_position
+	
+	# Play impact sound (elevator reached bottom)
+	if fall_sfx:
+		sfx_player.stream = fall_sfx
+		sfx_player.volume_db = -5.0
+		sfx_player.play()
 	
 	# Screenshake
 	_trigger_screenshake()

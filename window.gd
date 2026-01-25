@@ -36,6 +36,10 @@ var is_shattered: bool = false
 var player_direction: Vector2 = Vector2.ZERO  # Store player direction when broken
 var spawned_fragments: Array = []  # Track spawned fragments for color changes
 
+# Audio
+var sfx_player: AudioStreamPlayer
+var shatter_sfx: AudioStream
+
 # Visual references
 @onready var glass_visual: Polygon2D = $GlassVisual
 @onready var frame_visual: Polygon2D = $FrameVisual
@@ -59,6 +63,29 @@ func _ready() -> void:
 	
 	# Update visuals
 	_update_visuals()
+	
+	# Setup audio
+	sfx_player = AudioStreamPlayer.new()
+	sfx_player.name = "SFXPlayer"
+	# Try to use Game bus if it exists, otherwise Master
+	if AudioServer.get_bus_index("Game") != -1:
+		sfx_player.bus = "Game"
+	else:
+		sfx_player.bus = "Master"
+	add_child(sfx_player)
+	
+	# Load shatter sound
+	if ResourceLoader.exists("res://audio/brokenWindow.wav"):
+		shatter_sfx = load("res://audio/brokenWindow.wav")
+	elif ResourceLoader.exists("res://audio/glassBroken.wav"):
+		shatter_sfx = load("res://audio/glassBroken.wav")
+	elif ResourceLoader.exists("res://audio/glassBroken.mp3"):
+		shatter_sfx = load("res://audio/glassBroken.mp3")
+		
+	if not shatter_sfx:
+		print("Window: Failed to load brokenWindow/glassBroken sound!")
+	else:
+		print("Window: Loaded shatter sound: ", shatter_sfx.resource_path)
 
 
 func _update_visuals() -> void:
@@ -103,6 +130,12 @@ func kick(direction: Vector2, speed: float = 0.0) -> void:
 	
 	# Shatter in the direction the player is dashing BEFORE time slow
 	_shatter(player_direction)
+	
+	# Play shatter sound
+	if shatter_sfx:
+		sfx_player.stream = shatter_sfx
+		sfx_player.pitch_scale = randf_range(0.9, 1.1)
+		sfx_player.play()
 	
 	# Trigger time slow effect with tile hiding and break text
 	_trigger_break_effect()

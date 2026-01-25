@@ -193,6 +193,25 @@ const DeathEffectScene = preload("res://DeathEffect.tscn")
 @export var enemy_attack_indicator_width: float = 2.0 ## Width of the enemy attack knockback indicator
 @export var enemy_attack_indicator_color: Color = Color(1.0, 1.0, 1.0, 0.6) ## Color of the enemy attack knockback indicator
 
+# AUDIO CONFIGURATION
+@export_group("Audio")
+@export_subgroup("Resources")
+@export var kick_object_sfx: AudioStream ## Sound to play when kick hits an object/enemy
+@export var kick_air_sfx: AudioStream ## Sound to play when kick misses (hits air)
+@export var jump_sfx: AudioStream ## Sound to play when jumping from ground
+@export var land_sfx: AudioStream ## Sound to play when landing on ground
+@export var air_dash_sfx: AudioStream ## Sound to play when dashing in the air
+@export var land_dash_sfx: AudioStream ## Sound to play when dashing on the ground
+
+@export_subgroup("Volumes (dB)")
+@export var kick_volume_db: float = 0.0 ## Volume for kick sounds
+@export var jump_volume_db: float = 0.0 ## Volume for jump sound
+@export var land_volume_db: float = -15.0 ## Volume for landing sound
+@export var dash_volume_db: float = -18.0 ## Volume for dash sounds (both air and land)
+
+var sfx_player: AudioStreamPlayer
+
+
 # BULLET PARRY CONFIGURATION
 @export_group("Bullet Parry")
 @export var parry_enabled: bool = true  ## Enable bullet parry mechanics
@@ -519,6 +538,49 @@ func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	if parent:
 		parent.add_child.call_deferred(paper_tear_effect)
+	
+	# Setup SFX Player
+	sfx_player = AudioStreamPlayer.new()
+	sfx_player.name = "SFXPlayer"
+	# Try to use Game bus if it exists, otherwise Master
+	if AudioServer.get_bus_index("Game") != -1:
+		sfx_player.bus = "Game"
+	else:
+		sfx_player.bus = "Master"
+	add_child(sfx_player)
+	
+	# Try to load default kick sounds if not assigned
+	if not kick_object_sfx:
+		if ResourceLoader.exists("res://audio/kickObject.mp3"):
+			kick_object_sfx = load("res://audio/kickObject.mp3")
+		elif ResourceLoader.exists("res://audio/kickObject.wav"):
+			kick_object_sfx = load("res://audio/kickObject.wav")
+			
+	if not kick_air_sfx:
+		if ResourceLoader.exists("res://audio/kickAir.mp3"):
+			kick_air_sfx = load("res://audio/kickAir.mp3")
+		elif ResourceLoader.exists("res://audio/kickAir.wav"):
+			kick_air_sfx = load("res://audio/kickAir.wav")
+
+	# Try to load jump/land sounds if not assigned
+	if not jump_sfx and ResourceLoader.exists("res://audio/jump.wav"):
+		jump_sfx = load("res://audio/jump.wav")
+	if not land_sfx and ResourceLoader.exists("res://audio/land.wav"):
+		land_sfx = load("res://audio/land.wav")
+	
+	if not air_dash_sfx:
+		if ResourceLoader.exists("res://audio/airDash.wav"):
+			air_dash_sfx = load("res://audio/airDash.wav")
+		elif ResourceLoader.exists("res://audio/airDash.mp3"):
+			air_dash_sfx = load("res://audio/airDash.mp3")
+
+	if not land_dash_sfx:
+		if ResourceLoader.exists("res://audio/landDash.wav"):
+			land_dash_sfx = load("res://audio/landDash.wav")
+		elif ResourceLoader.exists("res://audio/landDash.mp3"):
+			land_dash_sfx = load("res://audio/landDash.mp3")
+		elif ResourceLoader.exists("res://audio/landDash.ogg"):
+			land_dash_sfx = load("res://audio/landDash.ogg")
 
 
 func _on_dialogue_interrupt_kick() -> void:
@@ -1414,6 +1476,11 @@ func _on_landed() -> void:
 		_start_slam_freeze()
 	
 	# Could trigger landing effects here (particles, sound, etc.)
+	if land_sfx:
+		sfx_player.stream = land_sfx
+		sfx_player.pitch_scale = randf_range(0.9, 1.1)
+		sfx_player.volume_db = land_volume_db
+		sfx_player.play()
 
 
 func _on_left_ground() -> void:
@@ -2096,6 +2163,13 @@ func _perform_jump() -> void:
 		# Normal jump dust
 		_spawn_dust("jump", Vector2(0, 32))
 	
+	# Play jump sound
+	if jump_sfx:
+		sfx_player.stream = jump_sfx
+		sfx_player.pitch_scale = randf_range(0.9, 1.1)
+		sfx_player.volume_db = jump_volume_db
+		sfx_player.play()
+	
 	is_jumping = true
 	coyote_timer.stop()  # Consume coyote time
 
@@ -2597,6 +2671,20 @@ func _start_kick_sequence() -> void:
 		if dir_to_target.x != 0:
 			facing_direction = sign(dir_to_target.x)
 	
+	# Play kick audio
+	if current_kick_target_type == KickTargetType.NONE:
+		if kick_air_sfx:
+			sfx_player.stream = kick_air_sfx
+			sfx_player.pitch_scale = randf_range(0.95, 1.05)
+			sfx_player.volume_db = kick_volume_db
+			sfx_player.play()
+	else:
+		if kick_object_sfx:
+			sfx_player.stream = kick_object_sfx
+			sfx_player.pitch_scale = randf_range(0.95, 1.05)
+			sfx_player.volume_db = kick_volume_db
+			sfx_player.play()
+	
 	kick_time_elapsed = 0.0 # Reset friction timer
 	
 	# Reset air dash availability (kick animation counts as a reset)
@@ -2958,6 +3046,13 @@ func _start_ground_slide(input_x: float) -> void:
 	# Start paper tear effect
 	if paper_tear_effect:
 		paper_tear_effect.start_tear(dash_direction, tear_width, tear_v_squish)
+	
+	# Play land dash sound
+	if land_dash_sfx:
+		sfx_player.stream = land_dash_sfx
+		sfx_player.pitch_scale = randf_range(0.95, 1.05)
+		sfx_player.volume_db = dash_volume_db
+		sfx_player.play()
 
 
 func _process_ground_slide(delta: float) -> void:
@@ -3137,6 +3232,13 @@ func _start_air_dash(input_x: float) -> void:
 	# End wall run if air dashing
 	if is_wall_running:
 		_end_wall_run()
+	
+	# Play air dash sound
+	if air_dash_sfx:
+		sfx_player.stream = air_dash_sfx
+		sfx_player.pitch_scale = randf_range(0.95, 1.05)
+		sfx_player.volume_db = dash_volume_db
+		sfx_player.play()
 	
 	# Could trigger air dash effects here (particles, sound, animation, etc.)
 

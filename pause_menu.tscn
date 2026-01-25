@@ -1,15 +1,15 @@
 [gd_scene load_steps=19 format=3 uid="uid://b7q8n5ck2wh0e"]
 
-[ext_resource type="Script" path="res://pause_menu.gd" id="1_pause"]
-[ext_resource type="Script" path="res://addons/juicy-effect/UI/Juicy_button.gd" id="2_juicy_button"]
+[ext_resource type="Script" uid="uid://nftb2lhejbvy" path="res://pause_menu.gd" id="1_pause"]
+[ext_resource type="Script" uid="uid://yp7ffr86x3nf" path="res://addons/juicy-effect/UI/Juicy_button.gd" id="2_juicy_button"]
 [ext_resource type="Texture2D" uid="uid://rte0t12en10e" path="res://Sprites/Pause bg.png" id="2_pause_bg"]
 [ext_resource type="FontFile" uid="uid://qjp835anti7g" path="res://Fonts/doctor punk.otf" id="2_t4l2a"]
-[ext_resource type="Script" path="res://addons/juicy-effect/Logic/Juicy_Player.gd" id="3_player"]
+[ext_resource type="Script" uid="uid://vdr3x3l5r5pk" path="res://addons/juicy-effect/Logic/Juicy_Player.gd" id="3_player"]
 [ext_resource type="Texture2D" uid="uid://bpr70dxba6rqr" path="res://Sprites/Bg white overlay .png" id="3_white_overlay"]
-[ext_resource type="Script" path="res://addons/juicy-effect/Effects/juicy_scale.gd" id="4_scale"]
-[ext_resource type="Script" path="res://addons/juicy-effect/Effects/juicy_set_active.gd" id="5_active"]
-[ext_resource type="Script" path="res://addons/juicy-effect/Effects/juicy_set_order.gd" id="6_order"]
-[ext_resource type="Script" path="res://addons/juicy-effect/UI/Wiggle_polygon.gd" id="7_wiggle"]
+[ext_resource type="Script" uid="uid://xprla0my16cv" path="res://addons/juicy-effect/Effects/juicy_scale.gd" id="4_scale"]
+[ext_resource type="Script" uid="uid://cvk46td56ha8b" path="res://addons/juicy-effect/Effects/juicy_set_active.gd" id="5_active"]
+[ext_resource type="Script" uid="uid://dva2ujuixd3qf" path="res://addons/juicy-effect/Effects/juicy_set_order.gd" id="6_order"]
+[ext_resource type="Script" uid="uid://bs58ifqlki5xj" path="res://addons/juicy-effect/UI/Wiggle_polygon.gd" id="7_wiggle"]
 [ext_resource type="PackedScene" uid="uid://dr1sbq3ws5wx3" path="res://video_menu.tscn" id="8_video_menu"]
 [ext_resource type="PackedScene" uid="uid://xnhlguhegqau" path="res://audio_menu.tscn" id="9_audio_menu"]
 [ext_resource type="PackedScene" uid="uid://btpudyf5rfdba" path="res://input_menu.tscn" id="10_input_menu"]
@@ -25,7 +25,7 @@ Button/styles/normal = SubResource("StyleBoxEmpty_normal")
 Button/styles/pressed = SubResource("StyleBoxEmpty_normal")
 
 [sub_resource type="Curve" id="Curve_focus_scale"]
-max_value = 3.0
+_limits = [0.0, 3.0, 0.0, 1.0]
 _data = [Vector2(0, 1.2), 0.0, 0.0, 0, 0, Vector2(1, 1.2), 0.0, 0.0, 0, 0]
 point_count = 2
 

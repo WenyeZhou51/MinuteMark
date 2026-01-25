@@ -10,6 +10,12 @@ var current_shake_intensity: float = 0.0
 var shake_timer: float = 0.0
 var original_control_pos: Vector2
 
+# Audio
+var sfx_player: AudioStreamPlayer
+var climbing_player: AudioStreamPlayer
+var score_climbing_sfx: AudioStream
+var score_peak_sfx: AudioStream
+
 func _ready():
 	# Make sure the UI is visible and top-most
 	layer = 120
@@ -51,6 +57,34 @@ func _ready():
 		restart_btn.pressed.connect(_on_restart_button_pressed)
 	if not menu_btn.pressed.is_connected(_on_menu_button_pressed):
 		menu_btn.pressed.connect(_on_menu_button_pressed)
+		
+	# Setup audio
+	sfx_player = AudioStreamPlayer.new()
+	sfx_player.name = "SFXPlayer"
+	sfx_player.bus = "Master"
+	add_child(sfx_player)
+	
+	climbing_player = AudioStreamPlayer.new()
+	climbing_player.name = "ClimbingPlayer"
+	climbing_player.bus = "Master"
+	add_child(climbing_player)
+	
+	# Load audio files
+	if ResourceLoader.exists("res://audio/scoreClimbing.wav"):
+		score_climbing_sfx = load("res://audio/scoreClimbing.wav")
+	elif ResourceLoader.exists("res://audio/scoreClimbing.mp3"):
+		score_climbing_sfx = load("res://audio/scoreClimbing.mp3")
+		
+	if not score_climbing_sfx:
+		print("VictoryUI: Failed to load scoreClimbing sound! Check res://audio/")
+		
+	if ResourceLoader.exists("res://audio/scorePeak.wav"):
+		score_peak_sfx = load("res://audio/scorePeak.wav")
+	elif ResourceLoader.exists("res://audio/scorePeak.mp3"):
+		score_peak_sfx = load("res://audio/scorePeak.mp3")
+		
+	if not score_peak_sfx:
+		print("VictoryUI: Failed to load scorePeak sound! Check res://audio/")
 
 func _process(delta):
 	# Ensure mouse is visible (sometimes it gets hidden by other scripts)
@@ -77,15 +111,19 @@ func setup(time_taken: float):
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	
 	# Stop background music if AudioManager exists
-	var audio_manager = get_node_or_null("/root/AudioManager")
-	if audio_manager and audio_manager.has_method("stop_music"):
-		audio_manager.stop_music()
-	elif audio_manager:
-		# Fallback if method name is different, trying to find common names
-		for method in ["stop", "stop_all", "mute"]:
-			if audio_manager.has_method(method):
-				audio_manager.call(method)
-				break
+	# Use global AudioManager if available, otherwise try node path
+	if AudioManager and AudioManager.has_method("stop_music"):
+		AudioManager.stop_music()
+	else:
+		var audio_manager = get_node_or_null("/root/AudioManager")
+		if audio_manager and audio_manager.has_method("stop_music"):
+			audio_manager.stop_music()
+		elif audio_manager:
+			# Fallback if method name is different, trying to find common names
+			for method in ["stop", "stop_all", "mute"]:
+				if audio_manager.has_method(method):
+					audio_manager.call(method)
+					break
 
 	# Ensure the SpeedLines are updating even when paused
 	var speed_lines = $Control/SpeedLines
@@ -123,6 +161,14 @@ func setup(time_taken: float):
 	# 1. Time appears first
 	tween.tween_property(time_label, "modulate:a", 1.0, 0.2)
 	
+	# Play climbing sound at start of counting
+	tween.tween_callback(func():
+		if score_climbing_sfx:
+			climbing_player.stream = score_climbing_sfx
+			climbing_player.volume_db = -5.0
+			climbing_player.play()
+	)
+	
 	# 2. Time ticks up gradually over 1.0s
 	tween.tween_method(
 		func(v): 
@@ -132,13 +178,32 @@ func setup(time_taken: float):
 		0.0, time_taken, 1.0
 	)
 	
+	# Stop climbing sound immediately after counting finishes
+	tween.tween_callback(func():
+		if climbing_player.playing:
+			climbing_player.stop()
+	)
+	
 	# 3. 0.5s delay
 	tween.tween_interval(0.5)
 	
 	# 4. Rank smashes onto screen
 	tween.tween_callback(func(): 
+		# Stop climbing sound explicitly right before peak
+		if climbing_player.playing:
+			climbing_player.stop()
+		
+		# Safety stop sfx_player
+		sfx_player.stop()
+		
 		rank_label.modulate.a = 1.0
 		apply_ui_shake(20.0, 0.4)
+		
+		# Play peak sound when rank appears
+		if score_peak_sfx:
+			sfx_player.stream = score_peak_sfx
+			sfx_player.volume_db = -2.0
+			sfx_player.play()
 		
 		# Rank impact effect
 		rank_impact_label.modulate.a = 0.6
@@ -224,4 +289,3 @@ func _on_menu_button_pressed():
 		print("VictoryUI: Could not find PauseMenu to switch to. Trying direct scene change.")
 		# Try to find a MainMenu scene or just reload
 		# get_tree().change_scene_to_file("res://MainMenu.tscn")
-

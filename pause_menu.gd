@@ -225,6 +225,16 @@ func _input(event):
 		# Don't toggle pause if dialogue is active
 		if DialogueManager.current_id != "":
 			return
+		
+		# Check if Victory UI is active and visible
+		var victory_ui = get_tree().root.find_child("VictoryUI", true, false)
+		if victory_ui and victory_ui.visible:
+			# Hide Victory UI just like the Menu button does
+			victory_ui.visible = false
+			victory_ui.queue_free()
+			
+			open_pause_menu(true) # Open as if from victory (disables resume)
+			return
 			
 		toggle_pause()
 
@@ -432,7 +442,12 @@ func play_pause_menu_intro():
 	
 	# Animation complete, allow interaction
 	is_animating_in = false
-	if has_node("MenuContainer/ResumeButton"):
+	
+	if opened_from_victory:
+		# If came from victory, Resume is disabled, so focus Restart
+		if has_node("MenuContainer/RestartButton"):
+			$MenuContainer/RestartButton.grab_focus()
+	elif has_node("MenuContainer/ResumeButton"):
 		$MenuContainer/ResumeButton.grab_focus()
 
 
