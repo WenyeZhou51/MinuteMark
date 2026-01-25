@@ -42,7 +42,8 @@ const DeathEffectScene = preload("res://DeathEffect.tscn")
 @export var run_activation_delay: float = 0.1  ## [UNUSED] Previously used for hold-to-sprint delay
 
 @export_group("Afterimage Trail")
-@export var trail_afterimage_interval: float = 0.05 ## Time between afterimage spawns in trail
+@export var trail_afterimage_interval: float = 0.1 ## Time between afterimage spawns in trail (higher = more spacing)
+@export var trail_afterimage_lifetime_multiplier: float = 3.0 ## Multiplier for how long afterimages last (higher = longer duration)
 @export var trail_max_speed_threshold: float = 1500.0 ## Speed at which 4 afterimages are shown
 
 # JUMP CONFIGURATION
@@ -261,6 +262,7 @@ var ledge_check_interval: float = 0.2  # Check ledge climb every 0.2 seconds
 
 # Afterimage trail state
 var trail_afterimage_timer: float = 0.0
+var trail_afterimage_color_toggle: bool = false  # Alternates between yellow and purple
 
 # Wall jump state variables
 var is_on_wall: bool = false  # Is player touching a wall
@@ -925,7 +927,7 @@ func _physics_process(delta: float) -> void:
 			
 			# Spawn a single afterimage with a lifetime that results in 'count' afterimages being visible
 			# (since they are spawned every trail_afterimage_interval seconds)
-			_spawn_trail_afterimage(count * trail_afterimage_interval)
+			_spawn_trail_afterimage(count * trail_afterimage_interval * trail_afterimage_lifetime_multiplier)
 	else:
 		trail_afterimage_timer = 0.0
 	
@@ -3577,8 +3579,21 @@ func _spawn_air_dash_afterimage() -> void:
 	afterimage.global_position = global_position
 	afterimage.rotation = rotation
 	
-	# Brighter and more desaturated modulation
-	var dash_modulate = Color(2.5, 2.5, 2.5, 1.0) # Much brighter white
+	# Alternate between bright yellow and bright electric pink for air dash
+	var dash_modulate: Color
+	var color_name: String
+	if trail_afterimage_color_toggle:
+		dash_modulate = Color(1.0, 1.0, 0.0, 0.9)  # Bright Yellow
+		color_name = "YELLOW"
+	else:
+		dash_modulate = Color(1.0, 0.0, 1.0, 0.9)  # Bright Electric Pink
+		color_name = "PINK"
+	
+	# DEBUG: Verify color being sent to afterimage
+	print("[Player] Spawning %s air dash afterimage - RGB(%.2f, %.2f, %.2f) Alpha: %.2f, Lifetime: %.2f" % [color_name, dash_modulate.r, dash_modulate.g, dash_modulate.b, dash_modulate.a, air_dash_afterimage_lifetime])
+	
+	# Toggle for next afterimage
+	trail_afterimage_color_toggle = !trail_afterimage_color_toggle
 	
 	if afterimage.has_method("setup_from_sprite"):
 		afterimage.setup_from_sprite(animated_sprite, dash_modulate)
@@ -3602,14 +3617,28 @@ func _spawn_trail_afterimage(lifetime: float) -> void:
 	afterimage.rotation = rotation
 	
 	if afterimage.has_method("setup_from_sprite"):
-		# Use a slightly more transparent and standard modulate for the trail
-		var trail_modulate = Color(1.0, 1.0, 1.0, 0.6)
+		# Alternate between bright yellow and bright electric pink
+		var trail_modulate: Color
+		var color_name: String
+		if trail_afterimage_color_toggle:
+			trail_modulate = Color(1.0, 1.0, 0.0, 0.9)  # Bright Yellow
+			color_name = "YELLOW"
+		else:
+			trail_modulate = Color(1.0, 0.0, 1.0, 0.9)  # Bright Electric Pink
+			color_name = "PINK"
+		
+		# DEBUG: Verify color being sent to afterimage
+		print("[Player] Spawning %s trail afterimage - RGB(%.2f, %.2f, %.2f) Alpha: %.2f, Lifetime: %.2f" % [color_name, trail_modulate.r, trail_modulate.g, trail_modulate.b, trail_modulate.a, lifetime])
+		
+		# Toggle for next afterimage
+		trail_afterimage_color_toggle = !trail_afterimage_color_toggle
+		
 		afterimage.setup_from_sprite(animated_sprite, trail_modulate)
 		
 		# Override lifetime based on trail count
 		afterimage.lifetime = lifetime
 		# Ensure initial alpha matches our trail modulate
-		afterimage.initial_alpha = 0.6
+		afterimage.initial_alpha = 0.9
 	
 	# Add the afterimage to the scene
 	get_parent().add_child(afterimage)
