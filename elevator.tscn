@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3 uid="uid://c85yqfkymilcl"]
+[gd_scene load_steps=9 format=3 uid="uid://c85yqfkymilcl"]
 
 [ext_resource type="Script" path="res://elevator.gd" id="1_script"]
 
@@ -16,6 +16,14 @@ size = Vector2(20, 760)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_detect"]
 size = Vector2(376, 740)
+
+[sub_resource type="Curve" id="Curve_scale"]
+_data = [Vector2(0, 0.3), 0.0, 2.0, 0, 0, Vector2(0.15, 1), 0.0, 0.0, 0, 0, Vector2(1, 0.2), -1.0, 0.0, 0, 0]
+point_count = 3
+
+[sub_resource type="Gradient" id="Gradient_smoke"]
+offsets = PackedFloat32Array(0, 0.3, 0.7, 1)
+colors = PackedColorArray(0.6, 0.6, 0.6, 0.9, 0.7, 0.7, 0.75, 0.8, 0.65, 0.65, 0.7, 0.4, 0.5, 0.5, 0.55, 0)
 
 [node name="Elevator" type="Node2D"]
 z_index = -5
@@ -85,15 +93,22 @@ one_shot = true
 z_index = 1
 position = Vector2(0, 385)
 emitting = false
-amount = 300
-lifetime = 3.0
+amount = 800
+lifetime = 4.5
 one_shot = true
-explosiveness = 1.0
+explosiveness = 0.95
+randomness = 0.3
 direction = Vector2(0, -1)
 spread = 180.0
-gravity = Vector2(0, 50)
-initial_velocity_min = 250.0
-initial_velocity_max = 700.0
-scale_amount_min = 10.0
-scale_amount_max = 30.0
-color = Color(0.8, 0.8, 0.8, 0.5)
+gravity = Vector2(0, 80)
+initial_velocity_min = 300.0
+initial_velocity_max = 900.0
+angular_velocity_min = -90.0
+angular_velocity_max = 90.0
+damping_min = 20.0
+damping_max = 50.0
+scale_amount_min = 15.0
+scale_amount_max = 50.0
+scale_amount_curve = SubResource("Curve_scale")
+color = Color(0.7, 0.7, 0.75, 0.8)
+color_ramp = SubResource("Gradient_smoke")
