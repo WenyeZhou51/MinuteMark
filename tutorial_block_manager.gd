@@ -4,6 +4,7 @@ extends Node
 
 var tutorial_ui_scene = preload("res://TutorialBlockUI.tscn")
 var tutorial_ui_instance: Control
+var ui_canvas_layer: CanvasLayer # Keep reference to the canvas layer
 
 # Track completed tutorial block IDs
 var completed_blocks: Dictionary = {}
@@ -24,14 +25,14 @@ func register_block(block_id: String, node: Node) -> void:
 
 func _ready() -> void:
 	# Create a CanvasLayer to hold the tutorial UI
-	var canvas_layer = CanvasLayer.new()
-	canvas_layer.layer = 101 # Higher than TutorialUI (100) to be on top
-	canvas_layer.process_mode = Node.PROCESS_MODE_ALWAYS # Allow UI to work while paused
-	add_child(canvas_layer)
+	ui_canvas_layer = CanvasLayer.new()
+	ui_canvas_layer.layer = 101 # Higher than TutorialUI (100) to be on top
+	ui_canvas_layer.process_mode = Node.PROCESS_MODE_ALWAYS # Allow UI to work while paused
+	add_child(ui_canvas_layer)
 	
 	tutorial_ui_instance = tutorial_ui_scene.instantiate()
 	tutorial_ui_instance.process_mode = Node.PROCESS_MODE_ALWAYS
-	canvas_layer.add_child(tutorial_ui_instance)
+	ui_canvas_layer.add_child(tutorial_ui_instance)
 	
 	# Set process mode so we can process input during tutorial pause
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -52,12 +53,11 @@ func reset_tutorials() -> void:
 	"""Reset all tutorial state - clears completed blocks and current tutorial."""
 	completed_blocks.clear()
 	
+	# Clear registered blocks so they re-register
+	registered_blocks.clear()
+	
 	# If a tutorial is currently active, end it
 	if is_tutorial_active:
-		# Hide tutorial UI
-		if tutorial_ui_instance:
-			tutorial_ui_instance.hide_message()
-		
 		# Get player reference and unlock actions
 		var player = get_tree().get_first_node_in_group("player")
 		if player:
@@ -69,6 +69,17 @@ func reset_tutorials() -> void:
 		is_tutorial_active = false
 		current_allowed_action = ""
 		current_block_id = ""
+	
+	# Force reset UI regardless of active state
+	if tutorial_ui_instance:
+		if tutorial_ui_instance.has_method("reset"):
+			tutorial_ui_instance.reset()
+		else:
+			tutorial_ui_instance.hide_message()
+			
+	# Ensure the canvas layer is visible (in case PauseMenu hid it)
+	if ui_canvas_layer:
+		ui_canvas_layer.visible = true
 	
 	print("TutorialBlockManager: All tutorials reset")
 

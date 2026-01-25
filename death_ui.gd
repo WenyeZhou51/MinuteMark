@@ -108,19 +108,9 @@ func _trigger_background_reload():
 	# Unpause to allow reload to process cleanly
 	get_tree().paused = false
 	
-	# Try to do a soft reset first (much faster than full reload)
-	# The current scene root should be the Level node with level_manager.gd script
-	var level_manager = get_tree().current_scene
-	
-	if level_manager and level_manager.has_method("soft_reset_level"):
-		# Use fast soft reset instead of slow full scene reload
-		print("DeathUI: Using fast soft reset")
-		level_manager.soft_reset_level()
-		queue_free() # Remove the death UI
-	else:
-		# Fallback to full reload if soft reset not available
-		print("DeathUI: LevelManager not found, falling back to full scene reload")
-		get_tree().reload_current_scene()
+	# Use full scene reload to ensure everything resets correctly
+	print("DeathUI: Restarting level (full reload)")
+	get_tree().reload_current_scene()
 
 func _input(event):
 	if not input_allowed:

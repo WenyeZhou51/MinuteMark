@@ -1,9 +1,12 @@
 extends Node
 
+@export var bgm_volume_db: float = -18.0 ## Background music volume in dB
+
 var music_player: AudioStreamPlayer
 var _is_rewinding: bool = false
 var _rewind_speed: float = 1.0
 var _manual_playback_pos: float = 0.0
+var _is_stopped: bool = false # Flag to track if music was explicitly stopped
 
 func _ready() -> void:
 	# Ensure music keeps playing even when the game is paused
@@ -13,6 +16,7 @@ func _ready() -> void:
 	music_player = AudioStreamPlayer.new()
 	music_player.name = "BackgroundMusic"
 	music_player.bus = "Master"
+	music_player.volume_db = bgm_volume_db
 	add_child(music_player)
 	
 	# Start music playback
@@ -48,6 +52,9 @@ func _setup_and_play():
 	# Wait for the engine to be fully stable
 	await get_tree().create_timer(1.0).timeout
 	
+	if _is_stopped:
+		return
+	
 	var music_path = "res://audio/Second Chance.wav"
 	var stream = load(music_path)
 	
@@ -58,6 +65,9 @@ func _setup_and_play():
 		await get_tree().process_frame
 		await get_tree().process_frame
 		
+		if _is_stopped:
+			return
+		
 		music_player.play()
 		
 		if music_player.playing:
@@ -67,17 +77,27 @@ func _setup_and_play():
 			_retry_play(stream)
 
 func _retry_play(stream):
+	if _is_stopped:
+		return
+		
 	var new_player = AudioStreamPlayer.new()
 	new_player.bus = "Master"
+	new_player.volume_db = bgm_volume_db
 	add_child(new_player)
 	new_player.stream = stream
 	await get_tree().process_frame
+	
+	if _is_stopped:
+		new_player.queue_free()
+		return
+		
 	new_player.play()
 	if new_player.playing:
 		music_player.queue_free()
 		music_player = new_player
 
 func stop_music():
+	_is_stopped = true
 	if music_player:
 		music_player.stop()
 
@@ -95,6 +115,7 @@ func fade_music(target_db: float, duration: float):
 		tween.tween_property(music_player, "volume_db", target_db, duration)
 
 func play_music(new_stream: AudioStream):
+	_is_stopped = false
 	if music_player:
 		music_player.stop()
 		music_player.stream = new_stream
@@ -103,6 +124,7 @@ func play_music(new_stream: AudioStream):
 func restart_music() -> void:
 	"""Restart the music from the beginning (used for game restart)."""
 	print("AudioManager: restart_music called")
+	_is_stopped = false
 	if music_player:
 		# Stop any rewinding
 		if _is_rewinding:

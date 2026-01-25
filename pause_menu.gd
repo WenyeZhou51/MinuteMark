@@ -225,6 +225,16 @@ func _input(event):
 		# Don't toggle pause if dialogue is active
 		if DialogueManager.current_id != "":
 			return
+		
+		# Check if Victory UI is active and visible
+		var victory_ui = get_tree().root.find_child("VictoryUI", true, false)
+		if victory_ui and victory_ui.visible:
+			# Hide Victory UI just like the Menu button does
+			victory_ui.visible = false
+			victory_ui.queue_free()
+			
+			open_pause_menu(true) # Open as if from victory (disables resume)
+			return
 			
 		toggle_pause()
 
@@ -330,37 +340,20 @@ func _update_buttons_state():
 			resume_btn.grab_focus()
 
 func _on_restart_pressed():
-	# Use fast soft reset instead of slow full scene reload
-	
 	# 1. Block input to prevent double clicks
 	if has_node("MenuContainer"):
 		$MenuContainer.mouse_filter = Control.MOUSE_FILTER_STOP
 	
-	# 2. Unpause the game
+	# 2. Unpause the game so reload can happen
 	get_tree().paused = false
 	
-	# 3. Try to use soft reset (much faster than full reload)
-	var level_manager = get_tree().current_scene
+	# 3. IMPORTANT: Restore other UI elements BEFORE reloading
+	# This ensures persistent UI (like TutorialBlockManager's CanvasLayer) is visible
+	_set_other_ui_visible(true)
 	
-	if level_manager and level_manager.has_method("soft_reset_level"):
-		# Use fast soft reset instead of slow full scene reload
-		print("PauseMenu: Using fast soft reset")
-		level_manager.soft_reset_level()
-		
-		# Hide the pause menu
-		visible = false
-		reset_animation_elements()
-		
-		# Restore mouse mode
-		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-		
-		# Resume music (soft reset restarts it, so we need to ensure it's not paused)
-		if AudioManager:
-			AudioManager.resume_music()
-	else:
-		# Fallback to full reload if soft reset not available
-		print("PauseMenu: LevelManager not found, falling back to full scene reload")
-		get_tree().reload_current_scene()
+	# 4. Use full scene reload to ensure everything resets correctly (same as Victory UI)
+	print("PauseMenu: Restarting level (full reload)")
+	get_tree().reload_current_scene()
 
 
 func _set_other_ui_visible(p_visible: bool):
@@ -432,7 +425,12 @@ func play_pause_menu_intro():
 	
 	# Animation complete, allow interaction
 	is_animating_in = false
-	if has_node("MenuContainer/ResumeButton"):
+	
+	if opened_from_victory:
+		# If came from victory, Resume is disabled, so focus Restart
+		if has_node("MenuContainer/RestartButton"):
+			$MenuContainer/RestartButton.grab_focus()
+	elif has_node("MenuContainer/ResumeButton"):
 		$MenuContainer/ResumeButton.grab_focus()
 
 
