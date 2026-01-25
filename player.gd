@@ -97,6 +97,7 @@ const DeathEffectScene = preload("res://DeathEffect.tscn")
 @export var wall_slide_speed: float = 60.0  ## Speed when sliding down a wall (slower fall)
 @export var wall_jump_horizontal_velocity: float = 400.0  ## Horizontal push away from wall
 @export var wall_jump_vertical_velocity: float = -551.25  ## Vertical jump force from wall (adjusted to maintain jump height with increased gravity)
+@export var wall_jump_dash_prevention_duration: float = 0.2  ## Duration after walljump during which dash is disabled (seconds)
 
 # WALL RUN CONFIGURATION
 @export_group("Wall Run")
@@ -247,6 +248,12 @@ var timer_ui_instance: Node = null
 @export var rewind_slowmo_scale: float = 0.25  ## Time scale for slow-mo (0.25 = quarter speed)
 @export var rewind_restore_velocity: bool = false  ## Whether to restore velocity when rewinding (false = zero velocity on rewind)
 
+# AUDIO CONFIGURATION
+@export_group("Audio")
+@export var jump_sound_volume: float = 4.5  ## Volume of jump sound in dB (-80 to 24, 0 is default, 4.5 is ~3x louder)
+@export var dash_sound_volume: float = 4.5  ## Volume of dash sound in dB (-80 to 24, 0 is default, 4.5 is ~3x louder)
+@export var slide_sound_volume: float = 4.5  ## Volume of slide sound in dB (-80 to 24, 0 is default, 4.5 is ~3x louder)
+
 # Internal state variables
 var is_jump_held: bool = false  # Is jump button currently held
 var is_jumping: bool = false  # Is player currently in jump state
@@ -277,6 +284,9 @@ var wall_run_timer: float = 0.0  # Time elapsed in current wall run
 var wall_run_speed: float = 0.0  # Current upward speed during wall run
 var wall_jump_cooldown: float = 0.0  # Cooldown after wall jump to prevent re-attachment
 var wall_jump_forced_direction: float = 0.0  # Forced direction away from wall after jump
+var wall_jump_dash_prevention_timer: float = 0.0  # Timer to prevent dash after walljump
+var wall_jump_source_wall_direction: float = 0.0  # Direction of wall jumped from (-1 = left wall, 1 = right wall)
+var dashed_back_to_walljump_wall: bool = false  # Flag set when dashing back towards walljump source wall
 var wall_run_cooldown: float = 0.0  # Cooldown after wall run ends to prevent immediate restart
 var wall_run_start_position: Vector2 = Vector2.ZERO  # Position when wall run started (for tracking total movement)
 var wall_run_frame_count: int = 0  # Number of frames wall run has been active
@@ -341,7 +351,6 @@ var original_collision_mask: int = 1  # Store original collision mask
 var is_slide_jump_available: bool = false  # Can player perform empowered jump from slide
 var is_invulnerable: bool = false  # Is player currently invulnerable (during dashes)
 var run_input_just_pressed: bool = false  # Track if run input was just pressed this frame
-var air_dash_available: bool = true  # Is air dash available (resets on ground/wall/kick parry/slam)
 
 # CAMERA SHAKE
 var camera_shake_intensity: float = 0.0
@@ -417,6 +426,9 @@ var dust_spawn_timer: float = 0.0
 @onready var attack_indicator: Line2D = $AttackVisual/AttackIndicator
 @onready var attack_target_marker: Marker2D = $AttackVisual/AttackTarget
 @onready var rewind_warning_sprite: Sprite2D = $RewindWarningLayer/RewindWarningSprite
+@onready var jump_sound: AudioStreamPlayer = $JumpSound
+@onready var dash_sound: AudioStreamPlayer = $DashSound
+@onready var slide_sound: AudioStreamPlayer = $SlideSound
 
 
 func _ready() -> void:
@@ -475,6 +487,14 @@ func _ready() -> void:
 	if timer_ui_scene:
 		timer_ui_instance = timer_ui_scene.instantiate()
 		add_child(timer_ui_instance)
+	
+	# Setup audio volumes
+	if jump_sound:
+		jump_sound.volume_db = jump_sound_volume
+	if dash_sound:
+		dash_sound.volume_db = dash_sound_volume
+	if slide_sound:
+		slide_sound.volume_db = slide_sound_volume
 
 	# Setup paper tear effect
 	paper_tear_effect = paper_tear_effect_script.new()
@@ -849,21 +869,26 @@ func _physics_process(delta: float) -> void:
 		ground_slide_cooldown_timer -= delta
 	if air_dash_cooldown_timer > 0:
 		air_dash_cooldown_timer -= delta
+	if wall_jump_dash_prevention_timer > 0:
+		wall_jump_dash_prevention_timer -= delta
 	if kick_post_boost_timer > 0:
 		kick_post_boost_timer -= delta
 	
 	# Handle dash input (shift press takes priority over run)
 	if dash_enabled and run_input_just_pressed and not is_ground_sliding and not is_air_dashing and not is_stunned and not is_in_rewind_slowmo:
+		# Get raw input for dash direction (ignoring overrides like wall jump forced direction)
+		var raw_input_x = Input.get_axis("move_left", "move_right")
+		
 		# Tutorial lock check
 		if is_tutorial_locked:
 			if tutorial_allowed_action == "dash":
 				# Dash is allowed - proceed and notify tutorial manager
 				if is_on_floor() and ground_slide_cooldown_timer <= 0:
-					_start_ground_slide(input_vector.x)
+					_start_ground_slide(raw_input_x)
 					if TutorialBlockManager:
 						TutorialBlockManager.check_action_performed("dash")
-				elif not is_on_floor() and air_dash_cooldown_timer <= 0 and air_dash_available:
-					_start_air_dash(input_vector.x)
+				elif not is_on_floor() and air_dash_cooldown_timer <= 0 and wall_jump_dash_prevention_timer <= 0:
+					_start_air_dash(raw_input_x)
 					if TutorialBlockManager:
 						TutorialBlockManager.check_action_performed("dash")
 			# Otherwise, block dash
@@ -871,10 +896,10 @@ func _physics_process(delta: float) -> void:
 			# Normal dash handling
 			if is_on_floor() and ground_slide_cooldown_timer <= 0:
 				# Ground slide
-				_start_ground_slide(input_vector.x)
-			elif not is_on_floor() and air_dash_cooldown_timer <= 0 and air_dash_available:
-				# Air dash (only if available)
-				_start_air_dash(input_vector.x)
+				_start_ground_slide(raw_input_x)
+			elif not is_on_floor() and air_dash_cooldown_timer <= 0 and wall_jump_dash_prevention_timer <= 0:
+				# Air dash (cooldown-based)
+				_start_air_dash(raw_input_x)
 	
 	# Handle rewind input (hold-to-rewind)
 	if rewind_enabled and rewind_cooldown_timer <= 0:
@@ -1387,11 +1412,12 @@ func _on_landed() -> void:
 	is_jumping = false
 	wall_jump_cooldown = 0.0
 	wall_jump_forced_direction = 0.0
+	wall_jump_source_wall_direction = 0.0
+	dashed_back_to_walljump_wall = false
 	# Reset ledge climb cooldown on landing (allows fresh ledge climb attempts)
 	ledge_climb_cooldown_timer = 0.0
 	
-	# Reset air dash availability on landing
-	air_dash_available = true
+	# Dash is now purely cooldown-based (no ground reset required)
 	
 	# End wall run if landing
 	if is_wall_running:
@@ -1839,6 +1865,24 @@ func _check_wall_run_activation() -> void:
 	if not _is_wall_at_lower_quarter():
 		return
 	
+	# Check if player walljumped and dashed back to the same wall - if so, prevent wallrun
+	if dashed_back_to_walljump_wall:
+		# Determine which side the current wall is on
+		var current_wall_side = -sign(wall_normal.x)
+		
+		# If it's the same wall we jumped from, prevent wallrun and force wall slide
+		if sign(current_wall_side) == sign(wall_jump_source_wall_direction):
+			# Clear upward velocity to prevent going up
+			if velocity.y < 0:
+				velocity.y = 0
+			
+			# Clear the flag and wall jump tracking
+			dashed_back_to_walljump_wall = false
+			wall_jump_source_wall_direction = 0.0
+			
+			# Don't start wallrun - let them wall slide instead
+			return
+	
 	# Start wall run with fixed speed of 1000 for consistent wall run behavior
 	_start_wall_run(1000.0, true)
 	
@@ -2098,6 +2142,10 @@ func _perform_jump() -> void:
 	
 	is_jumping = true
 	coyote_timer.stop()  # Consume coyote time
+	
+	# Play jump sound
+	if jump_sound:
+		jump_sound.play()
 
 
 func _perform_wall_jump() -> void:
@@ -2145,6 +2193,14 @@ func _perform_wall_jump() -> void:
 	# Set cooldown to prevent immediate re-attachment to wall
 	wall_jump_cooldown = 0.3  # 0.3 second cooldown
 	wall_jump_forced_direction = jump_wall_normal.x  # Store direction away from wall
+	
+	# Prevent dash for a short duration after walljump
+	wall_jump_dash_prevention_timer = wall_jump_dash_prevention_duration
+	
+	# Store which wall we jumped from (for detecting dash-back)
+	# If wall is on left (normal points right), store -1. If wall is on right (normal points left), store 1
+	wall_jump_source_wall_direction = -sign(jump_wall_normal.x)
+	dashed_back_to_walljump_wall = false  # Reset flag
 	
 	# Clear wall state to prevent immediate re-attachment
 	is_on_wall = false
@@ -2599,9 +2655,6 @@ func _start_kick_sequence() -> void:
 	
 	kick_time_elapsed = 0.0 # Reset friction timer
 	
-	# Reset air dash availability (kick animation counts as a reset)
-	air_dash_available = true
-	
 	# Start the animation
 	if animated_sprite.animation != "kick":
 		animated_sprite.play("kick")
@@ -2811,9 +2864,6 @@ func _cancel_grace_period_with_kick() -> void:
 	grace_period_active = false
 	grace_period_timer = 0.0
 	
-	# Reset air dash availability (kick parry counts as a reset)
-	air_dash_available = true
-	
 	# Temporarily add the enemy to nearby_enemies if it's not already there
 	var enemy = grace_period_colliding_enemy
 	grace_period_colliding_enemy = null
@@ -2958,6 +3008,10 @@ func _start_ground_slide(input_x: float) -> void:
 	# Start paper tear effect
 	if paper_tear_effect:
 		paper_tear_effect.start_tear(dash_direction, tear_width, tear_v_squish)
+	
+	# Play slide sound
+	if slide_sound:
+		slide_sound.play()
 
 
 func _process_ground_slide(delta: float) -> void:
@@ -3111,8 +3165,13 @@ func _start_air_dash(input_x: float) -> void:
 	air_dash_timer = 0.0
 	air_dash_afterimages_spawned = 0
 	air_dash_cooldown_timer = air_dash_cooldown
-	air_dash_available = false  # Consume air dash (will reset on ground/wall/kick parry/slam)
 	is_invulnerable = true  # Player is invulnerable during air dash
+	
+	# Check if dashing back towards walljump source wall
+	if wall_jump_source_wall_direction != 0.0:
+		# Check if dash direction matches the wall we jumped from
+		if sign(dash_direction) == sign(wall_jump_source_wall_direction):
+			dashed_back_to_walljump_wall = true
 	
 	# Reset velocity before applying impulse forces for consistent behavior
 	velocity.x = 0.0
@@ -3138,7 +3197,9 @@ func _start_air_dash(input_x: float) -> void:
 	if is_wall_running:
 		_end_wall_run()
 	
-	# Could trigger air dash effects here (particles, sound, animation, etc.)
+	# Play dash sound
+	if dash_sound:
+		dash_sound.play()
 
 
 func _process_air_dash(delta: float) -> void:
@@ -3321,9 +3382,6 @@ func _perform_slam_landing_aoe() -> void:
 						# Kick enemy away from player horizontally
 						var knock_direction = Vector2(sign(offset.x) if offset.x != 0 else 1.0, 0.5).normalized()
 						enemy.kick(knock_direction, slam_attack_knockback_speed)
-	
-	# Reset air dash availability (slam landing counts as a reset)
-	air_dash_available = true
 	
 	# Could trigger slam landing AOE effects here (particles, screen shake, shockwave, etc.)
 
@@ -3589,9 +3647,6 @@ func _spawn_air_dash_afterimage() -> void:
 		dash_modulate = Color(1.0, 0.0, 1.0, 0.9)  # Bright Electric Pink
 		color_name = "PINK"
 	
-	# DEBUG: Verify color being sent to afterimage
-	print("[Player] Spawning %s air dash afterimage - RGB(%.2f, %.2f, %.2f) Alpha: %.2f, Lifetime: %.2f" % [color_name, dash_modulate.r, dash_modulate.g, dash_modulate.b, dash_modulate.a, air_dash_afterimage_lifetime])
-	
 	# Toggle for next afterimage
 	trail_afterimage_color_toggle = !trail_afterimage_color_toggle
 	
@@ -3626,9 +3681,6 @@ func _spawn_trail_afterimage(lifetime: float) -> void:
 		else:
 			trail_modulate = Color(1.0, 0.0, 1.0, 0.9)  # Bright Electric Pink
 			color_name = "PINK"
-		
-		# DEBUG: Verify color being sent to afterimage
-		print("[Player] Spawning %s trail afterimage - RGB(%.2f, %.2f, %.2f) Alpha: %.2f, Lifetime: %.2f" % [color_name, trail_modulate.r, trail_modulate.g, trail_modulate.b, trail_modulate.a, lifetime])
 		
 		# Toggle for next afterimage
 		trail_afterimage_color_toggle = !trail_afterimage_color_toggle

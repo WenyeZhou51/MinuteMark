@@ -123,6 +123,7 @@ tear_v_squish = 0.7
 air_dash_horizontal_impulse = 2100.0
 air_dash_vertical_impulse = 0.0
 air_dash_duration = 0.15
+air_dash_cooldown = 0.5
 kick_scale = 0.07
 kick_fps = 40.0
 kick_offset = Vector2(10, -30)
@@ -152,7 +153,7 @@ rewind_warning_size = Vector2(128, 128)
 rewind_warning_offset = Vector2(5, 20)
 rewind_warning_vibration_amplitude = 5.0
 
-[node name="Camera2D" parent="Player" index="7"]
+[node name="Camera2D" parent="Player" index="10"]
 zoom = Vector2(1, 1)
 
 [node name="Enemy2" parent="." instance=ExtResource("2_enemy")]

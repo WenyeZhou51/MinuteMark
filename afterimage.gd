@@ -69,8 +69,6 @@ void fragment() {
 	# Store reference for fading
 	active_sprite = s
 	
-	# DEBUG: Verify shader setup
-	print("[Afterimage] Created silhouette - Color: RGB(%.2f, %.2f, %.2f) Alpha: %.2f" % [custom_modulate.r, custom_modulate.g, custom_modulate.b, custom_modulate.a])
 	s.visible = true
 	
 	if p:
@@ -85,13 +83,8 @@ func _process(delta: float) -> void:
 	# Calculate alpha for this frame
 	var current_alpha = initial_alpha * (1.0 - fade_progress)
 	
-	# DEBUG: Print fade state periodically (every ~0.1 seconds)
-	if int(elapsed_time * 10) % 3 == 0:
-		print("[Afterimage] Fading - Progress: %.2f%%, fade_alpha: %.3f" % [fade_progress * 100, current_alpha])
-	
 	if fade_progress >= 1.0:
 		# Lifetime expired, delete the afterimage
-		print("[Afterimage] Destroyed - Total lifetime: %.2f seconds" % elapsed_time)
 		queue_free()
 		return
 	
