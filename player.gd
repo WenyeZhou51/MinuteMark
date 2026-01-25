@@ -51,7 +51,7 @@ const DeathEffectScene = preload("res://DeathEffect.tscn")
 @export var jump_velocity: float = -612.5  ## Initial upward velocity for jump (adjusted to maintain jump height with increased gravity)
 @export var jump_early_release_multiplier: float = 2.5  ## Gravity multiplier when jump released early
 @export var coyote_time: float = 0.15  ## Grace period to jump after leaving ground
-@export var jump_buffer_time: float = 0.1  ## Window to buffer jump input before landing
+@export var jump_buffer_time: float = 0.2  ## Window to buffer jump input before landing
 @export var empowered_jump_velocity_multiplier: float = 1.35  ## Vertical velocity multiplier for empowered jump (in sprint state)
 @export var empowered_jump_horizontal_boost: float = 150.0  ## Extra horizontal velocity added to empowered jump (in sprint state)
 
