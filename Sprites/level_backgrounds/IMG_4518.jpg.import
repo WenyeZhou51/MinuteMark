@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b2c7it5mrmtpd"
-path="res://.godot/imported/Kick_007.png-a5d201d8ffc424af88304d78ef8dc5ea.ctex"
+uid="uid://b5v5ch6lmmej"
+path="res://.godot/imported/IMG_4518.jpg-35f7308c5d5ed2d1cd9b4faf5a7cec7c.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://Animation/Kick/Kick_007.png"
-dest_files=["res://.godot/imported/Kick_007.png-a5d201d8ffc424af88304d78ef8dc5ea.ctex"]
+source_file="res://Sprites/level_backgrounds/IMG_4518.jpg"
+dest_files=["res://.godot/imported/IMG_4518.jpg-35f7308c5d5ed2d1cd9b4faf5a7cec7c.ctex"]
 
 [params]
 
