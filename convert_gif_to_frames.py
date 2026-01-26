@@ -52,10 +52,11 @@ def convert_gif_to_frames(gif_path, output_folder):
 
 if __name__ == "__main__":
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    gif_path = os.path.join(script_dir, "Sprites", "Bg pocket watch.gif")
-    output_folder = os.path.join(script_dir, "Sprites", "pocket_watch_frames")
+    gif_path = os.path.join(script_dir, "Sprites", "New kick.gif")
+    output_folder = os.path.join(script_dir, "Sprites", "new_kick_frames")
     
     
     if os.path.exists(gif_path):
-        convert_gif_to_frames(gif_path, output_folder)
+        frame_count = convert_gif_to_frames(gif_path, output_folder)
+        print(f"Converted {frame_count} frames from {gif_path} to {output_folder}")
 

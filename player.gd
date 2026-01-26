@@ -571,13 +571,17 @@ func _ready() -> void:
 	
 	# Try to load default kick sounds if not assigned
 	if not kick_object_sfx:
-		if ResourceLoader.exists("res://audio/kickObject.mp3"):
+		if ResourceLoader.exists("res://audio/new kick sound.wav"):
+			kick_object_sfx = load("res://audio/new kick sound.wav")
+		elif ResourceLoader.exists("res://audio/kickObject.mp3"):
 			kick_object_sfx = load("res://audio/kickObject.mp3")
 		elif ResourceLoader.exists("res://audio/kickObject.wav"):
 			kick_object_sfx = load("res://audio/kickObject.wav")
 			
 	if not kick_air_sfx:
-		if ResourceLoader.exists("res://audio/kickAir.mp3"):
+		if ResourceLoader.exists("res://audio/new kick sound.wav"):
+			kick_air_sfx = load("res://audio/new kick sound.wav")
+		elif ResourceLoader.exists("res://audio/kickAir.mp3"):
 			kick_air_sfx = load("res://audio/kickAir.mp3")
 		elif ResourceLoader.exists("res://audio/kickAir.wav"):
 			kick_air_sfx = load("res://audio/kickAir.wav")
@@ -5086,17 +5090,17 @@ func _setup_animations() -> void:
 	_load_animation_sequence(sf, "jump", "res://Animation/jump/", "jump_", 28, jump_fps)
 	_load_animation_sequence(sf, "wall_run", "res://Animation/Wall run 复制/", "Wall run 复制_", 18, wall_run_fps)
 	_load_animation_sequence(sf, "slide", "res://Animation/Slide/", "Slide_", 10, ground_slide_fps, false)
-	_load_animation_sequence(sf, "kick", "res://Animation/Kick/", "Kick_", 14, kick_fps, false)
+	_load_animation_sequence(sf, "kick", "res://Sprites/new_kick_frames/", "frame_", 11, kick_fps, false, 4, 0)
 	
 	animated_sprite.sprite_frames = sf
 	animated_sprite.play("idle") # Default animation to idle instead of run
 
-func _load_animation_sequence(sf: SpriteFrames, anim_name: String, folder: String, prefix: String, count: int, fps: float, loop: bool = true, padding: int = 3) -> void:
+func _load_animation_sequence(sf: SpriteFrames, anim_name: String, folder: String, prefix: String, count: int, fps: float, loop: bool = true, padding: int = 3, start_index: int = 1) -> void:
 	if not sf.has_animation(anim_name):
 		sf.add_animation(anim_name)
 	
 	var frames_added = 0
-	for i in range(1, count + 1):
+	for i in range(start_index, start_index + count):
 		var frame_num = str(i).pad_zeros(padding)
 		var path = folder + prefix + frame_num + ".png"
 		if ResourceLoader.exists(path):
