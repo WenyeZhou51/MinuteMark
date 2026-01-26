@@ -21,14 +21,25 @@ var outline_node: Line2D = null
 # Raycast and Shapecast for collision detection while flying
 var raycast: RayCast2D
 var shapecast: ShapeCast2D
+var laser_raycast: RayCast2D  # Separate raycast for laser sight
+
+# ====================================
+# ANIMATION CONFIGURATION
+# ====================================
+@export_group("Animation")
+@export var animation_framerate: float = 6.0  ## Animation playback speed (frames per second)
+@export var sprite_scale: Vector2 = Vector2(0.08, 0.08)  ## Scale of the animated sprite
+@export var sprite_offset: Vector2 = Vector2(14, -15)  ## Position offset of the sprite
 
 # ====================================
 # RANGED ATTACK CONFIGURATION
 # ====================================
 @export_group("Ranged Attack")
 @export var shooting_enabled: bool = true  ## Enable ranged attacks
-@export var shoot_interval: float = 1.0  ## Time between shots (seconds)
-@export var warning_duration: float = 1.0  ## Duration of warning indicator before shooting (seconds)
+@export var startup_delay: float = 0.5  ## Initial delay before starting to aim (seconds)
+@export var aim_duration: float = 1.0  ## Duration of aiming before shooting (seconds)
+@export var post_shoot_pause: float = 0.5  ## Pause after shooting before aiming again (seconds)
+@export var tracking_speed_degrees: float = 120.0  ## Tracking speed in degrees per second
 @export var bullet_speed: float = 2000.0  ## Speed of fired bullets (pixels per second)
 @export var detection_range: float = 800.0  ## Range to detect and shoot at player
 @export var warning_shake_intensity: float = 3.0  ## Intensity of exclamation mark shake
@@ -43,17 +54,37 @@ var shapecast: ShapeCast2D
 const BulletScene = preload("res://enemy_bullet.tscn")
 
 # Shooting state variables
-var shoot_timer: float = 0.0
-var warning_timer: float = 0.0
-var is_warning: bool = false
+enum ShootingState { STARTUP_DELAY, AIMING, POST_SHOOT_PAUSE }
+var shooting_state: ShootingState = ShootingState.STARTUP_DELAY
+var state_timer: float = 0.0
+var aim_timer: float = 0.0
 var warning_indicator: Node2D = null
 var warning_text: Label = null
 var player_ref: Node2D = null
 var laser_sight: Line2D = null
+var current_laser_angle: float = 0.0  # Current angle of laser in radians
+var player_was_on_right: bool = false  # Track which side player was on
+
+# Animation variables
+var animated_sprite: AnimatedSprite2D = null
+var is_firing_animation: bool = false  # Track if we're playing the firing animation
+var gunpoint: Node2D = null  # Point where bullets and laser originate
 
 func _ready() -> void:
 	# Connect the area entered signal for player touch
 	body_entered.connect(_on_body_entered)
+	
+	# Setup animated sprite
+	_setup_animated_sprite()
+	
+	# Get or create gunpoint node (where bullets and laser originate)
+	gunpoint = get_node_or_null("Gunpoint")
+	if not gunpoint:
+		# Create a default gunpoint if one doesn't exist in the scene
+		gunpoint = Node2D.new()
+		gunpoint.name = "Gunpoint"
+		gunpoint.position = Vector2(30, -15)  # Default position
+		add_child(gunpoint)
 	
 	# Create raycast for collision detection while kicked
 	raycast = RayCast2D.new()
@@ -86,13 +117,22 @@ func _ready() -> void:
 	outline_node.z_index = 10  # Draw on top
 	add_child(outline_node)
 	
-	# Create laser sight for shooting warning
+	# Create laser sight for shooting warning (child of gunpoint)
 	laser_sight = Line2D.new()
 	laser_sight.width = 2.0
 	laser_sight.default_color = Color(1.0, 0.0, 0.0, 0.5)  # Transparent red
 	laser_sight.visible = false
 	laser_sight.z_index = 5
-	add_child(laser_sight)
+	gunpoint.add_child(laser_sight)
+	
+	# Create raycast for laser sight to detect walls (child of gunpoint)
+	laser_raycast = RayCast2D.new()
+	laser_raycast.enabled = true
+	laser_raycast.collide_with_areas = false
+	laser_raycast.collide_with_bodies = true
+	laser_raycast.exclude_parent = true
+	laser_raycast.collision_mask = 1  # Collide with layer 1 (walls/platforms)
+	gunpoint.add_child(laser_raycast)
 	
 	# Set outline points (rectangle around enemy)
 	var outline_padding = 5.0
@@ -111,10 +151,87 @@ func _ready() -> void:
 	await get_tree().process_frame
 	_find_player()
 
+func _setup_animated_sprite() -> void:
+	"""Setup the animated sprite with frames from enemy GIF."""
+	# Hide the old static sprite if it exists
+	var old_sprite = get_node_or_null("Sprite")
+	if old_sprite:
+		old_sprite.visible = false
+	
+	# Create AnimatedSprite2D
+	animated_sprite = AnimatedSprite2D.new()
+	animated_sprite.name = "AnimatedSprite"
+	animated_sprite.position = sprite_offset
+	animated_sprite.scale = sprite_scale
+	add_child(animated_sprite)
+	
+	# Create SpriteFrames
+	var sprite_frames = SpriteFrames.new()
+	
+	# Add "idle" animation (just frame 0 - the first frame)
+	sprite_frames.add_animation("idle")
+	var idle_frame = load("res://Sprites/enemy_frames/frame_0000.png")
+	sprite_frames.add_frame("idle", idle_frame)
+	sprite_frames.set_animation_speed("idle", animation_framerate)
+	sprite_frames.set_animation_loop("idle", false)
+	
+	# Add "attack" animation (frames 1, 2, 3, then back to 0)
+	sprite_frames.add_animation("attack")
+	var attack_frame_1 = load("res://Sprites/enemy_frames/frame_0001.png")
+	var attack_frame_2 = load("res://Sprites/enemy_frames/frame_0002.png")
+	var attack_frame_3 = load("res://Sprites/enemy_frames/frame_0003.png")
+	sprite_frames.add_frame("attack", attack_frame_1)
+	sprite_frames.add_frame("attack", attack_frame_2)
+	sprite_frames.add_frame("attack", attack_frame_3)
+	sprite_frames.add_frame("attack", idle_frame)  # Return to frame 0
+	sprite_frames.set_animation_speed("attack", animation_framerate)
+	sprite_frames.set_animation_loop("attack", false)
+	
+	# Assign sprite frames
+	animated_sprite.sprite_frames = sprite_frames
+	
+	# Start with idle animation (frame 0)
+	animated_sprite.play("idle")
+	animated_sprite.stop()
+	animated_sprite.frame = 0
+	
+	# Connect animation finished signal
+	animated_sprite.animation_finished.connect(_on_animation_finished)
+
+func _on_animation_finished() -> void:
+	"""Called when attack animation finishes."""
+	if animated_sprite and is_firing_animation:
+		is_firing_animation = false
+		# Go back to idle (frame 0)
+		animated_sprite.play("idle")
+		animated_sprite.stop()
+		animated_sprite.frame = 0
+
+func _update_sprite_facing() -> void:
+	"""Flip sprite to face player."""
+	if not animated_sprite or not player_ref or not is_instance_valid(player_ref):
+		return
+	
+	# Check if player is to the left or right
+	var to_player = player_ref.global_position - global_position
+	
+	# Flip sprite based on player position
+	# If player is to the left (negative x), flip sprite
+	var should_flip = to_player.x < 0
+	animated_sprite.flip_h = should_flip
+	
+	# Also flip gunpoint horizontally by mirroring its scale
+	if gunpoint:
+		gunpoint.scale.x = -1.0 if should_flip else 1.0
+
 func _physics_process(delta: float) -> void:
 	# Update outline shake effect if targeted
 	if is_targeted and outline_node and not is_destroyed:
 		_update_outline_shake()
+	
+	# Update sprite facing (when not destroyed or kicked)
+	if not is_destroyed and not is_kicked:
+		_update_sprite_facing()
 	
 	# Update shooting behavior (only when not destroyed)
 	if shooting_enabled and not is_destroyed and not is_kicked:
@@ -444,7 +561,7 @@ func _create_warning_indicator() -> void:
 	warning_indicator.add_child(warning_text)
 
 func _update_shooting(delta: float) -> void:
-	"""Update shooting timer and handle shooting behavior."""
+	"""Update shooting timer and handle shooting behavior with tracking."""
 	# Check if player is in range
 	if not player_ref or not is_instance_valid(player_ref):
 		_find_player()
@@ -453,69 +570,150 @@ func _update_shooting(delta: float) -> void:
 	var distance_to_player = global_position.distance_to(player_ref.global_position)
 	if distance_to_player > detection_range:
 		if laser_sight: laser_sight.visible = false
+		if warning_indicator: warning_indicator.visible = false
+		# Reset to startup delay when out of range
+		shooting_state = ShootingState.STARTUP_DELAY
+		state_timer = 0.0
+		aim_timer = 0.0
 		return
 	
-	# Update warning state
-	if is_warning:
-		warning_timer += delta
-		_update_warning_shake()
-		
-		# Rapid flashing logic 0.2 seconds before firing
-		var time_until_fire = warning_duration - warning_timer
-		var is_flashing_phase = time_until_fire <= flash_threshold
-		var flash_on = int(warning_timer / flash_interval) % 2 == 0
-		
-		# Update laser sight
-		if laser_sight:
-			laser_sight.visible = true
-			laser_sight.clear_points()
-			laser_sight.add_point(Vector2.ZERO)
-			laser_sight.add_point(to_local(player_ref.global_position))
+	# Update state timer
+	state_timer += delta
+	
+	match shooting_state:
+		ShootingState.STARTUP_DELAY:
+			# Hide laser and warning during startup delay
+			if laser_sight: laser_sight.visible = false
+			if warning_indicator: warning_indicator.visible = false
 			
-			if is_flashing_phase:
-				# Flash between Red and Yellow
-				laser_sight.default_color = Color(1.0, 0.0, 0.0, 1.0) if flash_on else laser_flash_color
-				laser_sight.width = laser_flash_width if flash_on else laser_width
-			else:
-				laser_sight.default_color = laser_color
-				laser_sight.width = laser_width
+			if state_timer >= startup_delay:
+				# Transition to aiming
+				shooting_state = ShootingState.AIMING
+				state_timer = 0.0
+				aim_timer = 0.0
+				# Initialize laser angle to current direction to player (from gunpoint)
+				var gunpoint_pos = gunpoint.global_position if gunpoint else global_position
+				var to_player = player_ref.global_position - gunpoint_pos
+				current_laser_angle = to_player.angle()
+				# Track which side player is on
+				player_was_on_right = to_player.x > 0
 		
-		# Sync exclamation mark with flashing
-		if warning_text:
-			if is_flashing_phase:
-				# Match laser flashing (Red/Yellow)
-				warning_text.add_theme_color_override("font_color", Color(1.0, 0.0, 0.0) if flash_on else laser_flash_color)
-				warning_text.visible = true # Ensure it stays visible but changes color
+		ShootingState.AIMING:
+			aim_timer += delta
+			
+			# Calculate direction to player (from gunpoint)
+			var gunpoint_pos = gunpoint.global_position if gunpoint else global_position
+			var to_player = player_ref.global_position - gunpoint_pos
+			var target_angle = to_player.angle()
+			var player_is_on_right = to_player.x > 0
+			
+			# Check if player crossed sides
+			if player_is_on_right != player_was_on_right:
+				# Player crossed! Reset to startup delay
+				shooting_state = ShootingState.STARTUP_DELAY
+				state_timer = 0.0
+				aim_timer = 0.0
+				if laser_sight: laser_sight.visible = false
+				if warning_indicator: warning_indicator.visible = false
+				return
+			
+			# Smoothly rotate laser towards player at tracking_speed_degrees per second
+			var tracking_speed_radians = deg_to_rad(tracking_speed_degrees)
+			var angle_diff = _angle_difference(current_laser_angle, target_angle)
+			
+			# Rotate towards target, but cap at tracking speed
+			var max_rotation = tracking_speed_radians * delta
+			if abs(angle_diff) <= max_rotation:
+				current_laser_angle = target_angle
 			else:
-				warning_text.add_theme_color_override("font_color", Color(1.0, 0.8, 0.0)) # Default Yellow
-				warning_text.visible = true
-		
-		if warning_timer >= warning_duration:
-			# Warning complete - shoot!
-			_shoot_at_player()
-			is_warning = false
-			warning_timer = 0.0
-			if warning_indicator:
-				warning_indicator.visible = false
+				current_laser_angle += sign(angle_diff) * max_rotation
+			
+			# Normalize angle to [-PI, PI]
+			current_laser_angle = wrapf(current_laser_angle, -PI, PI)
+			
+			# Calculate laser end point using raycast
+			var laser_direction = Vector2(cos(current_laser_angle), sin(current_laser_angle))
+			var max_laser_distance = 5000.0  # Very long distance to reach across screen
+			
+			# Update raycast to check for walls
+			if laser_raycast:
+				laser_raycast.target_position = laser_direction * max_laser_distance
+				laser_raycast.force_raycast_update()
+			
+			# Determine laser end point
+			var laser_end_point: Vector2
+			if laser_raycast and laser_raycast.is_colliding():
+				# Hit a wall, stop at collision point (convert to gunpoint's local space)
+				laser_end_point = gunpoint.to_local(laser_raycast.get_collision_point())
+			else:
+				# No wall hit, extend to max distance
+				laser_end_point = laser_direction * max_laser_distance
+			
+			# Update laser sight
 			if laser_sight:
-				laser_sight.visible = false
-	else:
-		# Update shoot timer
-		shoot_timer += delta
+				laser_sight.visible = true
+				laser_sight.clear_points()
+				laser_sight.add_point(Vector2.ZERO)
+				laser_sight.add_point(laser_end_point)
+				
+				# Flashing logic
+				var time_until_fire = aim_duration - aim_timer
+				var is_flashing_phase = time_until_fire <= flash_threshold
+				var flash_on = int(aim_timer / flash_interval) % 2 == 0
+				
+				if is_flashing_phase:
+					laser_sight.default_color = Color(1.0, 0.0, 0.0, 1.0) if flash_on else laser_flash_color
+					laser_sight.width = laser_flash_width if flash_on else laser_width
+				else:
+					laser_sight.default_color = laser_color
+					laser_sight.width = laser_width
+			
+			# Show warning indicator and update shake
+			if warning_indicator:
+				warning_indicator.visible = true
+			_update_warning_shake()
+			
+			# Sync exclamation mark with flashing
+			if warning_text:
+				var time_until_fire = aim_duration - aim_timer
+				var is_flashing_phase = time_until_fire <= flash_threshold
+				var flash_on = int(aim_timer / flash_interval) % 2 == 0
+				
+				if is_flashing_phase:
+					warning_text.add_theme_color_override("font_color", Color(1.0, 0.0, 0.0) if flash_on else laser_flash_color)
+				else:
+					warning_text.add_theme_color_override("font_color", Color(1.0, 0.8, 0.0))
+			
+			# Check if aim duration complete
+			if aim_timer >= aim_duration:
+				# Shoot!
+				_shoot_at_player()
+				shooting_state = ShootingState.POST_SHOOT_PAUSE
+				state_timer = 0.0
+				aim_timer = 0.0
+				if laser_sight: laser_sight.visible = false
+				if warning_indicator: warning_indicator.visible = false
 		
-		if shoot_timer >= shoot_interval:
-			# Start warning
-			_start_warning()
-			shoot_timer = 0.0
+		ShootingState.POST_SHOOT_PAUSE:
+			# Hide laser and warning during post-shoot pause
+			if laser_sight: laser_sight.visible = false
+			if warning_indicator: warning_indicator.visible = false
+			
+			if state_timer >= post_shoot_pause:
+				# Transition back to startup delay
+				shooting_state = ShootingState.STARTUP_DELAY
+				state_timer = 0.0
+				aim_timer = 0.0
 
-func _start_warning() -> void:
-	"""Start the warning indicator before shooting."""
-	is_warning = true
-	warning_timer = 0.0
-	
-	if warning_indicator:
-		warning_indicator.visible = true
-	
+func _angle_difference(from_angle: float, to_angle: float) -> float:
+	"""Calculate the shortest angle difference between two angles."""
+	var diff = to_angle - from_angle
+	# Normalize to [-PI, PI]
+	while diff > PI:
+		diff -= 2 * PI
+	while diff < -PI:
+		diff += 2 * PI
+	return diff
 
 func _update_warning_shake() -> void:
 	"""Apply vibrating shake effect to warning indicator."""
@@ -532,21 +730,27 @@ func _update_warning_shake() -> void:
 	warning_text.position = Vector2(-12, -60) + shake_offset
 
 func _shoot_at_player() -> void:
-	"""Shoot a bullet towards the player."""
+	"""Shoot a bullet in the direction of the current laser angle."""
 	if not player_ref or not is_instance_valid(player_ref):
 		return
 	
-	# Calculate direction to player
-	var direction_to_player = (player_ref.global_position - global_position).normalized()
+	# Play attack animation
+	if animated_sprite:
+		is_firing_animation = true
+		animated_sprite.play("attack")
+	
+	# Calculate direction based on current laser angle
+	var shoot_direction = Vector2(cos(current_laser_angle), sin(current_laser_angle))
 	
 	# Create bullet
 	var bullet = BulletScene.instantiate()
 	
-	# Position bullet at enemy location
-	bullet.global_position = global_position
+	# Position bullet at gunpoint location
+	var spawn_pos = gunpoint.global_position if gunpoint else global_position
+	bullet.global_position = spawn_pos
 	
 	# Initialize bullet with direction, speed, and shooter reference
-	bullet.initialize(direction_to_player, bullet_speed, self)
+	bullet.initialize(shoot_direction, bullet_speed, self)
 	
 	# Add bullet to scene (as sibling, not child)
 	get_parent().add_child(bullet)

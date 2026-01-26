@@ -159,6 +159,12 @@ zoom = Vector2(1, 1)
 
 [node name="Enemy2" parent="." instance=ExtResource("2_enemy")]
 position = Vector2(3661, 840)
+tracking_speed_degrees = 150.0
+detection_range = 1000.0
+laser_width = 6.0
+
+[node name="Enemy3" parent="." instance=ExtResource("2_enemy")]
+position = Vector2(1763, 857)
 
 [node name="Elevator Guard" parent="." instance=ExtResource("2_enemy")]
 position = Vector2(6744, 827)

@@ -4,18 +4,23 @@
 [ext_resource type="Texture2D" uid="uid://fd4dvboakl0r" path="res://Sprites/Enemy.png" id="2_sprite"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_enemy"]
-size = Vector2(40, 88)
+size = Vector2(94.5, 160.5)
 
 [node name="Enemy" type="Area2D" groups=["enemies"]]
 collision_layer = 4
 collision_mask = 33
 script = ExtResource("1_enemy_script")
+sprite_scale = Vector2(0.4, 0.4)
+sprite_offset = Vector2(0, -35)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-position = Vector2(0, -14)
+position = Vector2(0.75, -53.75)
 shape = SubResource("RectangleShape2D_enemy")
 
 [node name="Sprite" type="Sprite2D" parent="."]
 position = Vector2(14, -15)
 scale = Vector2(0.0800006, 0.0800006)
 texture = ExtResource("2_sprite")
+
+[node name="Gunpoint" type="Node2D" parent="."]
+position = Vector2(-71, -67)
