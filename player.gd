@@ -506,6 +506,8 @@ func _ready() -> void:
 	if timer_ui_scene:
 		timer_ui_instance = timer_ui_scene.instantiate()
 		add_child(timer_ui_instance)
+		timer_ui_instance.setup_timer(game_timer_duration)
+		timer_ui_instance.time_expired.connect(die)
 	
 	# Setup audio volumes
 	if jump_sound:
@@ -835,18 +837,11 @@ func _physics_process(delta: float) -> void:
 	if is_tutorial_active:
 		velocity = Vector2.ZERO
 	
-	# Update timer system (only when not paused and not in tutorial)
-	if not get_tree().paused and not is_tutorial_active and current_game_time > 0:
-		current_game_time -= delta
-		if current_game_time <= 0:
-			current_game_time = 0
-			if timer_ui_instance:
-				timer_ui_instance.update_display(current_game_time)
-			die()
-			return  # Stop processing after death
-		else:
-			if timer_ui_instance:
-				timer_ui_instance.update_display(current_game_time)
+	# Update timer system
+	# Timer logic is now handled by TimerUI (which runs even when paused)
+	# We just sync our local variable for external access (e.g. LevelFinishTrigger)
+	if timer_ui_instance:
+		current_game_time = timer_ui_instance.current_time
 
 	# Track position at start of frame
 	var frame_start_position = global_position
@@ -5144,11 +5139,9 @@ func _spawn_time_bonus(world_pos: Vector2) -> void:
 	effect.set_script(TimeBonusEffectScript)
 	timer_ui_instance.add_child(effect)
 	effect.setup(screen_pos, target_pos, func(): 
-		current_game_time += 1.0
-		# The timer UI will update in the next _physics_process call, 
-		# but we can force it for immediate feedback
-		if timer_ui_instance.has_method("update_display"):
-			timer_ui_instance.update_display(current_game_time)
+		if timer_ui_instance:
+			timer_ui_instance.add_time(1.0)
+			current_game_time = timer_ui_instance.current_time
 	)
 
 func apply_camera_shake(intensity: float, duration: float) -> void:
