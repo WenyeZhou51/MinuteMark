@@ -1,9 +1,30 @@
-[gd_scene load_steps=3 format=3 uid="uid://dyetqoxdfluq0"]
+[gd_scene load_steps=5 format=3 uid="uid://dyetqoxdfluq0"]
 
 [ext_resource type="Script" path="res://window.gd" id="1_window"]
+[ext_resource type="Shader" path="res://shaders/glass_window.gdshader" id="2_shader"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_window"]
 size = Vector2(84, 823)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_glass"]
+shader = ExtResource("2_shader")
+shader_parameter/glass_tint = Color(0.7, 0.9, 1, 0.6)
+shader_parameter/base_alpha = 0.5
+shader_parameter/reflection_intensity = 0.4
+shader_parameter/reflection_speed = 1.0
+shader_parameter/reflection_direction = Vector2(1, -0.5)
+shader_parameter/shimmer_intensity = 0.6
+shader_parameter/shimmer_speed = 2.0
+shader_parameter/shimmer_scale = 8.0
+shader_parameter/edge_thickness = 0.15
+shader_parameter/edge_color = Color(0.8, 1, 1, 0.9)
+shader_parameter/edge_intensity = 0.8
+shader_parameter/distortion_strength = 0.01
+shader_parameter/distortion_speed = 1.0
+shader_parameter/specular_color = Color(1, 1, 1, 0.8)
+shader_parameter/specular_intensity = 0.7
+shader_parameter/specular_size = 3.0
+shader_parameter/light_position = Vector2(0.3, 0.3)
 
 [node name="Window" type="StaticBody2D" groups=["kickable_objects"]]
 script = ExtResource("1_window")
@@ -16,6 +37,7 @@ color = Color(0.3, 0.2, 0.1, 1)
 polygon = PackedVector2Array(-30, -40, 30, -40, 30, 40, -30, 40)
 
 [node name="GlassVisual" type="Polygon2D" parent="."]
+material = SubResource("ShaderMaterial_glass")
 color = Color(0.7, 0.9, 1, 0.6)
 polygon = PackedVector2Array(-26, -36, 26, -36, 26, 36, -26, 36)
 
