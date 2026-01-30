@@ -649,6 +649,10 @@ func _update_shooting(delta: float) -> void:
 				# No wall hit, extend to max distance
 				laser_end_point = laser_direction * max_laser_distance
 			
+			# Account for gunpoint horizontal flip
+			if gunpoint and gunpoint.scale.x < 0:
+				laser_end_point.x = -laser_end_point.x
+			
 			# Update laser sight
 			if laser_sight:
 				laser_sight.visible = true

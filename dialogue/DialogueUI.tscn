@@ -1,6 +1,6 @@
 [gd_scene load_steps=11 format=3 uid="uid://b756hnxt8gukc"]
 
-[ext_resource type="Script" uid="uid://y41shuqje1hx" path="res://dialogue/dialogue_ui.gd" id="1_60r3g"]
+[ext_resource type="Script" path="res://dialogue/dialogue_ui.gd" id="1_60r3g"]
 [ext_resource type="FontFile" uid="uid://baaiikv2041fb" path="res://Fonts/Funkrocker.otf" id="3_funk"]
 [ext_resource type="Texture2D" uid="uid://c1fil4nb21uqj" path="res://dialogue/protag_new.png" id="4_bob"]
 [ext_resource type="Texture2D" uid="uid://bgsg7kswc2ky6" path="res://dialogue/dialogue2.png" id="4_dialogue_bg"]
@@ -64,12 +64,12 @@ shadow_color = Color(0, 0, 0, 0.3)
 shadow_size = 4
 shadow_offset = Vector2(2, 2)
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn_pressed"]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn_hover"]
 content_margin_left = 12.0
 content_margin_top = 4.0
 content_margin_right = 12.0
 content_margin_bottom = 4.0
-bg_color = Color(0.6, 0.1, 0.1, 1)
+bg_color = Color(1, 0.2, 0.2, 1)
 border_width_left = 2
 border_width_top = 2
 border_width_right = 2
@@ -80,12 +80,12 @@ corner_radius_top_right = 4
 corner_radius_bottom_right = 4
 corner_radius_bottom_left = 4
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn_hover"]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_btn_pressed"]
 content_margin_left = 12.0
 content_margin_top = 4.0
 content_margin_right = 12.0
 content_margin_bottom = 4.0
-bg_color = Color(1, 0.2, 0.2, 1)
+bg_color = Color(0.6, 0.1, 0.1, 1)
 border_width_left = 2
 border_width_top = 2
 border_width_right = 2
@@ -235,9 +235,9 @@ grow_horizontal = 2
 grow_vertical = 0
 rotation = -0.1
 pivot_offset = Vector2(225, 40)
-theme_override_styles/normal = SubResource("StyleBoxFlat_btn")
-theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_pressed")
 theme_override_styles/hover = SubResource("StyleBoxFlat_btn_hover")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_btn_pressed")
+theme_override_styles/normal = SubResource("StyleBoxFlat_btn")
 
 [node name="Label" type="Label" parent="InterruptIndicator"]
 layout_mode = 1
