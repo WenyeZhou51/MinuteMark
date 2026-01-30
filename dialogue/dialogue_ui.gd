@@ -26,7 +26,7 @@ var portraits = {
 	"Player": preload("res://dialogue/protag_new.png"), 
 	"Protag": preload("res://dialogue/protag_new.png"),
 	"Stranger": preload("res://dialogue/protag_new.png"),
-	"Elevator Guard": preload("res://dialogue/guard_portrait.png"),
+	"Elevator Guard": preload("res://dialogue/guard.png"),
 	"???": preload("res://dialogue/protag_new.png")
 }
 

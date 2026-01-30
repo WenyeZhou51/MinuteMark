@@ -1,6 +1,6 @@
 [gd_scene load_steps=25 format=3 uid="uid://clfclx5p38xkv"]
 
-[ext_resource type="Script" uid="uid://c2socii74g5wh" path="res://level_manager.gd" id="1_manager"]
+[ext_resource type="Script" uid="uid://b4i78xyv03saw" path="res://level_manager.gd" id="1_manager"]
 [ext_resource type="PackedScene" uid="uid://vv3m4nx6g3jo" path="res://player.tscn" id="1_qj3g4"]
 [ext_resource type="PackedScene" uid="uid://b8x7lam2n4p5q" path="res://enemy.tscn" id="2_enemy"]
 [ext_resource type="Texture2D" uid="uid://d2g7jojkre5ug" path="res://Sprites/Bd.png" id="3_bg_texture"]
@@ -8,10 +8,10 @@
 [ext_resource type="PackedScene" uid="uid://c4k3l8m5n2qar" path="res://kickable_object.tscn" id="4_kickable"]
 [ext_resource type="PackedScene" uid="uid://b7q8n5ck2wh0e" path="res://pause_menu.tscn" id="8_b0gwe"]
 [ext_resource type="PackedScene" uid="uid://b756hnxt8gukc" path="res://dialogue/DialogueUI.tscn" id="9_dialogue"]
-[ext_resource type="Script" uid="uid://c3f8h1bjbe2xu" path="res://tutorial_trigger.gd" id="10_o05kg"]
-[ext_resource type="Script" uid="uid://b7qrmm1ub7a5l" path="res://dialogue_trigger.gd" id="10_trigger"]
+[ext_resource type="Script" uid="uid://b1y4vx8ub8uv5" path="res://tutorial_trigger.gd" id="10_o05kg"]
+[ext_resource type="Script" uid="uid://bev7civrw5tfd" path="res://dialogue_trigger.gd" id="10_trigger"]
 [ext_resource type="PackedScene" uid="uid://dyetqoxdfluq0" path="res://window.tscn" id="10_window"]
-[ext_resource type="Script" uid="uid://g336vr3eb3sn" path="res://pendulum_trigger.gd" id="11_pendulum_trigger"]
+[ext_resource type="Script" uid="uid://b16888vofurtu" path="res://pendulum_trigger.gd" id="11_pendulum_trigger"]
 [ext_resource type="FontFile" uid="uid://baaiikv2041fb" path="res://Fonts/Funkrocker.otf" id="12_font"]
 [ext_resource type="Script" uid="uid://r2n5pymd3a5y" path="res://minor_anim_system.gd" id="14_wxjrc"]
 [ext_resource type="Script" uid="uid://bwb7gicnbx5rs" path="res://tutorial_block.gd" id="18_4c15r"]
@@ -162,9 +162,6 @@ position = Vector2(3661, 840)
 tracking_speed_degrees = 150.0
 detection_range = 1000.0
 laser_width = 6.0
-
-[node name="Enemy3" parent="." instance=ExtResource("2_enemy")]
-position = Vector2(1763, 857)
 
 [node name="Elevator Guard" parent="." instance=ExtResource("2_enemy")]
 position = Vector2(6744, 827)
