@@ -6,6 +6,7 @@ extends Area2D
 @export var prerequisite_block_id: String = ""  # Empty = no prerequisite
 @export_multiline var instruction_message: String = "Press and hold R to rewind"
 @export var allowed_action: String = "rewind"  # "rewind", "dash", "jump", "kick", "move", "slam"
+@export var require_minimum_rewind_hold: bool = false ## For rewind tutorials: require minimum 0.5s hold (prevents early release)
 @export_group("Slow Motion Entry")
 @export var pre_freeze_slow_mo_time: float = 0.0 ## Duration of slow motion before freezing (in real seconds)
 @export var pre_freeze_slow_mo_scale: float = 0.1 ## Time scale during the slow motion phase
@@ -135,10 +136,10 @@ func _trigger_tutorial() -> void:
 			# Restore time scale before freezing/pausing
 			Engine.time_scale = 1.0
 			
-			TutorialBlockManager.start_tutorial(block_id, allowed_action, instruction_message)
+			TutorialBlockManager.start_tutorial(block_id, allowed_action, instruction_message, require_minimum_rewind_hold)
 		)
 	else:
-		TutorialBlockManager.start_tutorial(block_id, allowed_action, instruction_message)
+		TutorialBlockManager.start_tutorial(block_id, allowed_action, instruction_message, require_minimum_rewind_hold)
 
 func check_player_inside() -> void:
 	"""Check if player is currently inside this block. Used when rewind ends or during rewind."""

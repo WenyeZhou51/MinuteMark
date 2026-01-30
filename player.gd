@@ -433,6 +433,9 @@ var rewind_buffer_initialized: bool = false  # Track if rewind buffer has been p
 # Tutorial state variables
 var is_tutorial_locked: bool = false  # Is player locked in tutorial mode
 var tutorial_allowed_action: String = ""  # The only action allowed during tutorial (empty = none)
+var tutorial_rewind_hold_time: float = 0.0  # Time spent holding R during tutorial (minimum 0.5s before release)
+var tutorial_rewind_auto_completing: bool = false  # Player released early, auto-completing to 0.5s
+var require_minimum_rewind_hold: bool = false  # Require minimum 0.5s hold (set by elevator/tutorial triggers)
 
 # Dust effect state
 var dust_spawn_timer: float = 0.0
@@ -681,10 +684,21 @@ func _exit_tree() -> void:
 	"""Ensure time scale is reset when player is removed from scene."""
 	Engine.time_scale = 1.0
 
-func set_tutorial_lock(enabled: bool, allowed_action: String = "") -> void:
-	"""Set tutorial lock state - locks all actions except the allowed one."""
+func set_tutorial_lock(enabled: bool, allowed_action: String = "", require_min_hold: bool = false) -> void:
+	"""Set tutorial lock state - locks all actions except the allowed one.
+	If require_min_hold is true and allowed_action is 'rewind', enable minimum 0.5s hold requirement."""
 	is_tutorial_locked = enabled
 	tutorial_allowed_action = allowed_action
+	
+	# Enable minimum rewind hold requirement if specified
+	if enabled and allowed_action == "rewind" and require_min_hold:
+		require_minimum_rewind_hold = true
+	elif not enabled:
+		# Clear the requirement when tutorial ends ONLY if not auto-completing
+		# (auto-complete must finish even after tutorial ends)
+		if not tutorial_rewind_auto_completing:
+			require_minimum_rewind_hold = false
+			tutorial_rewind_hold_time = 0.0
 
 func cancel_rewind_and_set_cooldown() -> void:
 	"""Forcefully cancel rewind state and set cooldown. Used when entering tutorial blocks."""
@@ -705,6 +719,10 @@ func cancel_rewind_and_set_cooldown() -> void:
 	is_rewind_tracing = false
 	rewind_current_progress = 0.0
 	rewind_traceback_frame_data = []
+	
+	# Reset tutorial rewind state
+	tutorial_rewind_hold_time = 0.0
+	tutorial_rewind_auto_completing = false
 	
 	# Ensure slam state is reset
 	is_slamming = false
@@ -965,35 +983,91 @@ func _physics_process(delta: float) -> void:
 	
 	# Handle rewind input (hold-to-rewind)
 	if rewind_enabled and rewind_cooldown_timer <= 0:
+		# ELEVATOR TUTORIAL AUTO-COMPLETE: If player releases R early during elevator rewind,
+		# continue holding for them until 0.5s is reached to prevent getting stuck
+		# This check runs FIRST so it works even if tutorial state changes mid-auto-complete
+		if tutorial_rewind_auto_completing and is_rewind_holding:
+			tutorial_rewind_hold_time += delta
+			
+			# If reached 0.5s, automatically stop rewind
+			if tutorial_rewind_hold_time >= 0.5:
+				_stop_rewind_hold()
+				tutorial_rewind_auto_completing = false
+				require_minimum_rewind_hold = false
+				# Complete the tutorial if it's still active
+				if TutorialBlockManager and is_tutorial_locked:
+					TutorialBlockManager.check_action_performed("rewind")
+				if is_dying:
+					return
+		
 		# Tutorial lock check
 		if is_tutorial_locked:
 			if tutorial_allowed_action == "rewind":
-				# Rewind is allowed - check for press to notify tutorial manager
+				# Rewind is allowed - check for press to start rewind
 				if Input.is_action_just_pressed("rewind"):
 					if not is_stunned and not is_slam_frozen and not is_rewind_tracing:
 						_start_rewind_hold()
-						if TutorialBlockManager:
-							TutorialBlockManager.check_action_performed("rewind")
-				# Still allow normal rewind hold/release handling
-				if Input.is_action_just_released("rewind") and is_rewind_holding:
-					_stop_rewind_hold()
-					if is_dying:
-						return
+						tutorial_rewind_hold_time = 0.0  # Reset hold timer
+						tutorial_rewind_auto_completing = false  # Reset auto-complete flag
+						# DON'T complete tutorial on press - only on successful release!
+				
+				# Track hold time while rewind is active (only if not auto-completing)
+				if is_rewind_holding and not tutorial_rewind_auto_completing:
+					tutorial_rewind_hold_time += delta
+				
+				# Check for manual release
+				if Input.is_action_just_released("rewind"):
+					if is_rewind_holding and not tutorial_rewind_auto_completing:
+						if tutorial_rewind_hold_time >= 0.5:
+							# Held long enough, allow immediate release
+							_stop_rewind_hold()
+							tutorial_rewind_auto_completing = false
+							require_minimum_rewind_hold = false
+							# Complete the tutorial
+							if TutorialBlockManager:
+								TutorialBlockManager.check_action_performed("rewind")
+							if is_dying:
+								return
+						else:
+							# Released too early, enter auto-complete mode (will hold until 0.5s)
+							tutorial_rewind_auto_completing = true
 			# Otherwise, block rewind
 		else:
-			# Normal rewind handling
+			# Normal rewind handling (NON-TUTORIAL)
 			# Check if rewind button was just pressed (start rewind)
 			if Input.is_action_just_pressed("rewind"):
 				if not is_stunned and not is_slam_frozen and not is_rewind_tracing:
 					_start_rewind_hold()
+					# If minimum hold is required (elevator), track time
+					if require_minimum_rewind_hold:
+						tutorial_rewind_hold_time = 0.0
+						tutorial_rewind_auto_completing = false
+			
+			# Track hold time if minimum hold is required
+			if require_minimum_rewind_hold and is_rewind_holding and not tutorial_rewind_auto_completing:
+				tutorial_rewind_hold_time += delta
 			
 			# Check if rewind button was just released (stop and spawn shadow)
 			# This must be checked AFTER the press check to avoid same-frame conflicts
 			if Input.is_action_just_released("rewind") and is_rewind_holding:
-				_stop_rewind_hold()
-				# Check if die() was called during stop
-				if is_dying:
-					return
+				if require_minimum_rewind_hold and not tutorial_rewind_auto_completing:
+					# Check if held long enough
+					if tutorial_rewind_hold_time >= 0.5:
+						# Held long enough, allow release
+						_stop_rewind_hold()
+						tutorial_rewind_auto_completing = false
+						require_minimum_rewind_hold = false
+						if is_dying:
+							return
+					else:
+						# Released too early, enter auto-complete mode
+						tutorial_rewind_auto_completing = true
+				elif not require_minimum_rewind_hold:
+					# No minimum hold required, normal behavior
+					_stop_rewind_hold()
+					# Check if die() was called during stop
+					if is_dying:
+						return
 	
 	# Update run state based on speed (sprint state when speed exceeds threshold)
 	var current_speed = velocity.length()
@@ -3004,17 +3078,31 @@ func _on_enemy_destroyed() -> void:
 
 func _on_bullet_hit(bullet: Node2D, shooter: Node2D = null) -> void:
 	"""Called when player is hit by a bullet - starts grace period for parry."""
+	print("[Player DEBUG] _on_bullet_hit called!")
+	print("[Player DEBUG] Bullet ID: ", bullet.get_instance_id() if bullet else "null")
+	print("[Player DEBUG] Bullet name: ", bullet.name if bullet else "null")
+	print("[Player DEBUG] Shooter: ", shooter.name if shooter else "null")
+	print("[Player DEBUG] early_parry_timer: ", early_parry_timer)
+	print("[Player DEBUG] is_attacking: ", is_attacking)
+	print("[Player DEBUG] is_stunned: ", is_stunned)
+	print("[Player DEBUG] is_invulnerable: ", is_invulnerable)
+	print("[Player DEBUG] bullet_grace_period_active: ", bullet_grace_period_active)
+	
 	# If we are already trying to parry (too early press), trigger it immediately!
 	if early_parry_timer > 0 and not kick_has_fired and is_instance_valid(bullet):
+		print("[Player DEBUG] Triggering early parry")
 		_trigger_early_parry(KickTargetType.BULLET, bullet)
 		return
 		
 	# Check for invulnerability from dashes, already stunned, grace periods active, or post-stun invulnerability
 	if not is_attacking and not is_stunned and not is_invulnerable and not grace_period_active and not bullet_grace_period_active and stun_invulnerability_timer <= 0:
+		print("[Player DEBUG] Starting bullet grace period")
 		# Start bullet grace period
 		bullet_grace_period_active = true
 		bullet_grace_period_timer = bullet_hit_grace_period
 		bullet_that_hit = bullet
+	else:
+		print("[Player DEBUG] Bullet hit ignored due to player state")
 
 
 func _apply_bullet_hitstun() -> void:
@@ -4049,6 +4137,10 @@ func _stop_rewind_hold() -> void:
 	rewind_current_progress = 0.0
 	rewind_traceback_frame_data = []
 	
+	# Reset tutorial rewind state
+	tutorial_rewind_hold_time = 0.0
+	tutorial_rewind_auto_completing = false
+	
 	# Ensure slam state is reset (should not be restored during rewind)
 	is_slamming = false
 	if slam_attack_visual:
@@ -4136,8 +4228,8 @@ func _process_rewind_traceback(delta: float) -> void:
 		# If not holding anymore, stop (should have been handled by release)
 		return
 	
-	# Check if button is still being held
-	if not Input.is_action_pressed("rewind"):
+	# Check if button is still being held (skip check if auto-completing)
+	if not tutorial_rewind_auto_completing and not Input.is_action_pressed("rewind"):
 		# Button was released - stop rewind
 		_stop_rewind_hold()
 		return
@@ -4369,6 +4461,11 @@ func _complete_rewind_hold() -> void:
 	is_rewind_tracing = false
 	rewind_current_progress = 0.0
 	rewind_traceback_frame_data = []
+	
+	# Reset tutorial rewind state
+	tutorial_rewind_hold_time = 0.0
+	tutorial_rewind_auto_completing = false
+	require_minimum_rewind_hold = false
 	
 	# Ensure slam state is reset (should not be restored during rewind)
 	is_slamming = false

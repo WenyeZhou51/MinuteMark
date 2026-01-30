@@ -2,17 +2,27 @@ extends "res://enemy.gd"
 
 # Parry Tutorial Enemy - exactly like normal enemy but with perfect tracking,
 # super fast bullets, and bullets that cannot be kicked
+# Stops shooting once a bullet triggers the tutorial
+
+var tutorial_has_been_triggered: bool = false
 
 func _ready() -> void:
 	# Set perfect tracking and fast bullets
 	tracking_speed_degrees = 999999.0  # Essentially instant tracking
 	bullet_speed = 4000.0
+	aim_duration = 0.1  # Shoot very quickly - just 0.1 seconds of aiming
+	detection_range = 1000.0  # Medium-long range detection
+	startup_delay = 0.0  # No delay - start aiming immediately when player enters range
 	
 	# Call parent ready
 	super._ready()
 
 func _shoot_at_player() -> void:
 	"""Override shooting to spawn special unkickable bullets."""
+	# Don't shoot if tutorial has already been triggered
+	if tutorial_has_been_triggered:
+		return
+	
 	if not player_ref or not is_instance_valid(player_ref):
 		return
 	
@@ -35,6 +45,15 @@ func _shoot_at_player() -> void:
 	# Initialize bullet with direction, speed, and shooter reference
 	bullet.initialize(shoot_direction, bullet_speed, self)
 	
+	# Connect to bullet's tutorial trigger signal
+	bullet.tutorial_triggered.connect(_on_bullet_triggered_tutorial)
+	
 	# Add bullet to scene (as sibling, not child)
 	get_parent().add_child(bullet)
+
+func _on_bullet_triggered_tutorial() -> void:
+	"""Called when one of our bullets triggers the tutorial - stop shooting."""
+	tutorial_has_been_triggered = true
+	shooting_enabled = false
+	print("[ParryTutorialEnemy] Tutorial triggered, stopping all shooting")
 

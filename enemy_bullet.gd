@@ -76,8 +76,16 @@ func initialize(direction: Vector2, start_speed: float = 2000.0, shooter: Node2D
 
 func _on_body_entered(body: Node2D) -> void:
 	"""Hit something solid (wall, platform, player, or enemy)."""
+	print("[EnemyBullet DEBUG] _on_body_entered called - body: ", body.name, " was_parried: ", was_parried)
+	print("[EnemyBullet DEBUG] Body in player group: ", body.is_in_group("player"))
+	
 	# Check if it's the player (CharacterBody2D in "player" group)
 	if body.is_in_group("player") and not was_parried:
+		print("[EnemyBullet DEBUG] PLAYER HIT! Calling player hit function")
+		print("[EnemyBullet DEBUG] Bullet ID: ", get_instance_id())
+		print("[EnemyBullet DEBUG] Bullet position: ", global_position)
+		print("[EnemyBullet DEBUG] Player position: ", body.global_position)
+		
 		# Trigger player bullet hit (with grace period for parrying)
 		if body.has_method("_on_bullet_hit"):
 			body._on_bullet_hit(self, shooter_enemy)
@@ -89,13 +97,23 @@ func _on_body_entered(body: Node2D) -> void:
 		queue_free()
 		return
 	
-	# Hit a wall or platform - just destroy
+	# If parried, ignore wall collisions (go through walls)
+	if was_parried:
+		print("[EnemyBullet DEBUG] Parried bullet ignoring collision with: ", body.name)
+		return
+	
+	# Hit a wall or platform - destroy (only for non-parried bullets)
+	print("[EnemyBullet DEBUG] Hit wall/platform: ", body.name, " - destroying bullet")
 	queue_free()
 
 func _on_area_entered(area: Area2D) -> void:
 	"""Hit an area (including enemies)."""
+	print("[EnemyBullet DEBUG] _on_area_entered called - area: ", area.name, " was_parried: ", was_parried)
+	print("[EnemyBullet DEBUG] Area in enemies group: ", area.is_in_group("enemies"))
+	
 	# If parried bullet hits an enemy area, make it physics object
 	if was_parried and area.is_in_group("enemies"):
+		print("[EnemyBullet DEBUG] Parried bullet hit enemy: ", area.name)
 		if area.has_method("_hit_by_parried_bullet"):
 			# Hit any enemy when parried (prioritize shooter but hit any)
 			var hit_direction = velocity.normalized()
@@ -106,6 +124,7 @@ func _on_area_entered(area: Area2D) -> void:
 		return
 	
 	# Just destroy bullet on other area collisions
+	print("[EnemyBullet DEBUG] Bullet hit other area: ", area.name, " - destroying")
 	queue_free()
 
 func parry(parry_direction: Vector2) -> void:
@@ -145,10 +164,9 @@ func parry(parry_direction: Vector2) -> void:
 		gradient.add_point(1.0, Color(0.1, 0.5, 0.8, 0.0))  # Fade to transparent
 		particle_trail.color_ramp = gradient
 	
-	# Update collision mask to hit enemies instead of player
+	# Update collision mask to hit enemies only (go through walls on return trip)
 	collision_mask = 0  # Clear mask
-	set_collision_mask_value(1, true)  # Still detect walls/platforms
-	set_collision_mask_value(3, true)  # Layer 3 for enemy areas (4 = 2^2, but using layer index 3)
+	set_collision_mask_value(3, true)  # Layer 3 for enemy areas (collision_layer = 4 = 2^2)
 	
 
 func _create_particle_trail() -> void:

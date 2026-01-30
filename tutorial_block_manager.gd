@@ -83,7 +83,7 @@ func reset_tutorials() -> void:
 	
 	print("TutorialBlockManager: All tutorials reset")
 
-func start_tutorial(block_id: String, allowed_action: String, message: String) -> void:
+func start_tutorial(block_id: String, allowed_action: String, message: String, require_min_hold: bool = false) -> void:
 	"""Start a tutorial block - freeze player position, lock actions, freeze timer, show UI."""
 	print("TutorialBlockManager: start_tutorial called for block: ", block_id)
 	
@@ -127,7 +127,7 @@ func start_tutorial(block_id: String, allowed_action: String, message: String) -
 	
 	# Notify player to lock actions
 	if player and player.has_method("set_tutorial_lock"):
-		player.set_tutorial_lock(true, allowed_action)
+		player.set_tutorial_lock(true, allowed_action, require_min_hold)
 		print("TutorialBlockManager: Set tutorial lock on player")
 	
 	tutorial_started.emit(block_id, allowed_action, message)
