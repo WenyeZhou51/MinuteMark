@@ -2,9 +2,10 @@ extends "res://enemy.gd"
 
 # Parry Tutorial Enemy - exactly like normal enemy but with perfect tracking,
 # super fast bullets, and bullets that cannot be kicked
-# Stops shooting once a bullet triggers the tutorial
+# Stops shooting once a bullet triggers the tutorial (when bullet stops near player)
 
 var tutorial_has_been_triggered: bool = false
+var bullet_has_been_parried: bool = false
 
 func _ready() -> void:
 	# Set perfect tracking and fast bullets
@@ -19,8 +20,8 @@ func _ready() -> void:
 
 func _shoot_at_player() -> void:
 	"""Override shooting to spawn special unkickable bullets."""
-	# Don't shoot if tutorial has already been triggered
-	if tutorial_has_been_triggered:
+	# Don't shoot if tutorial has already been triggered or bullet has been parried
+	if tutorial_has_been_triggered or bullet_has_been_parried:
 		return
 	
 	if not player_ref or not is_instance_valid(player_ref):
@@ -48,6 +49,9 @@ func _shoot_at_player() -> void:
 	# Connect to bullet's tutorial trigger signal
 	bullet.tutorial_triggered.connect(_on_bullet_triggered_tutorial)
 	
+	# Connect to bullet's parried signal to stop shooting when deflected
+	bullet.bullet_parried.connect(_on_bullet_parried)
+	
 	# Add bullet to scene (as sibling, not child)
 	get_parent().add_child(bullet)
 
@@ -56,4 +60,10 @@ func _on_bullet_triggered_tutorial() -> void:
 	tutorial_has_been_triggered = true
 	shooting_enabled = false
 	print("[ParryTutorialEnemy] Tutorial triggered, stopping all shooting")
+
+func _on_bullet_parried() -> void:
+	"""Called when one of our bullets is deflected by kicking - stop shooting."""
+	bullet_has_been_parried = true
+	shooting_enabled = false
+	print("[ParryTutorialEnemy] Bullet parried, stopping all shooting")
 

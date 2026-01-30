@@ -3,6 +3,7 @@ extends Node2D
 @onready var main_body: RigidBody2D = $RigidBody2D
 @onready var door: CollisionShape2D = $RigidBody2D/Door
 @onready var detection_area: Area2D = $RigidBody2D/DetectionArea
+@onready var rewind_trigger: Area2D = $RigidBody2D/ElevatorRewindTrigger
 @onready var timer: Timer = $Timer
 @onready var smoke_particles: CPUParticles2D = $SmokeParticles
 
@@ -28,6 +29,10 @@ func _ready() -> void:
 	door.position.y = DOOR_OPEN_Y
 	door.disabled = true
 	door.visible = false
+	
+	# Disable rewind trigger initially
+	if rewind_trigger:
+		rewind_trigger.monitoring = false
 	
 	# Start as static/frozen
 	main_body.freeze = true
@@ -182,6 +187,49 @@ func _handle_landing() -> void:
 	var tween = create_tween()
 	tween.tween_property(door, "position:y", DOOR_OPEN_Y, 0.8).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
 	tween.finished.connect(func(): door.visible = false)
+	
+	# Enable auto-rewind trigger when elevator lands
+	if rewind_trigger:
+		rewind_trigger.set_deferred("monitoring", true)
+		# Check if player is already inside the trigger area
+		call_deferred("_check_player_in_rewind_trigger")
+
+
+func _check_player_in_rewind_trigger() -> void:
+	"""Check if player is already inside the rewind trigger when it's enabled."""
+	if not rewind_trigger or not rewind_trigger.monitoring:
+		return
+	
+	var player = get_tree().get_first_node_in_group("player")
+	if not player:
+		player = get_tree().root.find_child("Player", true, false)
+	
+	if player:
+		# Use position-based check because player's collision might be disabled during rewind
+		var collision_shape = rewind_trigger.get_node_or_null("CollisionShape2D")
+		if collision_shape and collision_shape.shape:
+			var shape = collision_shape.shape
+			var shape_global_pos = collision_shape.global_position
+			var player_pos = player.global_position
+			
+			var is_inside = false
+			if shape is RectangleShape2D:
+				var rect_shape = shape as RectangleShape2D
+				var half_size = rect_shape.size / 2.0
+				var rect = Rect2(shape_global_pos - half_size, rect_shape.size)
+				is_inside = rect.has_point(player_pos)
+			elif shape is CircleShape2D:
+				var circle_shape = shape as CircleShape2D
+				var distance = player_pos.distance_to(shape_global_pos)
+				is_inside = distance <= circle_shape.radius
+			else:
+				# Fallback
+				is_inside = rewind_trigger.overlaps_body(player)
+			
+			if is_inside:
+				# Player is already in the trigger, activate it immediately
+				if player.has_method("set_elevator_auto_rewind_zone"):
+					player.set_elevator_auto_rewind_zone(true)
 
 func _trigger_screenshake() -> void:
 	var player = get_tree().get_first_node_in_group("player")

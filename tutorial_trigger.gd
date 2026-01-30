@@ -42,14 +42,3 @@ func _on_body_exited(body: Node2D) -> void:
 func _trigger_tutorial() -> void:
 	triggered = true
 	TutorialManager.display_message(tutorial_message)
-
-
-
-
-
-
-
-
-
-
-

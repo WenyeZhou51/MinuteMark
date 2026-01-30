@@ -411,6 +411,9 @@ var state_history: Array[Dictionary] = []  # Stores state snapshots with timesta
 var game_time: float = 0.0  # Total game time elapsed (for timestamping)
 var is_rewind_tracing: bool = false  # Is player currently in rewind traceback animation
 var is_rewind_holding: bool = false  # Is player currently holding R for rewind
+var in_elevator_bottom_zone: bool = false # Is player in the elevator bottom zone (auto-hold rewind)
+var elevator_exit_grace_period: float = 0.0 # Grace period timer after exiting elevator (0.5s before stopping auto-rewind)
+const ELEVATOR_EXIT_GRACE_PERIOD_DURATION: float = 0.1 # 0.1 seconds grace period
 var is_in_rewind_slowmo: bool = false  # Is game currently in rewind slow-mo
 var original_time_scale: float = 1.0  # Store original time scale before slow-mo
 var rewind_hold_start_time: float = 0.0  # When the hold started (game_time)
@@ -1017,7 +1020,15 @@ func _physics_process(delta: float) -> void:
 				
 				# Check for manual release
 				if Input.is_action_just_released("rewind"):
-					if is_rewind_holding and not tutorial_rewind_auto_completing:
+					# ELEVATOR ZONE: Ignore release if inside elevator bottom zone (auto-hold)
+					# Check both the flag and directly check the trigger as fallback
+					if in_elevator_bottom_zone or _check_in_elevator_rewind_trigger():
+						# Continue rewinding automatically - don't stop
+						# Also set the flag if it wasn't set yet (fallback)
+						if not in_elevator_bottom_zone:
+							in_elevator_bottom_zone = true
+						pass
+					elif is_rewind_holding and not tutorial_rewind_auto_completing:
 						if tutorial_rewind_hold_time >= 0.5:
 							# Held long enough, allow immediate release
 							_stop_rewind_hold()
@@ -1050,7 +1061,15 @@ func _physics_process(delta: float) -> void:
 			# Check if rewind button was just released (stop and spawn shadow)
 			# This must be checked AFTER the press check to avoid same-frame conflicts
 			if Input.is_action_just_released("rewind") and is_rewind_holding:
-				if require_minimum_rewind_hold and not tutorial_rewind_auto_completing:
+				# ELEVATOR ZONE: Ignore release if inside elevator bottom zone (auto-hold)
+				# Check both the flag and directly check the trigger as fallback
+				if in_elevator_bottom_zone or _check_in_elevator_rewind_trigger():
+					# Continue rewinding automatically - don't stop
+					# Also set the flag if it wasn't set yet (fallback)
+					if not in_elevator_bottom_zone:
+						in_elevator_bottom_zone = true
+					pass
+				elif require_minimum_rewind_hold and not tutorial_rewind_auto_completing:
 					# Check if held long enough
 					if tutorial_rewind_hold_time >= 0.5:
 						# Held long enough, allow release
@@ -4141,6 +4160,9 @@ func _stop_rewind_hold() -> void:
 	tutorial_rewind_hold_time = 0.0
 	tutorial_rewind_auto_completing = false
 	
+	# Reset elevator grace period
+	elevator_exit_grace_period = 0.0
+	
 	# Ensure slam state is reset (should not be restored during rewind)
 	is_slamming = false
 	if slam_attack_visual:
@@ -4228,9 +4250,28 @@ func _process_rewind_traceback(delta: float) -> void:
 		# If not holding anymore, stop (should have been handled by release)
 		return
 	
-	# Check if button is still being held (skip check if auto-completing)
-	if not tutorial_rewind_auto_completing and not Input.is_action_pressed("rewind"):
-		# Button was released - stop rewind
+	# Check if button is still being held (skip check if auto-completing or in elevator zone)
+	# Also check trigger directly as fallback in case flag hasn't updated yet
+	var in_zone = in_elevator_bottom_zone or _check_in_elevator_rewind_trigger()
+	
+	# Update flag if we detected we're in zone but flag wasn't set
+	if in_zone and not in_elevator_bottom_zone:
+		in_elevator_bottom_zone = true
+		# Cancel grace period if re-entered
+		elevator_exit_grace_period = 0.0
+	
+	# Update grace period timer if player is out of zone
+	if not in_zone and elevator_exit_grace_period > 0.0:
+		elevator_exit_grace_period -= delta
+		if elevator_exit_grace_period <= 0.0:
+			# Grace period expired - stop rewind if not holding R
+			if not Input.is_action_pressed("rewind") and not tutorial_rewind_auto_completing:
+				_stop_rewind_hold()
+				return
+	
+	# Check if button is still being held (skip check if auto-completing, in elevator zone, or in grace period)
+	if not tutorial_rewind_auto_completing and not in_zone and elevator_exit_grace_period <= 0.0 and not Input.is_action_pressed("rewind"):
+		# Button was released and not in grace period - stop rewind
 		_stop_rewind_hold()
 		return
 	
@@ -4467,6 +4508,9 @@ func _complete_rewind_hold() -> void:
 	tutorial_rewind_auto_completing = false
 	require_minimum_rewind_hold = false
 	
+	# Reset elevator grace period
+	elevator_exit_grace_period = 0.0
+	
 	# Ensure slam state is reset (should not be restored during rewind)
 	is_slamming = false
 	if slam_attack_visual:
@@ -4477,6 +4521,64 @@ func _complete_rewind_hold() -> void:
 
 
 # Old _end_rewind_traceback function removed - replaced by _stop_rewind_hold and _complete_rewind_hold
+
+
+func set_elevator_auto_rewind_zone(active: bool) -> void:
+	var was_in_zone = in_elevator_bottom_zone
+	in_elevator_bottom_zone = active
+	
+	# If player just exited the zone, start grace period
+	if was_in_zone and not active:
+		elevator_exit_grace_period = ELEVATOR_EXIT_GRACE_PERIOD_DURATION
+	# If player re-entered during grace period, cancel it
+	elif not was_in_zone and active:
+		elevator_exit_grace_period = 0.0
+
+func _check_in_elevator_rewind_trigger() -> bool:
+	"""Check if player is currently overlapping with any elevator rewind trigger."""
+	# Search the scene tree for elevator rewind triggers
+	var scene_root = get_tree().current_scene
+	if not scene_root:
+		return false
+	
+	# Recursively search for ElevatorRewindTrigger nodes
+	var triggers = _find_nodes_by_name(scene_root, "ElevatorRewindTrigger")
+	for trigger in triggers:
+		if trigger is Area2D and trigger.monitoring:
+			# Use position-based check because collision is disabled during rewind
+			var collision_shape = trigger.get_node_or_null("CollisionShape2D")
+			if collision_shape and collision_shape.shape:
+				var shape = collision_shape.shape
+				var shape_global_pos = collision_shape.global_position
+				var player_pos = global_position
+				
+				if shape is RectangleShape2D:
+					var rect_shape = shape as RectangleShape2D
+					var half_size = rect_shape.size / 2.0
+					var rect = Rect2(shape_global_pos - half_size, rect_shape.size)
+					if rect.has_point(player_pos):
+						return true
+				elif shape is CircleShape2D:
+					var circle_shape = shape as CircleShape2D
+					var distance = player_pos.distance_to(shape_global_pos)
+					if distance <= circle_shape.radius:
+						return true
+			# Fallback to overlaps_body (won't work during rewind but might work before)
+			elif trigger.overlaps_body(self):
+				return true
+	
+	return false
+
+func _find_nodes_by_name(node: Node, name_to_find: String) -> Array:
+	"""Recursively find all nodes with the given name."""
+	var results = []
+	if node.name == name_to_find:
+		results.append(node)
+	
+	for child in node.get_children():
+		results.append_array(_find_nodes_by_name(child, name_to_find))
+	
+	return results
 
 
 func _enter_rewind_slowmo() -> void:

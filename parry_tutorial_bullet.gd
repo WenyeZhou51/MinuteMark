@@ -40,25 +40,28 @@ func _physics_process(delta: float) -> void:
 			print("[ParryTutorialBullet DEBUG] About to stop - distance: ", distance_to_player)
 			_stop_and_trigger_tutorial()
 	
-	# If bullet is stopped, freeze it in place by setting velocity to zero
+	# If bullet is stopped, freeze it in place
 	if is_stopped:
-		# Store original velocity direction for when we resume
-		var original_velocity = velocity
+		# Set velocity to zero BEFORE calling parent to prevent movement
 		velocity = Vector2.ZERO
 		
-		# Call parent physics (handles particles, collision, etc.)
-		super._physics_process(delta)
+		# Update lifetime (from parent) but don't move
+		lifetime_timer += delta
+		if lifetime_timer >= lifetime:
+			queue_free()
+			return
 		
-		# Hover at fixed position relative to player (after parent physics)
+		# Update rotation to face player
+		if player_ref and is_instance_valid(player_ref):
+			var direction_to_player = (player_ref.global_position - global_position).normalized()
+			rotation = direction_to_player.angle()
+		
+		# Hover at fixed position relative to player
 		if player_ref and is_instance_valid(player_ref):
 			var target_pos = player_ref.global_position + hover_offset
 			global_position = target_pos
-			
-			# Keep facing the player
-			var direction_to_player = (player_ref.global_position - global_position).normalized()
-			rotation = direction_to_player.angle()
 	else:
-		# Normal bullet behavior - just call parent
+		# Normal bullet behavior - call parent which handles movement
 		super._physics_process(delta)
 
 func _stop_and_trigger_tutorial() -> void:
@@ -68,6 +71,9 @@ func _stop_and_trigger_tutorial() -> void:
 	
 	has_triggered_tutorial = true
 	is_stopped = true
+	
+	# Immediately stop all movement
+	velocity = Vector2.ZERO
 	
 	# Calculate and store the offset from player where we stopped
 	hover_offset = global_position - player_ref.global_position
@@ -87,7 +93,7 @@ func _stop_and_trigger_tutorial() -> void:
 	print("[ParryTutorialBullet DEBUG] Collision monitoring: ", monitoring)
 	print("[ParryTutorialBullet DEBUG] Collision monitorable: ", monitorable)
 	
-	# Emit signal to tell the shooter enemy to stop shooting
+	# Emit signal to notify the shooter enemy (enemy will continue shooting)
 	tutorial_triggered.emit()
 	
 	# Use TutorialBlockManager to start tutorial with kick action allowed

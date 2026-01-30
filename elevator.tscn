@@ -1,6 +1,7 @@
 [gd_scene load_steps=9 format=3 uid="uid://c85yqfkymilcl"]
 
 [ext_resource type="Script" path="res://elevator.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://ElevatorRewindTrigger.tscn" id="2_trigger"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_left"]
 size = Vector2(20, 780)
@@ -85,6 +86,9 @@ collision_layer = 0
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="RigidBody2D/DetectionArea"]
 shape = SubResource("RectangleShape2D_detect")
+
+[node name="ElevatorRewindTrigger" parent="RigidBody2D" instance=ExtResource("2_trigger")]
+monitoring = false
 
 [node name="Timer" type="Timer" parent="."]
 one_shot = true

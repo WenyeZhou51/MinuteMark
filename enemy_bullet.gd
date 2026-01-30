@@ -13,6 +13,9 @@ extends Area2D
 @export var particle_scale_min: float = 4.0 ## Min scale of particles
 @export var particle_scale_max: float = 8.0 ## Max scale of particles
 
+# Signals
+signal bullet_parried  ## Emitted when this bullet is parried by the player
+
 # Internal state
 var velocity: Vector2 = Vector2.ZERO
 var lifetime_timer: float = 0.0
@@ -134,6 +137,9 @@ func parry(parry_direction: Vector2) -> void:
 	
 	can_be_parried = false
 	was_parried = true
+	
+	# Emit signal to notify shooter enemy
+	bullet_parried.emit()
 	
 	# Show Parry! text
 	_show_parry_text()
