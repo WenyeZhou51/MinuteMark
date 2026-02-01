@@ -5,6 +5,11 @@ extends CanvasLayer
 @onready var rank_impact_label = $Control/Panel/RankImpactLabel
 @onready var animation_player = $AnimationPlayer
 @onready var control_node = $Control
+@onready var leaderboard_container = $Control/Panel/LeaderboardContainer
+@onready var leaderboard_title = $Control/Panel/LeaderboardContainer/LeaderboardTitle
+@onready var leaderboard_entry_1 = $Control/Panel/LeaderboardContainer/Entry1
+@onready var leaderboard_entry_2 = $Control/Panel/LeaderboardContainer/Entry2
+@onready var leaderboard_entry_3 = $Control/Panel/LeaderboardContainer/Entry3
 
 var current_shake_intensity: float = 0.0
 var shake_timer: float = 0.0
@@ -26,6 +31,10 @@ func _ready():
 	time_label.pivot_offset = time_label.size / 2
 	rank_label.pivot_offset = rank_label.size / 2
 	rank_impact_label.pivot_offset = rank_impact_label.size / 2
+	
+	# Initialize leaderboard display (hide initially)
+	if leaderboard_container:
+		leaderboard_container.modulate.a = 0
 	
 	# Ensure buttons are clickable even when paused
 	var restart_btn = $Control/Panel/HBoxContainer/RestartButton
@@ -145,6 +154,28 @@ func setup(time_taken: float):
 	
 	$Control/Panel/HBoxContainer.modulate.a = 0
 	
+	# Hide leaderboard initially
+	if leaderboard_container:
+		leaderboard_container.modulate.a = 0
+	
+	# Save score to leaderboard
+	if LeaderboardManager:
+		var is_new_best = LeaderboardManager.add_score(time_taken)
+		if is_new_best:
+			print("VictoryUI: New best score! Time: %.2f" % time_taken)
+			print("VictoryUI: Player: %s (ID: %s, IP: %s)" % [
+				LeaderboardManager.get_player_name(),
+				LeaderboardManager.get_player_id(),
+				LeaderboardManager.get_local_ip()
+			])
+		
+		# Connect to leaderboard update signal to refresh display when data arrives
+		if not LeaderboardManager.global_leaderboard_updated.is_connected(_on_global_leaderboard_updated):
+			LeaderboardManager.global_leaderboard_updated.connect(_on_global_leaderboard_updated)
+		
+		# Don't fetch here - let the submission callback handle it
+		# This ensures we wait for submission to complete first
+	
 	var rank = calculate_rank(time_taken)
 	if rank_label:
 		rank_label.text = rank.to_upper()
@@ -216,7 +247,12 @@ func setup(time_taken: float):
 	
 	tween.tween_interval(0.3)
 	
-	# 5. Buttons appear last
+	# 5. Update and show leaderboard
+	tween.tween_callback(_update_leaderboard_display)
+	if leaderboard_container:
+		tween.tween_property(leaderboard_container, "modulate:a", 1.0, 0.3)
+	
+	# 6. Buttons appear last
 	tween.tween_property($Control/Panel/HBoxContainer, "modulate:a", 1.0, 0.3)
 	
 func _input(event):
@@ -243,6 +279,87 @@ func calculate_rank(time: float) -> String:
 		return "Casual"
 	else:
 		return "Delayed"
+
+func _update_leaderboard_display():
+	"""Update the leaderboard display with top 3 scores."""
+	if not LeaderboardManager:
+		return
+	
+	if not leaderboard_container:
+		return
+	
+	_refresh_leaderboard_display()
+
+func _refresh_leaderboard_display():
+	"""Internal function to refresh the leaderboard display."""
+	if not LeaderboardManager or not leaderboard_container:
+		return
+	
+	# Get both global and local scores
+	var global_scores = LeaderboardManager.get_top_scores(10, true)  # Get more to merge
+	var local_scores = LeaderboardManager.get_top_scores(10, false)
+	
+	# Merge both lists and get top 3
+	var all_scores: Array[Dictionary] = []
+	
+	# Add global scores
+	for score in global_scores:
+		all_scores.append(score)
+	
+	# Add local scores (they might include the just-submitted score)
+	for score in local_scores:
+		# Check if this score is already in all_scores (avoid duplicates)
+		var is_duplicate = false
+		for existing in all_scores:
+			# Check if same time and player_id (likely same score)
+			if abs(existing["time"] - score["time"]) < 0.01 and existing.get("player_id", "") == score.get("player_id", ""):
+				is_duplicate = true
+				break
+		if not is_duplicate:
+			all_scores.append(score)
+	
+	# Sort by time (lower is better) and take top 3
+	all_scores.sort_custom(func(a, b): return a["time"] < b["time"])
+	var top_scores = all_scores.slice(0, min(3, all_scores.size()))
+	
+	# Determine if we're showing global data
+	var is_global = global_scores.size() > 0
+	
+	# Update title to indicate local vs global
+	if leaderboard_title:
+		if is_global and LeaderboardManager.api_enabled:
+			leaderboard_title.text = "GLOBAL LEADERBOARD"
+		else:
+			leaderboard_title.text = "LEADERBOARD"
+	
+	var entries = [leaderboard_entry_1, leaderboard_entry_2, leaderboard_entry_3]
+	
+	# Clear all entries first
+	for entry in entries:
+		if entry:
+			entry.text = ""
+			entry.modulate.a = 0
+	
+	# Display top scores (always show up to 3 entries)
+	var num_to_show = min(top_scores.size(), 3)
+	for i in range(num_to_show):
+		if entries[i]:
+			var score_data = top_scores[i]
+			var time = score_data["time"]
+			var seconds = int(time)
+			var centiseconds = int((time - seconds) * 100)
+			
+			# Format display: just rank and time (no player name)
+			var rank_text = "#%d  %02d:%02d" % [i + 1, seconds, centiseconds]
+			
+			entries[i].text = rank_text
+			entries[i].modulate.a = 1.0
+			print("VictoryUI: Displaying rank #%d: %s" % [i + 1, rank_text])
+
+func _on_global_leaderboard_updated():
+	"""Called when the global leaderboard is updated from the API."""
+	# Refresh the display with new data
+	_refresh_leaderboard_display()
 
 func _on_restart_button_pressed():
 	print("VictoryUI: Restart button pressed")
