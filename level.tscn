@@ -1,6 +1,6 @@
-[gd_scene load_steps=31 format=3 uid="uid://clfclx5p38xkv"]
+[gd_scene load_steps=32 format=3 uid="uid://clfclx5p38xkv"]
 
-[ext_resource type="Script" path="res://level_manager.gd" id="1_manager"]
+[ext_resource type="Script" uid="uid://c2socii74g5wh" path="res://level_manager.gd" id="1_manager"]
 [ext_resource type="PackedScene" uid="uid://vv3m4nx6g3jo" path="res://player.tscn" id="1_qj3g4"]
 [ext_resource type="PackedScene" uid="uid://b8x7lam2n4p5q" path="res://enemy.tscn" id="2_enemy"]
 [ext_resource type="PackedScene" path="res://ParryTutorialEnemy.tscn" id="2_parry_enemy"]
@@ -9,17 +9,18 @@
 [ext_resource type="PackedScene" uid="uid://c4k3l8m5n2qar" path="res://kickable_object.tscn" id="4_kickable"]
 [ext_resource type="PackedScene" uid="uid://b7q8n5ck2wh0e" path="res://pause_menu.tscn" id="8_b0gwe"]
 [ext_resource type="PackedScene" uid="uid://b756hnxt8gukc" path="res://dialogue/DialogueUI.tscn" id="9_dialogue"]
-[ext_resource type="Script" path="res://tutorial_trigger.gd" id="10_o05kg"]
-[ext_resource type="Script" path="res://dialogue_trigger.gd" id="10_trigger"]
+[ext_resource type="Script" uid="uid://b1y4vx8ub8uv5" path="res://tutorial_trigger.gd" id="10_o05kg"]
+[ext_resource type="Script" uid="uid://baf1vsu4t0fhx" path="res://dialogue_trigger.gd" id="10_trigger"]
 [ext_resource type="PackedScene" uid="uid://dyetqoxdfluq0" path="res://window.tscn" id="10_window"]
-[ext_resource type="Script" path="res://pendulum_trigger.gd" id="11_pendulum_trigger"]
+[ext_resource type="Script" uid="uid://c45ixkm1xxjhf" path="res://pendulum_trigger.gd" id="11_pendulum_trigger"]
 [ext_resource type="FontFile" uid="uid://baaiikv2041fb" path="res://Fonts/Funkrocker.otf" id="12_font"]
-[ext_resource type="Script" path="res://minor_anim_system.gd" id="14_wxjrc"]
-[ext_resource type="Script" path="res://tutorial_block.gd" id="18_4c15r"]
+[ext_resource type="Script" uid="uid://k7nuntbsw4by" path="res://minor_anim_system.gd" id="14_wxjrc"]
+[ext_resource type="Script" uid="uid://bpt3h6dwgdrnx" path="res://tutorial_block.gd" id="18_4c15r"]
 [ext_resource type="Texture2D" uid="uid://b5v5ch6lmmej" path="res://Sprites/level_backgrounds/IMG_4518.jpg" id="19_42xju"]
 [ext_resource type="Texture2D" uid="uid://iqnxi42u7eex" path="res://Sprites/level_backgrounds/IMG_4463.JPG" id="19_ait7k"]
 [ext_resource type="PackedScene" uid="uid://6624qfeempan" path="res://LevelFinishTrigger.tscn" id="19_finish"]
 [ext_resource type="PackedScene" uid="uid://c85yqfkymilcl" path="res://elevator.tscn" id="20_elevator"]
+[ext_resource type="PackedScene" uid="uid://demedvhavmbbs" path="res://FallingPlatform.tscn" id="21_v7sqt"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_dialogue_trigger"]
 size = Vector2(692, 332)
@@ -345,7 +346,7 @@ position = Vector2(17, 318)
 shape = SubResource("CircleShape2D_minor_anim")
 
 [node name="LevelFinishTrigger" parent="." instance=ExtResource("19_finish")]
-position = Vector2(8950, 3711)
+position = Vector2(8920, 3777)
 
 [node name="Elevator" parent="." instance=ExtResource("20_elevator")]
 z_index = -1
@@ -401,9 +402,12 @@ texture = ExtResource("19_ait7k")
 
 [node name="Img4518" type="Sprite2D" parent="."]
 z_index = -3
-position = Vector2(8516.5, 3583)
+position = Vector2(8544.001, 3582)
 scale = Vector2(0.859795, 0.399391)
 texture = ExtResource("19_42xju")
+
+[node name="FallingPlatform" parent="." instance=ExtResource("21_v7sqt")]
+position = Vector2(-316, 891)
 
 [editable path="Player"]
 [editable path="KickableObjects/Window1"]
