@@ -17,6 +17,7 @@ var current_time: float = 0.0
 var max_time: float = 300.0
 var is_running: bool = false
 var dialogue_slow_mode: bool = false
+var is_rewinding: bool = false  # Is player currently rewinding (clock moves backwards)
 
 func _ready() -> void:
 	# Ensure TimerUI runs even when the game is paused (e.g. during dialogue)
@@ -65,6 +66,10 @@ func add_time(amount: float) -> void:
 	current_time += amount
 	update_display(current_time)
 
+func set_rewind_active(active: bool) -> void:
+	"""Set whether rewind is active (timer moves backwards)."""
+	is_rewinding = active
+
 func _process(delta: float) -> void:
 	if not is_running:
 		return
@@ -83,8 +88,14 @@ func _process(delta: float) -> void:
 		else:
 			# Paused for other reasons (e.g. pause menu) -> Stop timer
 			return
-			
-	current_time -= dt
+	
+	# During rewind, timer moves backwards at 0.5x speed
+	if is_rewinding:
+		current_time += dt * 0.5
+		# Clamp to max_time to prevent overflow
+		current_time = min(current_time, max_time)
+	else:
+		current_time -= dt
 	
 	if current_time <= 0:
 		current_time = 0

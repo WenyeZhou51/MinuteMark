@@ -4190,6 +4190,10 @@ func _start_rewind_hold() -> void:
 	if AudioManager:
 		AudioManager.start_rewind(rewind_traceback_speed)
 	
+	# Notify timer to start moving backwards
+	if timer_ui_instance and timer_ui_instance.has_method("set_rewind_active"):
+		timer_ui_instance.set_rewind_active(true)
+	
 	# Start hold-to-rewind
 	is_rewind_holding = true
 	is_rewind_tracing = true
@@ -4240,6 +4244,10 @@ func _stop_rewind_hold() -> void:
 	# Resume music forward playback
 	if AudioManager:
 		AudioManager.stop_rewind()
+	
+	# Notify timer to stop moving backwards
+	if timer_ui_instance and timer_ui_instance.has_method("set_rewind_active"):
+		timer_ui_instance.set_rewind_active(false)
 	
 	# End rewind
 	is_rewind_holding = false
@@ -4587,6 +4595,10 @@ func _complete_rewind_hold() -> void:
 	# Resume music forward playback
 	if AudioManager:
 		AudioManager.stop_rewind()
+	
+	# Notify timer to stop moving backwards
+	if timer_ui_instance and timer_ui_instance.has_method("set_rewind_active"):
+		timer_ui_instance.set_rewind_active(false)
 	
 	# End rewind
 	is_rewind_holding = false
