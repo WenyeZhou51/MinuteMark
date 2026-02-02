@@ -1,0 +1,17 @@
+[gd_scene load_steps=2 format=3 uid="uid://b8k9m3n4p5q6r"]
+
+[ext_resource type="Script" path="res://grapple_point.gd" id="1_grapple"]
+
+[node name="GrapplePoint" type="Node2D" groups=["grapple_points"]]
+script = ExtResource("1_grapple")
+grapple_range = 300.0
+grapple_velocity = 1500.0
+exit_momentum = 1500.0
+slowdown_duration = 0.2
+indicator_color = Color(1, 0.4, 0.8, 0.8)
+indicator_length = 80.0
+indicator_width = 4.0
+point_radius = 8.0
+point_color = Color(1, 0.4, 0.8, 1)
+pulse_speed = 2.0
+pulse_intensity = 0.3

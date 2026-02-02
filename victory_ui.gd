@@ -295,42 +295,12 @@ func _refresh_leaderboard_display():
 	if not LeaderboardManager or not leaderboard_container:
 		return
 	
-	# Get both global and local scores
-	var global_scores = LeaderboardManager.get_top_scores(10, true)  # Get more to merge
-	var local_scores = LeaderboardManager.get_top_scores(10, false)
+	# Get ONLY global scores from Supabase
+	var global_scores = LeaderboardManager.get_top_scores(3, true)
 	
-	# Merge both lists and get top 3
-	var all_scores: Array[Dictionary] = []
-	
-	# Add global scores
-	for score in global_scores:
-		all_scores.append(score)
-	
-	# Add local scores (they might include the just-submitted score)
-	for score in local_scores:
-		# Check if this score is already in all_scores (avoid duplicates)
-		var is_duplicate = false
-		for existing in all_scores:
-			# Check if same time and player_id (likely same score)
-			if abs(existing["time"] - score["time"]) < 0.01 and existing.get("player_id", "") == score.get("player_id", ""):
-				is_duplicate = true
-				break
-		if not is_duplicate:
-			all_scores.append(score)
-	
-	# Sort by time (lower is better) and take top 3
-	all_scores.sort_custom(func(a, b): return a["time"] < b["time"])
-	var top_scores = all_scores.slice(0, min(3, all_scores.size()))
-	
-	# Determine if we're showing global data
-	var is_global = global_scores.size() > 0
-	
-	# Update title to indicate local vs global
+	# Update title
 	if leaderboard_title:
-		if is_global and LeaderboardManager.api_enabled:
-			leaderboard_title.text = "GLOBAL LEADERBOARD"
-		else:
-			leaderboard_title.text = "LEADERBOARD"
+		leaderboard_title.text = "LEADERBOARD"
 	
 	var entries = [leaderboard_entry_1, leaderboard_entry_2, leaderboard_entry_3]
 	
@@ -340,21 +310,24 @@ func _refresh_leaderboard_display():
 			entry.text = ""
 			entry.modulate.a = 0
 	
-	# Display top scores (always show up to 3 entries)
-	var num_to_show = min(top_scores.size(), 3)
+	# Display top 3 scores from Supabase only
+	var num_to_show = min(global_scores.size(), 3)
 	for i in range(num_to_show):
 		if entries[i]:
-			var score_data = top_scores[i]
+			var score_data = global_scores[i]
 			var time = score_data["time"]
-			var seconds = int(time)
-			var centiseconds = int((time - seconds) * 100)
+			var player_name = score_data.get("player_name", "Player")
 			
-			# Format display: just rank and time (no player name)
-			var rank_text = "#%d  %02d:%02d" % [i + 1, seconds, centiseconds]
+			var minutes = int(time) / 60
+			var seconds = int(time) % 60
+			var centiseconds = int((time - int(time)) * 100)
 			
-			entries[i].text = rank_text
+			# Format display: NAME - MM:SS.SS
+			var display_text = "%s - %02d:%02d.%02d" % [player_name, minutes, seconds, centiseconds]
+			
+			entries[i].text = display_text
 			entries[i].modulate.a = 1.0
-			print("VictoryUI: Displaying rank #%d: %s" % [i + 1, rank_text])
+			print("VictoryUI: Displaying rank #%d: %s" % [i + 1, display_text])
 
 func _on_global_leaderboard_updated():
 	"""Called when the global leaderboard is updated from the API."""

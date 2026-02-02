@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3 uid="uid://c85yqfkymilcl"]
+[gd_scene load_steps=10 format=3 uid="uid://c85yqfkymilcl"]
 
 [ext_resource type="Script" path="res://elevator.gd" id="1_script"]
 [ext_resource type="PackedScene" path="res://ElevatorRewindTrigger.tscn" id="2_trigger"]

@@ -98,6 +98,7 @@ const DeathEffectScene = preload("res://DeathEffect.tscn")
 @export var wall_jump_horizontal_velocity: float = 400.0  ## Horizontal push away from wall
 @export var wall_jump_vertical_velocity: float = -551.25  ## Vertical jump force from wall (adjusted to maintain jump height with increased gravity)
 @export var wall_jump_dash_prevention_duration: float = 0.2  ## Duration after walljump during which dash is disabled (seconds)
+@export var wall_jump_proximity_distance: float = 10.0  ## Distance within which player can wall jump even when airborne
 
 # WALL RUN CONFIGURATION
 @export_group("Wall Run")
@@ -1765,6 +1766,87 @@ func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceS
 		pass
 
 
+func _check_nearby_wall_for_jump() -> Dictionary:
+	"""Check if there's a wall within proximity distance for wall jumping, even when airborne.
+	Returns: Dictionary with keys 'detected' (bool), 'normal' (Vector2), 'runnable' (bool)"""
+	var result = {
+		"detected": false,
+		"normal": Vector2.ZERO,
+		"runnable": false
+	}
+	
+	# If already on a wall, use existing detection
+	if is_on_wall:
+		result.detected = true
+		result.normal = wall_normal
+		result.runnable = is_on_runnable_wall
+		return result
+	
+	# Only check for nearby walls when airborne
+	if is_on_floor():
+		return result
+	
+	var space_state = get_world_2d().direct_space_state
+	var collision_shape = $CollisionShape2D
+	if not collision_shape or not collision_shape.shape:
+		return result
+	
+	var shape = collision_shape.shape as RectangleShape2D
+	if not shape:
+		return result
+	
+	var half_width = shape.size.x / 2.0
+	var half_height = shape.size.y / 2.0
+	var ray_origin_offset = collision_shape.position
+	
+	# Use the proximity distance for detection
+	var check_distance = wall_jump_proximity_distance
+	
+	# Check at multiple heights
+	var check_heights = [-half_height + 4, 0.0, half_height - 4]
+	
+	var left_hit_any = false
+	var left_hit_runnable = false
+	var right_hit_any = false
+	var right_hit_runnable = false
+	
+	# Check for walls at each height
+	for height_offset in check_heights:
+		# Check for wall on the left
+		var left_ray_origin = global_position + ray_origin_offset + Vector2(-half_width, height_offset)
+		var left_ray_end = left_ray_origin + Vector2(-check_distance, 0)
+		var query_left = PhysicsRayQueryParameters2D.create(left_ray_origin, left_ray_end)
+		query_left.exclude = [self]
+		var left_hit = space_state.intersect_ray(query_left)
+		if left_hit:
+			left_hit_any = true
+			if _is_runnable_wall(left_hit.collider):
+				left_hit_runnable = true
+		
+		# Check for wall on the right
+		var right_ray_origin = global_position + ray_origin_offset + Vector2(half_width, height_offset)
+		var right_ray_end = right_ray_origin + Vector2(check_distance, 0)
+		var query_right = PhysicsRayQueryParameters2D.create(right_ray_origin, right_ray_end)
+		query_right.exclude = [self]
+		var right_hit = space_state.intersect_ray(query_right)
+		if right_hit:
+			right_hit_any = true
+			if _is_runnable_wall(right_hit.collider):
+				right_hit_runnable = true
+	
+	# Determine if player is near a wall
+	if left_hit_any:
+		result.detected = true
+		result.runnable = left_hit_runnable
+		result.normal = Vector2.RIGHT
+	elif right_hit_any:
+		result.detected = true
+		result.runnable = right_hit_runnable
+		result.normal = Vector2.LEFT
+	
+	return result
+
+
 func _is_wall_at_lower_quarter() -> bool:
 	"""Check if there is a wall next to the player in the lower 25% of their hitbox."""
 	var space_state = get_world_2d().direct_space_state
@@ -2184,24 +2266,28 @@ func _handle_jump_input() -> void:
 		# Note: Wall run jump is handled earlier in _physics_process
 		# CRITICAL FIX: Only allow wall jump on RUNNABLE walls (Platforms)
 		# Priority: Ground jump > Wall jump > Coyote jump > Buffer
+		# ENHANCED: Now also works when airborne and close to a wall (within proximity distance)
+		
+		# Check if there's a wall nearby (either touching or within proximity distance)
+		var nearby_wall = _check_nearby_wall_for_jump()
 		
 		# DEBUG: Log wall jump conditions when near a wall
-		if is_on_wall or wall_persistence_timer > 0:
+		if nearby_wall.detected:
 			print("[WALL JUMP DEBUG] Jump pressed near wall:")
 			print("  wall_jump_enabled: ", wall_jump_enabled)
-			print("  is_on_wall: ", is_on_wall)
-			print("  is_on_runnable_wall: ", is_on_runnable_wall)
+			print("  nearby_wall.detected: ", nearby_wall.detected)
+			print("  nearby_wall.runnable: ", nearby_wall.runnable)
+			print("  nearby_wall.normal: ", nearby_wall.normal)
 			print("  is_wall_running: ", is_wall_running)
 			print("  wall_jump_cooldown: ", wall_jump_cooldown)
 			print("  is_on_floor: ", is_on_floor())
-			print("  wall_normal: ", wall_normal)
-			print("  wall_persistence_timer: ", wall_persistence_timer)
 			print("  velocity: ", velocity)
-			var all_conditions_met = wall_jump_enabled and is_on_wall and is_on_runnable_wall and not is_wall_running and wall_jump_cooldown <= 0 and not is_on_floor()
+			var all_conditions_met = wall_jump_enabled and nearby_wall.detected and nearby_wall.runnable and not is_wall_running and wall_jump_cooldown <= 0 and not is_on_floor()
 			print("  ALL CONDITIONS MET: ", all_conditions_met)
 		
-		if wall_jump_enabled and is_on_wall and is_on_runnable_wall and not is_wall_running and wall_jump_cooldown <= 0 and not is_on_floor():
-			_perform_wall_jump()
+		# Allow wall jump if we detect a nearby runnable wall (regardless of input direction)
+		if wall_jump_enabled and nearby_wall.detected and nearby_wall.runnable and not is_wall_running and wall_jump_cooldown <= 0 and not is_on_floor():
+			_perform_wall_jump(nearby_wall.normal)
 		else:
 			# Check if we can jump immediately
 			var can_jump: bool = can_normal_jump
@@ -2315,16 +2401,21 @@ func _perform_jump() -> void:
 		jump_sound.play()
 
 
-func _perform_wall_jump() -> void:
-	"""Execute a wall jump away from the wall."""
+func _perform_wall_jump(override_wall_normal: Vector2 = Vector2.ZERO) -> void:
+	"""Execute a wall jump away from the wall.
+	Args:
+		override_wall_normal: Optional wall normal to use (for proximity-based wall jumps)
+	"""
 	_cancel_ledge_climb()
 	
-	# Store wall normal before clearing wall state (important!)
-	var jump_wall_normal = wall_normal
+	# Use override if provided, otherwise use current wall normal
+	var jump_wall_normal = override_wall_normal if override_wall_normal != Vector2.ZERO else wall_normal
 	
 	# DEBUG: Log wall jump execution
 	print("[WALL JUMP DEBUG] *** EXECUTING WALL JUMP ***")
+	print("  Override wall_normal: ", override_wall_normal)
 	print("  Initial wall_normal: ", wall_normal)
+	print("  Using jump_wall_normal: ", jump_wall_normal)
 	print("  velocity before: ", velocity)
 	print("  is_wall_running: ", is_wall_running)
 	

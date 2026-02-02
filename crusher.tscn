@@ -1,0 +1,65 @@
+[gd_scene load_steps=4 format=3 uid="uid://d8bd1w1cu2gs"]
+
+[ext_resource type="Script" path="res://crusher.gd" id="1_crusher"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_crusher_body"]
+size = Vector2(100, 40)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_damage"]
+size = Vector2(100, 20)
+
+[node name="Crusher" type="Node2D"]
+script = ExtResource("1_crusher")
+
+[node name="CrusherBody" type="AnimatableBody2D" parent="."]
+collision_mask = 0
+
+[node name="CrusherSprite" type="Sprite2D" parent="CrusherBody"]
+
+[node name="CrusherVisual" type="ColorRect" parent="CrusherBody"]
+visible = false
+offset_left = -50.0
+offset_top = -20.0
+offset_right = 50.0
+offset_bottom = 20.0
+
+[node name="CollisionShape" type="CollisionShape2D" parent="CrusherBody"]
+shape = SubResource("RectangleShape2D_crusher_body")
+
+[node name="DamageArea" type="Area2D" parent="CrusherBody"]
+collision_layer = 4
+
+[node name="DamageCollision" type="CollisionShape2D" parent="CrusherBody/DamageArea"]
+position = Vector2(0, 30)
+shape = SubResource("RectangleShape2D_damage")
+
+[node name="WarningParticles" type="Node2D" parent="CrusherBody"]
+visible = false
+
+[node name="Indicator1" type="ColorRect" parent="CrusherBody/WarningParticles"]
+offset_left = -62.0
+offset_top = -20.0
+offset_right = -54.0
+offset_bottom = -12.0
+color = Color(1, 0, 0, 0.8)
+
+[node name="Indicator2" type="ColorRect" parent="CrusherBody/WarningParticles"]
+offset_left = 54.0
+offset_top = -20.0
+offset_right = 62.0
+offset_bottom = -12.0
+color = Color(1, 0, 0, 0.8)
+
+[node name="Indicator3" type="ColorRect" parent="CrusherBody/WarningParticles"]
+offset_left = -62.0
+offset_top = 12.0
+offset_right = -54.0
+offset_bottom = 20.0
+color = Color(1, 0, 0, 0.8)
+
+[node name="Indicator4" type="ColorRect" parent="CrusherBody/WarningParticles"]
+offset_left = 54.0
+offset_top = 12.0
+offset_right = 62.0
+offset_bottom = 20.0
+color = Color(1, 0, 0, 0.8)

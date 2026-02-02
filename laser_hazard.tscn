@@ -1,0 +1,90 @@
+[gd_scene load_steps=9 format=3 uid="uid://c2vxm8lal3p4n"]
+
+[ext_resource type="Script" path="res://laser_hazard.gd" id="1_laser"]
+[ext_resource type="Shader" path="res://laser_beam.gdshader" id="2_shader"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_laser"]
+shader = ExtResource("2_shader")
+shader_parameter/core_color = Color(1, 0.95, 0.95, 1)
+shader_parameter/edge_color = Color(1, 0.2, 0.1, 0.9)
+shader_parameter/glow_color = Color(1, 0, 0, 0.6)
+shader_parameter/beam_width = 0.35
+shader_parameter/glow_width = 2.5
+shader_parameter/pulse_speed = 4.0
+shader_parameter/distortion_speed = 3.0
+shader_parameter/distortion_amount = 0.08
+shader_parameter/noise_scale = 10.0
+
+[sub_resource type="Curve" id="Curve_laser_scale"]
+_data = [Vector2(0, 0.5), 0.0, 0.0, 0, 0, Vector2(0.5, 1), 0.0, 0.0, 0, 0, Vector2(1, 0.2), 0.0, 0.0, 0, 0]
+point_count = 3
+
+[sub_resource type="Gradient" id="Gradient_laser_particles"]
+offsets = PackedFloat32Array(0, 0.3, 0.7, 1)
+colors = PackedColorArray(1, 0.9, 0.8, 0.8, 1, 0.4, 0.2, 0.7, 1, 0.1, 0, 0.4, 0.5, 0, 0, 0)
+
+[sub_resource type="Curve" id="Curve_end_scale"]
+_data = [Vector2(0, 1.2), 0.0, 0.0, 0, 0, Vector2(0.3, 1), 0.0, 0.0, 0, 0, Vector2(1, 0.1), 0.0, 0.0, 0, 0]
+point_count = 3
+
+[sub_resource type="Gradient" id="Gradient_end_particles"]
+offsets = PackedFloat32Array(0, 0.2, 0.5, 1)
+colors = PackedColorArray(1, 1, 0.9, 1, 1, 0.7, 0.3, 0.9, 1, 0.3, 0.1, 0.6, 0.3, 0, 0, 0)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_laser"]
+size = Vector2(500, 18)
+
+[node name="LaserHazard" type="Area2D"]
+collision_layer = 4
+script = ExtResource("1_laser")
+
+[node name="EmitterSprite" type="Sprite2D" parent="."]
+
+[node name="LaserVisual" type="ColorRect" parent="."]
+material = SubResource("ShaderMaterial_laser")
+offset_left = -15.0
+offset_top = -15.0
+offset_right = 485.0
+offset_bottom = 15.0
+pivot_offset = Vector2(0, 15)
+
+[node name="LaserParticles" type="CPUParticles2D" parent="."]
+position = Vector2(250, 0)
+amount = 40
+lifetime = 0.6
+emission_shape = 3
+emission_rect_extents = Vector2(250, 7.5)
+spread = 15.0
+initial_velocity_min = 50.0
+initial_velocity_max = 150.0
+damping_min = 20.0
+damping_max = 40.0
+scale_amount_min = 3.0
+scale_amount_max = 8.0
+scale_amount_curve = SubResource("Curve_laser_scale")
+color_ramp = SubResource("Gradient_laser_particles")
+
+[node name="LaserEndParticles" type="CPUParticles2D" parent="."]
+position = Vector2(500, 0)
+amount = 25
+lifetime = 0.4
+explosiveness = 0.2
+randomness = 0.5
+emission_shape = 1
+emission_sphere_radius = 8.0
+spread = 180.0
+gravity = Vector2(0, 200)
+initial_velocity_min = 80.0
+initial_velocity_max = 200.0
+radial_accel_min = -100.0
+radial_accel_max = 50.0
+damping_min = 40.0
+damping_max = 80.0
+scale_amount_min = 4.0
+scale_amount_max = 10.0
+scale_amount_curve = SubResource("Curve_end_scale")
+color_ramp = SubResource("Gradient_end_particles")
+
+[node name="CollisionShape" type="CollisionShape2D" parent="."]
+position = Vector2(250, 0)
+shape = SubResource("RectangleShape2D_laser")
