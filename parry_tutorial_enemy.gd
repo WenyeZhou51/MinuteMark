@@ -66,4 +66,3 @@ func _on_bullet_parried() -> void:
 	bullet_has_been_parried = true
 	shooting_enabled = false
 	print("[ParryTutorialEnemy] Bullet parried, stopping all shooting")
-
