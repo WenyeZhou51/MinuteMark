@@ -1,4 +1,4 @@
-[gd_scene load_steps=32 format=3 uid="uid://clfclx5p38xkv"]
+[gd_scene load_steps=33 format=3 uid="uid://clfclx5p38xkv"]
 
 [ext_resource type="Script" uid="uid://c2socii74g5wh" path="res://level_manager.gd" id="1_manager"]
 [ext_resource type="PackedScene" uid="uid://vv3m4nx6g3jo" path="res://player.tscn" id="1_qj3g4"]
@@ -21,6 +21,7 @@
 [ext_resource type="PackedScene" uid="uid://6624qfeempan" path="res://LevelFinishTrigger.tscn" id="19_finish"]
 [ext_resource type="PackedScene" uid="uid://c85yqfkymilcl" path="res://elevator.tscn" id="20_elevator"]
 [ext_resource type="PackedScene" uid="uid://demedvhavmbbs" path="res://FallingPlatform.tscn" id="21_v7sqt"]
+[ext_resource type="PackedScene" uid="uid://byg21xptk7abp" path="res://MovingPlatform.tscn" id="22_ilwjd"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_dialogue_trigger"]
 size = Vector2(692, 332)
@@ -407,7 +408,10 @@ scale = Vector2(0.859795, 0.399391)
 texture = ExtResource("19_42xju")
 
 [node name="FallingPlatform" parent="." instance=ExtResource("21_v7sqt")]
-position = Vector2(-316, 891)
+position = Vector2(-95, 410)
+
+[node name="MovingPlatform" parent="." instance=ExtResource("22_ilwjd")]
+position = Vector2(5882, 208)
 
 [editable path="Player"]
 [editable path="KickableObjects/Window1"]
