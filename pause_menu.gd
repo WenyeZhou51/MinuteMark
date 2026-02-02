@@ -252,6 +252,9 @@ func open_pause_menu(from_victory: bool = false):
 	print("PauseMenu: Opening from victory=", from_victory)
 	opened_from_victory = from_victory
 	
+	# Cancel any active rewind before pausing to ensure time_scale is reset
+	_cancel_player_rewind()
+	
 	get_tree().paused = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	visible = true
@@ -273,6 +276,11 @@ func open_pause_menu(from_victory: bool = false):
 
 func toggle_pause():
 	var is_paused = not get_tree().paused
+	
+	if is_paused:
+		# Cancel any active rewind before pausing to ensure time_scale is reset
+		_cancel_player_rewind()
+	
 	get_tree().paused = is_paused
 	
 	if is_paused:
@@ -354,6 +362,18 @@ func _on_restart_pressed():
 	# 4. Use full scene reload to ensure everything resets correctly (same as Victory UI)
 	print("PauseMenu: Restarting level (full reload)")
 	get_tree().reload_current_scene()
+
+
+func _cancel_player_rewind():
+	"""Find the player and cancel any active rewind to ensure time_scale is reset."""
+	var tree = get_tree()
+	if not tree:
+		return
+	
+	# Find the player node
+	var player = tree.root.find_child("Player", true, false)
+	if player and player.has_method("cancel_rewind_and_set_cooldown"):
+		player.cancel_rewind_and_set_cooldown()
 
 
 func _set_other_ui_visible(p_visible: bool):
