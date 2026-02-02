@@ -3,12 +3,14 @@ extends Node2D
 @export_group("Falling Platform")
 @export var fall_delay: float = 1.0  ## Time before the platform starts falling
 @export var fall_speed: float = 900.0  ## Downward speed in pixels/sec
+@export var stop_on_first_platform: bool = false  ## Land on first platform/ground hit
 @export var vibration_amplitude: float = 6.0  ## Visual shake amount (pixels)
 @export var vibration_frequency: float = 22.0  ## Visual shake speed (Hz)
 @export var debug_logs: bool = false  ## Print debug info while testing
 const DESPAWN_PADDING: float = 200.0
 const LANDING_MARGIN: float = 6.0
 const PLAYER_FALLBACK_MARGIN: float = 10.0
+const FALL_COLLISION_MASK: int = 1
 
 @onready var platform_body: AnimatableBody2D = $PlatformBody
 @onready var collision_shape: CollisionShape2D = $PlatformBody/CollisionShape2D
@@ -24,6 +26,8 @@ var base_visual_pos: Vector2 = Vector2.ZERO
 var base_body_pos: Vector2 = Vector2.ZERO
 var has_logged_fall_start: bool = false
 var debug_timer: float = 0.0
+var fall_start_bottom_y: float = 0.0
+var has_landed: bool = false
 
 
 func _ready() -> void:
@@ -56,14 +60,14 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	if is_triggered and not is_falling and visual:
+	if is_triggered and not is_falling and not has_landed and visual:
 		vibration_time += delta
 		var offset = Vector2(
 			sin(vibration_time * vibration_frequency * TAU),
 			cos(vibration_time * vibration_frequency * TAU * 0.7)
 		) * vibration_amplitude
 		visual.position = base_visual_pos + offset
-	elif is_triggered and not is_falling and platform_body and not visual:
+	elif is_triggered and not is_falling and not has_landed and platform_body and not visual:
 		# Fallback: shake the body if no visual is present
 		vibration_time += delta
 		var offset = Vector2(
@@ -115,11 +119,14 @@ func _physics_process(delta: float) -> void:
 			_start_fall()
 	
 	if is_falling and platform_body:
-		platform_body.position.y += fall_speed * delta
+		if stop_on_first_platform:
+			_fall_with_collision(delta)
+		else:
+			platform_body.position.y += fall_speed * delta
 		if debug_logs and not has_logged_fall_start:
 			has_logged_fall_start = true
 			print("[FallingPlatform] Falling started. speed=", fall_speed)
-		if _is_below_viewport():
+		if not stop_on_first_platform and _is_below_viewport():
 			if debug_logs:
 				print("[FallingPlatform] Despawned (left viewport).")
 			queue_free()
@@ -144,10 +151,12 @@ func _on_body_entered(body: Node) -> void:
 
 func _start_fall() -> void:
 	is_falling = true
+	has_landed = false
 	if visual:
 		visual.position = base_visual_pos
 	if platform_body:
 		platform_body.position = base_body_pos
+		fall_start_bottom_y = platform_body.global_position.y + _get_platform_half_height()
 
 
 func _is_player(body: Node) -> bool:
@@ -217,6 +226,96 @@ func _is_player_standing_on_platform(player_body: CharacterBody2D) -> bool:
 			if collider == platform_body:
 				return true
 	return false
+
+
+func _fall_with_collision(delta: float) -> void:
+	var step = fall_speed * delta
+	if step <= 0.0 or not platform_body:
+		return
+	
+	var collision = _get_fall_collision(step)
+	if collision.is_empty():
+		platform_body.position.y += step
+		return
+	
+	var hit_pos: Vector2 = collision.position
+	var half_height = _get_platform_half_height()
+	platform_body.global_position.y = hit_pos.y - half_height - LANDING_MARGIN
+	is_falling = false
+	has_landed = true
+	
+	var collider = collision.collider
+	if _is_ground_collider(collider):
+		_kill_enemies_in_falling_path(hit_pos.y)
+	
+	if debug_logs:
+		print("[FallingPlatform] Landed on ", collider.name if collider else "unknown")
+
+
+func _get_fall_collision(step: float) -> Dictionary:
+	var half_height = _get_platform_half_height()
+	var ray_start = platform_body.global_position + Vector2(0.0, half_height)
+	var ray_end = ray_start + Vector2(0.0, step + LANDING_MARGIN)
+	
+	var query = PhysicsRayQueryParameters2D.create(ray_start, ray_end)
+	query.collision_mask = FALL_COLLISION_MASK
+	query.exclude = _get_fall_exclude()
+	
+	var space_state = get_world_2d().direct_space_state
+	return space_state.intersect_ray(query)
+
+
+func _get_fall_exclude() -> Array:
+	var exclude: Array = [self]
+	if platform_body:
+		exclude.append(platform_body)
+	if trigger_area:
+		exclude.append(trigger_area)
+	var player = get_tree().get_first_node_in_group("player")
+	if player:
+		exclude.append(player)
+	return exclude
+
+
+func _is_ground_collider(collider: Object) -> bool:
+	if collider and collider.is_in_group("platforms"):
+		return false
+	return true
+
+
+func _kill_enemies_in_falling_path(impact_y: float) -> void:
+	if not platform_body:
+		return
+	
+	var half_width = _get_platform_half_width()
+	if half_width <= 0.0:
+		return
+	
+	var min_y = min(fall_start_bottom_y, impact_y)
+	var max_y = max(fall_start_bottom_y, impact_y)
+	var left_x = platform_body.global_position.x - half_width - LANDING_MARGIN
+	var right_x = platform_body.global_position.x + half_width + LANDING_MARGIN
+	
+	var enemies: Array = []
+	enemies.append_array(get_tree().get_nodes_in_group("enemy"))
+	enemies.append_array(get_tree().get_nodes_in_group("enemies"))
+	
+	for enemy in enemies:
+		if not enemy or not is_instance_valid(enemy):
+			continue
+		if not (enemy is Node2D):
+			continue
+		var enemy_node := enemy as Node2D
+		var pos = enemy_node.global_position
+		if pos.x < left_x or pos.x > right_x:
+			continue
+		if pos.y < min_y or pos.y > max_y:
+			continue
+		
+		if enemy_node.has_method("destroy"):
+			enemy_node.destroy()
+		elif enemy_node.has_method("queue_free"):
+			enemy_node.queue_free()
 
 
 func _update_visual_from_shape() -> void:
