@@ -12,12 +12,23 @@ func _ready():
 func _on_body_entered(body):
 	if body.name == "Player" or body.is_in_group("player"):
 		var time_taken = 0.0
-		if "game_timer_duration" in body and "current_game_time" in body:
-			time_taken = body.game_timer_duration - body.current_game_time
+		
+		# Timer counts UP (starts at 0), so current_game_time IS the time taken
+		# Try to get time from timer_ui_instance first (most reliable)
+		if "timer_ui_instance" in body and body.timer_ui_instance:
+			var timer_ui = body.timer_ui_instance
+			if "current_time" in timer_ui:
+				time_taken = timer_ui.current_time
+				print("LevelFinishTrigger: Got time from timer_ui_instance: ", time_taken, " seconds")
+		# Fallback: use player's synced current_game_time
+		elif "current_game_time" in body:
+			time_taken = body.current_game_time
+			print("LevelFinishTrigger: Got time from current_game_time: ", time_taken, " seconds")
+		else:
+			print("LevelFinishTrigger: WARNING - Could not get time! Using 0.0")
 		
 		level_finished.emit(time_taken)
 		
 		# Call method on player to handle level completion
 		if body.has_method("finish_level"):
 			body.finish_level(time_taken)
-

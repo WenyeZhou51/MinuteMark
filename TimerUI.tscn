@@ -1,9 +1,7 @@
-[gd_scene load_steps=5 format=3 uid="uid://dmp8rksh3a5yl"]
+[gd_scene load_steps=3 format=3 uid="uid://dmp8rksh3a5yl"]
 
-[ext_resource type="Script" path="res://timer_ui.gd" id="1_script"]
-[ext_resource type="Texture2D" uid="uid://c75c82om22fku" path="res://Sprites/Timer new.png" id="2_l5r3y"]
+[ext_resource type="Script" uid="uid://bduwqd5xtl7tj" path="res://timer_ui.gd" id="1_script"]
 [ext_resource type="FontFile" uid="uid://baaiikv2041fb" path="res://Fonts/Funkrocker.otf" id="3_sqymh"]
-[ext_resource type="Texture2D" uid="uid://d2g7jojkre5ug" path="res://Sprites/Bd.png" id="4_esmap"]
 
 [node name="TimerUI" type="CanvasLayer"]
 layer = 100
@@ -11,52 +9,85 @@ script = ExtResource("1_script")
 
 [node name="Control" type="Control" parent="."]
 layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="TimerContainer" type="Control" parent="Control"]
+layout_mode = 1
 anchors_preset = 5
 anchor_left = 0.5
 anchor_right = 0.5
 offset_top = 20.0
-offset_bottom = 20.0
+offset_bottom = 120.0
 grow_horizontal = 2
 
-[node name="TimerBackground" type="TextureRect" parent="Control"]
+[node name="BarContainer" type="Control" parent="Control/TimerContainer"]
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -354.0
-offset_top = -231.0
-offset_right = 903.0
-offset_bottom = 873.0
+offset_left = -600.0
+offset_top = -130.0
+offset_right = 600.0
+offset_bottom = 130.0
 grow_horizontal = 2
-grow_vertical = 2
-scale = Vector2(0.600001, 0.56)
-texture = ExtResource("2_l5r3y")
-expand_mode = 1
+grow_vertical = 0
 
-[node name="TimerLabel" type="Label" parent="Control/TimerBackground"]
+[node name="TimerBar" type="Panel" parent="Control/TimerContainer/BarContainer"]
+layout_mode = 0
+offset_left = 4.0
+offset_top = -52.0
+offset_right = 1204.0
+offset_bottom = 208.0
+
+[node name="TimerLabel" type="Label" parent="Control/TimerContainer/BarContainer"]
 layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -193.333
-offset_top = -153.571
-offset_right = 266.667
-offset_bottom = 249.429
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -200.0
+offset_top = -110.0
+offset_right = 200.0
+offset_bottom = 110.0
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_colors/font_shadow_color = Color(1, 0, 1, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/shadow_offset_x = 5
 theme_override_constants/shadow_offset_y = 10
-theme_override_constants/outline_size = 8
+theme_override_constants/outline_size = 12
 theme_override_fonts/font = ExtResource("3_sqymh")
 theme_override_font_sizes/font_size = 180
-text = "6 0 : 0 0"
+text = "00:00"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="Bd" type="Sprite2D" parent="."]
-position = Vector2(1280, 797)
-texture = ExtResource("4_esmap")
+[node name="RankIndicator" type="Label" parent="Control/TimerContainer"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = 632.0
+offset_top = -147.0
+offset_right = 832.0
+offset_bottom = 151.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 20
+theme_override_fonts/font = ExtResource("3_sqymh")
+theme_override_font_sizes/font_size = 200
+text = "S"
+horizontal_alignment = 1
+vertical_alignment = 1

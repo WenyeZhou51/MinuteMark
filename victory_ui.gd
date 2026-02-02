@@ -1,8 +1,12 @@
 extends CanvasLayer
 
 @onready var time_label = $Control/Panel/TimeLabel
-@onready var rank_label = $Control/Panel/RankLabel
-@onready var rank_impact_label = $Control/Panel/RankImpactLabel
+@onready var rank_container = $Control/Panel/RankContainer
+@onready var rank_first_letter = $Control/Panel/RankContainer/RankFirstLetter
+@onready var rank_label = $Control/Panel/RankContainer/RankLabel
+@onready var rank_impact_container = $Control/Panel/RankImpactContainer
+@onready var rank_impact_first_letter = $Control/Panel/RankImpactContainer/RankImpactFirstLetter
+@onready var rank_impact_label = $Control/Panel/RankImpactContainer/RankImpactLabel
 @onready var animation_player = $AnimationPlayer
 @onready var control_node = $Control
 @onready var leaderboard_container = $Control/Panel/LeaderboardContainer
@@ -29,8 +33,18 @@ func _ready():
 	
 	# Setup pivots for scaling effects
 	time_label.pivot_offset = time_label.size / 2
-	rank_label.pivot_offset = rank_label.size / 2
-	rank_impact_label.pivot_offset = rank_impact_label.size / 2
+	if rank_container:
+		rank_container.pivot_offset = rank_container.size / 2
+	if rank_first_letter:
+		rank_first_letter.pivot_offset = rank_first_letter.size / 2
+	if rank_label:
+		rank_label.pivot_offset = rank_label.size / 2
+	if rank_impact_container:
+		rank_impact_container.pivot_offset = rank_impact_container.size / 2
+	if rank_impact_first_letter:
+		rank_impact_first_letter.pivot_offset = rank_impact_first_letter.size / 2
+	if rank_impact_label:
+		rank_impact_label.pivot_offset = rank_impact_label.size / 2
 	
 	# Initialize leaderboard display (hide initially)
 	if leaderboard_container:
@@ -140,14 +154,15 @@ func setup(time_taken: float):
 		speed_lines.material.set_shader_parameter("speed", 10.0)
 	
 	# Initial states
-	time_label.text = "TIME: 00:00"
+	time_label.text = "TIME: 00:00.00"
 	time_label.modulate.a = 0
 	time_label.scale = Vector2(1.5, 1.5) # 50% bigger initial display
 	time_label.pivot_offset = time_label.size / 2
 	
-	rank_label.modulate.a = 0
-	rank_label.scale = Vector2(5.0, 5.0) # Start huge for smash
-	rank_label.pivot_offset = rank_label.size / 2
+	if rank_container:
+		rank_container.modulate.a = 0
+		rank_container.scale = Vector2(5.0, 5.0) # Start huge for smash
+		rank_container.pivot_offset = rank_container.size / 2
 	
 	rank_impact_label.modulate.a = 0
 	rank_impact_label.pivot_offset = rank_impact_label.size / 2
@@ -177,15 +192,39 @@ func setup(time_taken: float):
 		# This ensures we wait for submission to complete first
 	
 	var rank = calculate_rank(time_taken)
+	var rank_upper = rank.to_upper()
+	
+	# Split rank into first letter and rest
+	if rank_first_letter and rank_label:
+		if rank_upper.length() > 0:
+			rank_first_letter.text = rank_upper[0]
+			if rank_upper.length() > 1:
+				rank_label.text = rank_upper.substr(1)
+			else:
+				rank_label.text = ""
+	
+	# Split impact label too
+	if rank_impact_first_letter and rank_impact_label:
+		if rank_upper.length() > 0:
+			rank_impact_first_letter.text = rank_upper[0]
+			if rank_upper.length() > 1:
+				rank_impact_label.text = rank_upper.substr(1)
+			else:
+				rank_impact_label.text = ""
+	
+	# Apply colors to both first letter and rest
+	var rank_color: Color
+	match rank:
+		"Sonic": rank_color = Color.CYAN
+		"Agile": rank_color = Color.GREEN
+		"Brisks": rank_color = Color.YELLOW
+		"Casual": rank_color = Color.ORANGE
+		"Delayed": rank_color = Color.RED
+	
+	if rank_first_letter:
+		rank_first_letter.add_theme_color_override("font_color", rank_color)
 	if rank_label:
-		rank_label.text = rank.to_upper()
-		rank_impact_label.text = rank.to_upper()
-		match rank:
-			"Sonic": rank_label.add_theme_color_override("font_color", Color.CYAN)
-			"Agile": rank_label.add_theme_color_override("font_color", Color.GREEN)
-			"Brisks": rank_label.add_theme_color_override("font_color", Color.YELLOW)
-			"Casual": rank_label.add_theme_color_override("font_color", Color.ORANGE)
-			"Delayed": rank_label.add_theme_color_override("font_color", Color.RED)
+		rank_label.add_theme_color_override("font_color", rank_color)
 
 	var tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	
@@ -203,9 +242,11 @@ func setup(time_taken: float):
 	# 2. Time ticks up gradually over 1.0s
 	tween.tween_method(
 		func(v): 
-			var seconds = int(v)
-			var centiseconds = int((v - seconds) * 100)
-			time_label.text = "TIME: %02d:%02d" % [seconds, centiseconds],
+			var total_seconds = v
+			var minutes = int(total_seconds / 60.0)
+			var seconds = int(total_seconds) % 60
+			var deciseconds = int((total_seconds - int(total_seconds)) * 100)  # Two decimal places (centiseconds)
+			time_label.text = "TIME: %02d:%02d.%02d" % [minutes, seconds, deciseconds],
 		0.0, time_taken, 1.0
 	)
 	
@@ -227,7 +268,8 @@ func setup(time_taken: float):
 		# Safety stop sfx_player
 		sfx_player.stop()
 		
-		rank_label.modulate.a = 1.0
+		if rank_container:
+			rank_container.modulate.a = 1.0
 		apply_ui_shake(20.0, 0.4)
 		
 		# Play peak sound when rank appears
@@ -237,13 +279,15 @@ func setup(time_taken: float):
 			sfx_player.play()
 		
 		# Rank impact effect
-		rank_impact_label.modulate.a = 0.6
-		rank_impact_label.scale = Vector2(1.0, 1.0)
-		var impact_tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-		impact_tween.tween_property(rank_impact_label, "scale", Vector2(2.0, 2.0), 0.3).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-		impact_tween.parallel().tween_property(rank_impact_label, "modulate:a", 0.0, 0.3)
+		if rank_impact_container:
+			rank_impact_container.modulate.a = 0.6
+			rank_impact_container.scale = Vector2(1.0, 1.0)
+			var impact_tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+			impact_tween.tween_property(rank_impact_container, "scale", Vector2(2.0, 2.0), 0.3).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+			impact_tween.parallel().tween_property(rank_impact_container, "modulate:a", 0.0, 0.3)
 	)
-	tween.tween_property(rank_label, "scale", Vector2.ONE, 0.15).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_IN)
+	if rank_container:
+		tween.tween_property(rank_container, "scale", Vector2.ONE, 0.15).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_IN)
 	
 	tween.tween_interval(0.3)
 	
