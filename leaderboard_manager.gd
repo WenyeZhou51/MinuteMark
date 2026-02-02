@@ -155,7 +155,7 @@ func add_score(time_taken: float) -> bool:
 	return is_new_best
 
 func submit_score_to_api(score_data: Dictionary):
-	"""Submit a score to Supabase."""
+	"""Submit a score to Supabase. First checks if cleanup is needed."""
 	if is_submitting:
 		print("LeaderboardManager: Already submitting a score, skipping...")
 		return
@@ -165,17 +165,93 @@ func submit_score_to_api(score_data: Dictionary):
 		return
 	
 	is_submitting = true
-	var url = SUPABASE_URL + "/rest/v1/" + SUPABASE_TABLE
 	
-	# Send time as a number (seconds as float) since DB column is double precision
-	var time_seconds = score_data["time"]
-	
-	# Prepare Supabase payload
-	var supabase_payload = {
+	# Store the score data for later use after checking for cleanup
+	var pending_submission = {
 		"player_name": score_data.get("player_name", "Player"),
-		"time_taken": time_seconds,  # Send as number, not string
+		"time_taken": score_data["time"],
 		"level": 0  # Tutorial level
 	}
+	
+	# Store this so we can access it in the callback
+	set_meta("pending_submission", pending_submission)
+	
+	# First, check how many entries exist for this level and get the worst one
+	var level = pending_submission["level"]
+	var check_url = SUPABASE_URL + "/rest/v1/" + SUPABASE_TABLE + "?select=id,time_taken&level=eq.%d&order=time_taken.desc&limit=1" % level
+	
+	var headers = [
+		"apikey: " + SUPABASE_API_KEY,
+		"Authorization: Bearer " + SUPABASE_API_KEY
+	]
+	
+	print("=== Checking for cleanup need ===")
+	print("URL: %s" % check_url)
+	print("================================")
+	
+	# Set a flag to indicate this is a cleanup check, not a submission or fetch
+	set_meta("is_checking_cleanup", true)
+	
+	var error = http_request.request(check_url, headers, HTTPClient.METHOD_GET)
+	if error != OK:
+		push_error("LeaderboardManager: HTTP request failed to initiate cleanup check. Error code: %d" % error)
+		is_submitting = false
+		remove_meta("is_checking_cleanup")
+		remove_meta("pending_submission")
+
+func _count_level_entries(level: int):
+	"""Count how many entries exist for a given level."""
+	var count_url = SUPABASE_URL + "/rest/v1/" + SUPABASE_TABLE + "?select=id&level=eq.%d" % level
+	
+	var headers = [
+		"apikey: " + SUPABASE_API_KEY,
+		"Authorization: Bearer " + SUPABASE_API_KEY
+	]
+	
+	print("=== Counting entries for level %d ===" % level)
+	print("URL: %s" % count_url)
+	print("====================================")
+	
+	set_meta("is_counting_entries", true)
+	
+	var error = http_request.request(count_url, headers, HTTPClient.METHOD_GET)
+	if error != OK:
+		push_error("LeaderboardManager: HTTP request failed to count entries. Error code: %d" % error)
+		is_submitting = false
+		remove_meta("is_counting_entries")
+		remove_meta("pending_submission")
+
+func _delete_worst_entry(entry_id: int):
+	"""Delete the worst (highest time) entry from the database."""
+	var delete_url = SUPABASE_URL + "/rest/v1/" + SUPABASE_TABLE + "?id=eq.%d" % entry_id
+	
+	var headers = [
+		"apikey: " + SUPABASE_API_KEY,
+		"Authorization: Bearer " + SUPABASE_API_KEY
+	]
+	
+	print("=== Deleting worst entry (id: %d) ===" % entry_id)
+	print("URL: %s" % delete_url)
+	print("====================================")
+	
+	set_meta("is_deleting_entry", true)
+	
+	var error = http_request.request(delete_url, headers, HTTPClient.METHOD_DELETE)
+	if error != OK:
+		push_error("LeaderboardManager: HTTP request failed to delete entry. Error code: %d" % error)
+		is_submitting = false
+		remove_meta("is_deleting_entry")
+		remove_meta("pending_submission")
+
+func _actually_submit_score():
+	"""Actually submit the score after cleanup is done."""
+	if not has_meta("pending_submission"):
+		push_error("LeaderboardManager: No pending submission found!")
+		is_submitting = false
+		return
+	
+	var supabase_payload = get_meta("pending_submission")
+	var url = SUPABASE_URL + "/rest/v1/" + SUPABASE_TABLE
 	
 	var json_payload = JSON.stringify(supabase_payload)
 	var headers = [
@@ -185,17 +261,21 @@ func submit_score_to_api(score_data: Dictionary):
 		"Prefer: return=minimal"
 	]
 	
-	print("=== Submitting to Supabase ===")
+	print("=== Actually Submitting to Supabase ===")
 	print("URL: %s" % url)
 	print("Payload: %s" % json_payload)
 	print("Player: %s" % supabase_payload["player_name"])
-	print("Time: %.2f seconds" % time_seconds)
-	print("==============================")
+	print("Time: %.2f seconds" % supabase_payload["time_taken"])
+	print("=======================================")
+	
+	set_meta("is_actually_submitting", true)
 	
 	var error = http_request.request(url, headers, HTTPClient.METHOD_POST, json_payload)
 	if error != OK:
-		push_error("LeaderboardManager: HTTP request failed to initiate. Error code: %d" % error)
+		push_error("LeaderboardManager: HTTP request failed to submit score. Error code: %d" % error)
 		is_submitting = false
+		remove_meta("is_actually_submitting")
+		remove_meta("pending_submission")
 
 func fetch_global_leaderboard():
 	"""Fetch the global leaderboard from Supabase."""
@@ -240,8 +320,115 @@ func _on_http_request_completed(result: int, response_code: int, headers: Packed
 	print("Is fetching: %s" % is_fetching)
 	print("=============================")
 	
-	if is_submitting:
+	# Handle cleanup check (step 1: check for worst entry)
+	if has_meta("is_checking_cleanup"):
+		remove_meta("is_checking_cleanup")
+		if response_code == 200:
+			var json = JSON.new()
+			var parse_result = json.parse(response_text)
+			if parse_result == OK and json.data is Array:
+				var entries = json.data
+				print("LeaderboardManager: Found %d worst entry candidates" % entries.size())
+				
+				# Now count total entries for this level
+				if has_meta("pending_submission"):
+					var pending = get_meta("pending_submission")
+					_count_level_entries(pending["level"])
+				else:
+					push_error("LeaderboardManager: No pending submission during cleanup check!")
+					is_submitting = false
+			else:
+				push_error("LeaderboardManager: Failed to parse cleanup check response")
+				is_submitting = false
+				remove_meta("pending_submission")
+		else:
+			print("LeaderboardManager: Cleanup check failed, proceeding with submission anyway")
+			_actually_submit_score()
+		return
+	
+	# Handle entry counting (step 2: count total entries)
+	if has_meta("is_counting_entries"):
+		remove_meta("is_counting_entries")
+		if response_code == 200:
+			var json = JSON.new()
+			var parse_result = json.parse(response_text)
+			if parse_result == OK and json.data is Array:
+				var entry_count = json.data.size()
+				print("LeaderboardManager: Level has %d total entries" % entry_count)
+				
+				if entry_count >= 10:
+					# Need to delete the worst entry before inserting
+					# Get the worst entry again (we need its ID)
+					if has_meta("pending_submission"):
+						var pending = get_meta("pending_submission")
+						var level = pending["level"]
+						var check_url = SUPABASE_URL + "/rest/v1/" + SUPABASE_TABLE + "?select=id,time_taken&level=eq.%d&order=time_taken.desc&limit=1" % level
+						
+						var req_headers = [
+							"apikey: " + SUPABASE_API_KEY,
+							"Authorization: Bearer " + SUPABASE_API_KEY
+						]
+						
+						print("=== Getting worst entry ID for deletion ===")
+						set_meta("is_getting_worst_id", true)
+						
+						var error = http_request.request(check_url, req_headers, HTTPClient.METHOD_GET)
+						if error != OK:
+							push_error("LeaderboardManager: Failed to get worst entry ID")
+							is_submitting = false
+							remove_meta("pending_submission")
+				else:
+					# Less than 10 entries, just submit directly
+					print("LeaderboardManager: Less than 10 entries, no cleanup needed")
+					_actually_submit_score()
+			else:
+				push_error("LeaderboardManager: Failed to parse entry count response")
+				_actually_submit_score()  # Proceed anyway
+		else:
+			print("LeaderboardManager: Entry counting failed, proceeding with submission anyway")
+			_actually_submit_score()
+		return
+	
+	# Handle getting worst entry ID for deletion (step 3: get ID of worst entry)
+	if has_meta("is_getting_worst_id"):
+		remove_meta("is_getting_worst_id")
+		if response_code == 200:
+			var json = JSON.new()
+			var parse_result = json.parse(response_text)
+			if parse_result == OK and json.data is Array and json.data.size() > 0:
+				var worst_entry = json.data[0]
+				var worst_id = worst_entry.get("id", -1)
+				if worst_id > 0:
+					print("LeaderboardManager: Worst entry ID: %d (time: %.2f)" % [worst_id, worst_entry.get("time_taken", 0.0)])
+					_delete_worst_entry(worst_id)
+				else:
+					print("LeaderboardManager: No valid ID found, proceeding with submission")
+					_actually_submit_score()
+			else:
+				print("LeaderboardManager: No worst entry found, proceeding with submission")
+				_actually_submit_score()
+		else:
+			print("LeaderboardManager: Failed to get worst entry ID, proceeding anyway")
+			_actually_submit_score()
+		return
+	
+	# Handle entry deletion (step 4: delete worst entry)
+	if has_meta("is_deleting_entry"):
+		remove_meta("is_deleting_entry")
+		if response_code == 200 or response_code == 204:
+			print("LeaderboardManager: ✓ Worst entry deleted successfully")
+			_actually_submit_score()
+		else:
+			print("LeaderboardManager: ⚠ Deletion failed (code: %d), proceeding with submission anyway" % response_code)
+			_actually_submit_score()
+		return
+	
+	# Handle actual score submission (step 5: insert new score)
+	if has_meta("is_actually_submitting"):
+		remove_meta("is_actually_submitting")
+		remove_meta("pending_submission")
 		is_submitting = false
+		
 		if response_code == 200 or response_code == 201:
 			print("LeaderboardManager: ✓ Score submitted successfully to Supabase")
 			# Wait a moment for Supabase to process, then refresh global leaderboard
@@ -253,7 +440,9 @@ func _on_http_request_completed(result: int, response_code: int, headers: Packed
 			print("  Error message: %s" % response_text)
 			print("  Result enum: %d" % result)
 			push_error("LeaderboardManager: Submission failed. Response code: %d, Error: %s" % [response_code, response_text])
+		return
 	
+	# Handle leaderboard fetching
 	if is_fetching:
 		is_fetching = false
 		if response_code == 200:

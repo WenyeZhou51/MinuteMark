@@ -28,6 +28,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
         player_id TEXT NOT NULL,
         player_name TEXT NOT NULL,
         ip_address TEXT,
+        level INTEGER DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `, (err) => {
@@ -35,20 +36,47 @@ const db = new sqlite3.Database(dbPath, (err) => {
         console.error('Error creating table:', err.message);
       } else {
         console.log('Database table ready');
+        // Add level column if it doesn't exist (for existing databases)
+        db.run(`
+          ALTER TABLE scores ADD COLUMN level INTEGER DEFAULT 0
+        `, (alterErr) => {
+          if (alterErr) {
+            // Column probably already exists, which is fine
+            console.log('Level column already exists or could not be added (this is usually fine)');
+          } else {
+            console.log('Added level column to existing database');
+          }
+        });
       }
     });
   }
 });
 
 // Helper function to get top scores
-function getTopScores(limit, callback) {
-  const query = `
-    SELECT time, date, player_id, player_name, ip_address
-    FROM scores
-    ORDER BY time ASC
-    LIMIT ?
-  `;
-  db.all(query, [limit], (err, rows) => {
+function getTopScores(limit, level, callback) {
+  let query;
+  let params;
+  
+  if (level !== undefined && level !== null) {
+    query = `
+      SELECT time, date, player_id, player_name, ip_address, level
+      FROM scores
+      WHERE level = ?
+      ORDER BY time ASC
+      LIMIT ?
+    `;
+    params = [level, limit];
+  } else {
+    query = `
+      SELECT time, date, player_id, player_name, ip_address, level
+      FROM scores
+      ORDER BY time ASC
+      LIMIT ?
+    `;
+    params = [limit];
+  }
+  
+  db.all(query, params, (err, rows) => {
     if (err) {
       callback(err, null);
     } else {
@@ -59,7 +87,7 @@ function getTopScores(limit, callback) {
 
 // POST /api/leaderboard/submit - Submit a new score
 app.post('/api/leaderboard/submit', (req, res) => {
-  const { time, date, player_id, player_name, ip_address } = req.body;
+  const { time, date, player_id, player_name, ip_address, level } = req.body;
   
   // Validate required fields
   if (time === undefined || !player_id) {
@@ -68,32 +96,78 @@ app.post('/api/leaderboard/submit', (req, res) => {
     });
   }
   
-  // Insert score into database
-  const query = `
-    INSERT INTO scores (time, date, player_id, player_name, ip_address)
-    VALUES (?, ?, ?, ?, ?)
-  `;
+  const levelValue = level !== undefined ? level : 0; // Default to level 0
   
-  db.run(query, [time, date || new Date().toISOString(), player_id, player_name || 'Player', ip_address || ''], function(err) {
-    if (err) {
-      console.error('Error inserting score:', err.message);
-      return res.status(500).json({ error: 'Failed to save score' });
+  // First, check how many entries exist for this level
+  const countQuery = 'SELECT COUNT(*) as count FROM scores WHERE level = ?';
+  
+  db.get(countQuery, [levelValue], (countErr, countRow) => {
+    if (countErr) {
+      console.error('Error counting scores:', countErr.message);
+      return res.status(500).json({ error: 'Failed to check existing scores' });
     }
     
-    console.log(`Score submitted: ${time}s by ${player_name || 'Player'} (${player_id}) from ${ip_address || 'unknown IP'}`);
-    res.status(201).json({ 
-      success: true, 
-      message: 'Score submitted successfully',
-      id: this.lastID 
-    });
+    const currentCount = countRow.count;
+    console.log(`Level ${levelValue} currently has ${currentCount} entries`);
+    
+    // If we have 10 or more entries, delete the worst (highest time) one
+    if (currentCount >= 10) {
+      const deleteWorstQuery = `
+        DELETE FROM scores 
+        WHERE id = (
+          SELECT id FROM scores 
+          WHERE level = ? 
+          ORDER BY time DESC 
+          LIMIT 1
+        )
+      `;
+      
+      db.run(deleteWorstQuery, [levelValue], function(deleteErr) {
+        if (deleteErr) {
+          console.error('Error deleting worst score:', deleteErr.message);
+          // Continue with insertion anyway
+        } else {
+          console.log(`Deleted worst entry for level ${levelValue} (had ${currentCount} entries)`);
+        }
+        
+        // Now insert the new score
+        insertScore();
+      });
+    } else {
+      // Less than 10 entries, just insert directly
+      insertScore();
+    }
   });
+  
+  // Helper function to insert the score
+  function insertScore() {
+    const query = `
+      INSERT INTO scores (time, date, player_id, player_name, ip_address, level)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `;
+    
+    db.run(query, [time, date || new Date().toISOString(), player_id, player_name || 'Player', ip_address || '', levelValue], function(err) {
+      if (err) {
+        console.error('Error inserting score:', err.message);
+        return res.status(500).json({ error: 'Failed to save score' });
+      }
+      
+      console.log(`Score submitted: ${time}s by ${player_name || 'Player'} (${player_id}) for level ${levelValue} from ${ip_address || 'unknown IP'}`);
+      res.status(201).json({ 
+        success: true, 
+        message: 'Score submitted successfully',
+        id: this.lastID 
+      });
+    });
+  }
 });
 
 // GET /api/leaderboard/top - Get top scores
 app.get('/api/leaderboard/top', (req, res) => {
   const limit = parseInt(req.query.limit) || 100;
+  const level = req.query.level !== undefined ? parseInt(req.query.level) : null;
   
-  getTopScores(limit, (err, rows) => {
+  getTopScores(limit, level, (err, rows) => {
     if (err) {
       console.error('Error fetching scores:', err.message);
       return res.status(500).json({ error: 'Failed to fetch leaderboard' });
@@ -106,11 +180,24 @@ app.get('/api/leaderboard/top', (req, res) => {
 
 // GET /api/leaderboard/stats - Get leaderboard statistics
 app.get('/api/leaderboard/stats', (req, res) => {
-  db.get('SELECT COUNT(*) as total, MIN(time) as best_time FROM scores', (err, row) => {
+  const level = req.query.level !== undefined ? parseInt(req.query.level) : null;
+  
+  let query;
+  let params = [];
+  
+  if (level !== null) {
+    query = 'SELECT COUNT(*) as total, MIN(time) as best_time FROM scores WHERE level = ?';
+    params = [level];
+  } else {
+    query = 'SELECT COUNT(*) as total, MIN(time) as best_time FROM scores';
+  }
+  
+  db.get(query, params, (err, row) => {
     if (err) {
       return res.status(500).json({ error: 'Failed to fetch stats' });
     }
     res.json({
+      level: level,
       total_scores: row.total || 0,
       best_time: row.best_time || null
     });
