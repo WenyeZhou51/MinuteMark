@@ -1,0 +1,75 @@
+[gd_scene load_steps=5 format=3 uid="uid://cdet6c5easxg2"]
+
+[ext_resource type="Shader" path="res://test_shader.gdshader" id="1_a1b2c"]
+[ext_resource type="Shader" path="res://fire_particle.gdshader" id="2_d3e4f"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_main"]
+shader = ExtResource("1_a1b2c")
+shader_parameter/outer_color = Color(0, 1, 0, 1)
+shader_parameter/middle_color = Color(1, 1, 0, 1)
+shader_parameter/inner_color = Color(0, 1, 0, 1)
+shader_parameter/shockwave_color = Color(1, 0, 0, 1)
+shader_parameter/shockwave_width = 0.05
+shader_parameter/shockwave_speed = 1.0
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_fire"]
+shader = ExtResource("2_d3e4f")
+shader_parameter/bottom_color = Color(0, 0.7, 1, 1)
+shader_parameter/middle_color = Color(1, 0.5, 0, 1)
+shader_parameter/top_color = Color(1, 0.03, 0.001, 1)
+shader_parameter/fire_alpha = 1.0
+shader_parameter/fire_speed = Vector2(0, 2)
+shader_parameter/fire_aperture = 0.22
+
+[node name="TestShaderScene" type="Node2D"]
+
+[node name="Camera2D" type="Camera2D" parent="."]
+
+[node name="MainRectangle" type="ColorRect" parent="."]
+material = SubResource("ShaderMaterial_main")
+offset_left = -200.0
+offset_top = -100.0
+offset_right = 200.0
+offset_bottom = 100.0
+
+[node name="FireParticle1" type="ColorRect" parent="."]
+material = SubResource("ShaderMaterial_fire")
+offset_left = -240.0
+offset_top = -120.0
+offset_right = -200.0
+offset_bottom = 80.0
+
+[node name="FireParticle2" type="ColorRect" parent="."]
+material = SubResource("ShaderMaterial_fire")
+offset_left = 200.0
+offset_top = -120.0
+offset_right = 240.0
+offset_bottom = 80.0
+
+[node name="FireParticle3" type="ColorRect" parent="."]
+material = SubResource("ShaderMaterial_fire")
+offset_left = -180.0
+offset_top = 100.0
+offset_right = -140.0
+offset_bottom = 300.0
+
+[node name="FireParticle4" type="ColorRect" parent="."]
+material = SubResource("ShaderMaterial_fire")
+offset_left = -60.0
+offset_top = 100.0
+offset_right = -20.0
+offset_bottom = 300.0
+
+[node name="FireParticle5" type="ColorRect" parent="."]
+material = SubResource("ShaderMaterial_fire")
+offset_left = 60.0
+offset_top = 100.0
+offset_right = 100.0
+offset_bottom = 300.0
+
+[node name="FireParticle6" type="ColorRect" parent="."]
+material = SubResource("ShaderMaterial_fire")
+offset_left = 140.0
+offset_top = 100.0
+offset_right = 180.0
+offset_bottom = 300.0

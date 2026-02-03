@@ -29,6 +29,10 @@ const DeathUIScene = preload("res://DeathUI.tscn")
 const DeathParticlesScene = preload("res://DeathParticles.tscn")
 const DeathEffectScene = preload("res://DeathEffect.tscn")
 
+# ACTION LINES
+const ActionLinesScene = preload("res://ActionLines.tscn")
+var action_lines_instance: CanvasLayer = null
+
 # MOVEMENT CONFIGURATION
 @export_group("Horizontal Movement")
 @export var max_speed: float = 300.0  ## Maximum horizontal movement speed
@@ -458,6 +462,10 @@ var dust_spawn_timer: float = 0.0
 
 
 func _ready() -> void:
+	# Instantiate action lines
+	action_lines_instance = ActionLinesScene.instantiate()
+	add_child(action_lines_instance)
+	action_lines_instance.hide()
 	# Connect to dialogue interrupt signal for kick
 	DialogueManager.interrupt_triggered.connect(_on_dialogue_interrupt_kick)
 	DialogueManager.action_triggered.connect(_on_dialogue_action)
@@ -1091,6 +1099,13 @@ func _physics_process(delta: float) -> void:
 	
 	# Update run state based on speed (sprint state when speed exceeds threshold)
 	var current_speed = velocity.length()
+	
+	# Update action lines visibility based on speed
+	if action_lines_instance:
+		if current_speed >= 1200.0:
+			action_lines_instance.show()
+		else:
+			action_lines_instance.hide()
 	is_running = current_speed > sprint_speed_threshold
 	
 	# Handle speed-based afterimage trail

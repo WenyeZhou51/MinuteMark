@@ -1,0 +1,25 @@
+[gd_scene load_steps=3 format=3 uid="uid://ckao8otuk41bs"]
+
+[ext_resource type="Shader" path="res://shaders/action_lines.gdshader" id="1_shader"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_1"]
+shader = ExtResource("1_shader")
+shader_parameter/Speed = 0.7
+shader_parameter/LineLength = 2.0
+shader_parameter/LineColor = Color(0, 0, 0, 1)
+shader_parameter/Softness = 0.2
+shader_parameter/Weirdness = 0.1
+shader_parameter/Radius = 1.5
+shader_parameter/Freq = 30.0
+
+[node name="ActionLines" type="CanvasLayer"]
+layer = 10
+
+[node name="ColorRect" type="ColorRect" parent="."]
+material = SubResource("ShaderMaterial_1")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
