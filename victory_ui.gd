@@ -151,7 +151,12 @@ func setup(time_taken: float):
 	# Ensure the SpeedLines are updating even when paused
 	var speed_lines = $Control/SpeedLines
 	if speed_lines.material:
-		speed_lines.material.set_shader_parameter("speed", 10.0)
+		# Using the new stripes shader speed parameter
+		speed_lines.material.set_shader_parameter("speed", 1.0)
+	
+	# Show action lines in victory screen
+	if has_node("Control/ActionLines"):
+		$Control/ActionLines.show()
 	
 	# Initial states
 	time_label.text = "TIME: 00:00.00"

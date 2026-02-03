@@ -1102,7 +1102,7 @@ func _physics_process(delta: float) -> void:
 	
 	# Update action lines visibility based on speed
 	if action_lines_instance:
-		if current_speed >= 1200.0:
+		if current_speed >= 1500.0:
 			action_lines_instance.show()
 		else:
 			action_lines_instance.hide()

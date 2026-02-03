@@ -62,8 +62,9 @@ grow_vertical = 0
 
 [node name="TimerBar" type="Panel" parent="Control/TimerContainer/BarContainer"]
 layout_mode = 0
-offset_top = -24.0
-offset_right = 1200.0
+offset_left = -666.0
+offset_top = 52.0
+offset_right = 1864.0
 offset_bottom = 236.0
 
 [node name="TimerLabel" type="Label" parent="Control/TimerContainer/BarContainer"]
@@ -98,18 +99,18 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = 632.0
-offset_top = -127.0
-offset_right = 832.0
-offset_bottom = 171.0
+offset_left = 941.0
+offset_top = -165.0
+offset_right = 1203.0
+offset_bottom = 430.0
 grow_horizontal = 2
 grow_vertical = 2
 scale = Vector2(0.958932, 0.883081)
-theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_color = Color(1, 1, 0, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 20
 theme_override_fonts/font = ExtResource("3_sqymh")
-theme_override_font_sizes/font_size = 200
+theme_override_font_sizes/font_size = 400
 text = "S"
 horizontal_alignment = 1
 vertical_alignment = 1

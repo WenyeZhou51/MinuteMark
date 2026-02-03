@@ -138,38 +138,16 @@ func _setup_bars() -> void:
 	# Timer label - preserve scene file positioning completely
 	if timer_label:
 		initial_timer_label_size = timer_label.size
-		# Only override text styling, never position
-		timer_label.add_theme_color_override("font_color", Color.WHITE)
-		timer_label.add_theme_color_override("font_outline_color", Color.BLACK)
-		timer_label.add_theme_constant_override("outline_size", 12)
 	
 	# Rank indicator - preserve scene file positioning completely
 	if rank_indicator:
 		initial_rank_indicator_pos = rank_indicator.position
 	
 	# Initialize bar to full width (timer starts at 0, so bar is full)
-	_setup_bar_style(timer_bar)
 	_update_bar_sizes(0.0)
 
 func _setup_bar_style(bar: Panel) -> void:
-	if not bar:
-		return
-	
-	var style_box = StyleBoxFlat.new()
-	style_box.bg_color = Color(0.2, 0.8, 0.2, 1.0)  # Initial green color
-	style_box.border_color = bar_outline_color
-	style_box.border_width_left = bar_outline_width
-	style_box.border_width_right = bar_outline_width
-	style_box.border_width_top = bar_outline_width
-	style_box.border_width_bottom = bar_outline_width
-	
-	# Add rounded corners for the single continuous bar
-	style_box.corner_radius_top_left = bar_corner_radius
-	style_box.corner_radius_bottom_left = bar_corner_radius
-	style_box.corner_radius_top_right = bar_corner_radius
-	style_box.corner_radius_bottom_right = bar_corner_radius
-	
-	bar.add_theme_stylebox_override("panel", style_box)
+	pass # Respect editor stylebox settings
 
 func _update_bar_sizes(progress: float) -> void:
 	# Single continuous bar shrinks from both ends toward center as time progresses
@@ -211,20 +189,7 @@ func _update_bar_sizes(progress: float) -> void:
 		timer_bar.offset_bottom = original_bottom  # Preserve from scene file
 
 func _apply_font_settings() -> void:
-	if not timer_label:
-		return
-	
-	if custom_font:
-		timer_label.add_theme_font_override("font", custom_font)
-	
-	if font_size > 0:
-		timer_label.add_theme_font_size_override("font_size", font_size)
-		
-	timer_label.add_theme_color_override("font_outline_color", outline_color)
-	timer_label.add_theme_constant_override("outline_size", outline_size)
-	timer_label.add_theme_color_override("font_shadow_color", shadow_color)
-	timer_label.add_theme_constant_override("shadow_offset_x", int(shadow_offset.x))
-	timer_label.add_theme_constant_override("shadow_offset_y", int(shadow_offset.y))
+	pass # Respect editor font settings
 
 func setup_timer(duration: float) -> void:
 	var was_running = is_running
@@ -331,13 +296,13 @@ func update_display(display_time: float) -> void:
 	var current_color = color_stages[color_index]
 	
 	# Update bar color
-	_update_bar_color(timer_bar, current_color)
+	# _update_bar_color(timer_bar, current_color)
 	
 	# Update font color - always use white text with black outline for maximum visibility
-	if timer_label:
-		timer_label.add_theme_color_override("font_color", Color.WHITE)
-		timer_label.add_theme_color_override("font_outline_color", Color.BLACK)
-		timer_label.add_theme_constant_override("outline_size", 12)
+	# if timer_label:
+	# 	timer_label.add_theme_color_override("font_color", Color.WHITE)
+	# 	timer_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	# 	timer_label.add_theme_constant_override("outline_size", 12)
 	
 	# Update bar sizes - bars shrink from outer edges, always meeting in center
 	_update_bar_sizes(progress)
@@ -428,21 +393,8 @@ func _update_rank_indicator() -> void:
 	# Calculate rank using same thresholds as victory UI
 	var rank = calculate_rank(current_time)
 	
-	# Always update text and color
+	# Always update text
 	rank_indicator.text = rank
-	
-	# Set color based on rank (matching victory UI colors)
-	match rank:
-		"S":
-			rank_indicator.add_theme_color_override("font_color", Color.CYAN)
-		"A":
-			rank_indicator.add_theme_color_override("font_color", Color.GREEN)
-		"B":
-			rank_indicator.add_theme_color_override("font_color", Color.YELLOW)
-		"C":
-			rank_indicator.add_theme_color_override("font_color", Color.ORANGE)
-		"D":
-			rank_indicator.add_theme_color_override("font_color", Color.RED)
 	
 	# Always ensure it's visible
 	rank_indicator.visible = true
