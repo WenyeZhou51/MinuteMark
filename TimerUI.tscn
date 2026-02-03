@@ -1,7 +1,18 @@
-[gd_scene load_steps=3 format=3 uid="uid://dmp8rksh3a5yl"]
+[gd_scene load_steps=5 format=3 uid="uid://dmp8rksh3a5yl"]
 
 [ext_resource type="Script" uid="uid://bduwqd5xtl7tj" path="res://timer_ui.gd" id="1_script"]
 [ext_resource type="FontFile" uid="uid://baaiikv2041fb" path="res://Fonts/Funkrocker.otf" id="3_sqymh"]
+[ext_resource type="Shader" uid="uid://ujp4jbhxo13j" path="res://shaders/time_warning_overlay.gdshader" id="4_warning_shader"]
+
+[sub_resource type="ShaderMaterial" id="1_warning_material"]
+shader = ExtResource("4_warning_shader")
+shader_parameter/intensity = 0.5
+shader_parameter/pulse_speed = 3.0
+shader_parameter/warning_color = Color(1, 0.1, 0.1, 0.6)
+shader_parameter/edge_roughness = 0.5
+shader_parameter/noise_scale = 10.0
+shader_parameter/frame_thickness = 0.02
+shader_parameter/frame_intensity = 0.6
 
 [node name="TimerUI" type="CanvasLayer"]
 layer = 100
@@ -14,6 +25,17 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+
+[node name="WarningOverlay" type="ColorRect" parent="Control"]
+modulate = Color(1, 1, 1, 0)
+material = SubResource("1_warning_material")
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(1, 0.1, 0.1, 0.6)
 
 [node name="TimerContainer" type="Control" parent="Control"]
 layout_mode = 1
@@ -40,10 +62,9 @@ grow_vertical = 0
 
 [node name="TimerBar" type="Panel" parent="Control/TimerContainer/BarContainer"]
 layout_mode = 0
-offset_left = 4.0
-offset_top = -52.0
-offset_right = 1204.0
-offset_bottom = 208.0
+offset_top = -24.0
+offset_right = 1200.0
+offset_bottom = 236.0
 
 [node name="TimerLabel" type="Label" parent="Control/TimerContainer/BarContainer"]
 layout_mode = 1
@@ -78,11 +99,12 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = 632.0
-offset_top = -147.0
+offset_top = -127.0
 offset_right = 832.0
-offset_bottom = 151.0
+offset_bottom = 171.0
 grow_horizontal = 2
 grow_vertical = 2
+scale = Vector2(0.9589322, 0.8830812)
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 20

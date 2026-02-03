@@ -6,6 +6,7 @@ signal time_expired
 @onready var timer_bar: Panel = $Control/TimerContainer/BarContainer/TimerBar
 @onready var bar_container: Control = $Control/TimerContainer/BarContainer
 @onready var rank_indicator: Label = $Control/TimerContainer/RankIndicator
+@onready var warning_overlay: ColorRect = $Control/WarningOverlay
 
 @export_group("Font Settings")
 @export var custom_font: Font
@@ -21,6 +22,13 @@ signal time_expired
 @export var bar_outline_color: Color = Color.WHITE  ## Color of the bar outline
 @export var bar_outline_width: int = 3  ## Width of the bar outline
 @export var bar_corner_radius: int = 20  ## Corner radius for rounded corners
+
+@export_group("Warning Overlay")
+@export var warning_threshold: float = 60.0  ## Time remaining (seconds) to trigger warning
+@export var warning_intensity: float = 0.15  ## Base intensity of warning overlay (0.0-1.0) - reduced since frame is main indicator
+@export var warning_pulse_speed: float = 3.0  ## Speed of warning pulse animation
+@export var warning_frame_thickness: float = 0.02  ## Thickness of warning frame (0.0-0.1)
+@export var warning_frame_intensity: float = 0.6  ## Intensity of warning frame (0.0-2.0) - reduced for subtler effect
 
 # Color stages matching victory UI rank colors
 # S: Cyan (< 60s), A: Green (60-119s), B: Yellow (120-179s), C: Orange (180-239s), D: Red (240+s)
@@ -60,6 +68,22 @@ func _ready() -> void:
 	# Initial display update
 	update_display(current_time)
 	_update_rank_indicator()
+	
+	# Initialize warning overlay (hidden by default)
+	if warning_overlay:
+		warning_overlay.modulate.a = 0.0
+		# Ensure shader material is set up (scene file may already have it)
+		if warning_overlay.material == null:
+			var shader_mat = ShaderMaterial.new()
+			shader_mat.shader = preload("res://shaders/time_warning_overlay.gdshader")
+			warning_overlay.material = shader_mat
+		# Set initial shader parameters (update even if material exists)
+		if warning_overlay.material is ShaderMaterial:
+			var shader_mat = warning_overlay.material as ShaderMaterial
+			shader_mat.set_shader_parameter("intensity", warning_intensity)
+			shader_mat.set_shader_parameter("pulse_speed", warning_pulse_speed)
+			shader_mat.set_shader_parameter("frame_thickness", warning_frame_thickness)
+			shader_mat.set_shader_parameter("frame_intensity", warning_frame_intensity)
 	
 	# Auto-start timer if max_time is set and timer hasn't been started yet
 	# This ensures the timer runs even if setup_timer wasn't called explicitly
@@ -317,6 +341,9 @@ func update_display(display_time: float) -> void:
 	
 	# Update bar sizes - bars shrink from outer edges, always meeting in center
 	_update_bar_sizes(progress)
+	
+	# Update warning overlay - show when time remaining is <= warning_threshold
+	_update_warning_overlay(display_time)
 
 func _update_bar_color(bar: Panel, color: Color) -> void:
 	if not bar:
@@ -334,6 +361,46 @@ func _get_contrasting_color(base_color: Color) -> Color:
 		return Color.WHITE
 	else:
 		return Color(0.1, 0.1, 0.1, 1.0)  # Very dark gray/black
+
+func _update_warning_overlay(display_time: float) -> void:
+	# Show warning overlay when remaining time is <= warning_threshold (last minute)
+	var remaining_time = max_time - display_time
+	var is_warning_active = false
+	var urgency = 0.0
+	
+	if remaining_time <= warning_threshold and remaining_time > 0:
+		is_warning_active = true
+		# Calculate urgency based on how close to zero (more intense as time runs out)
+		urgency = 1.0 - (remaining_time / warning_threshold)
+	
+	if warning_overlay:
+		if is_warning_active:
+			# Subtle overlay - frame is the main indicator, overlay just adds atmosphere
+			var target_alpha = 0.2 + (urgency * 0.15)  # Range from 0.2 to 0.35 (much more subtle)
+			
+			# Smoothly fade in/out
+			var current_alpha = warning_overlay.modulate.a
+			var new_alpha = lerp(current_alpha, target_alpha, 0.15)
+			warning_overlay.modulate.a = new_alpha
+			
+			# Update shader parameters for pulsing effect
+			if warning_overlay.material and warning_overlay.material is ShaderMaterial:
+				var shader_mat = warning_overlay.material as ShaderMaterial
+				# Keep overlay subtle - frame does the heavy lifting
+				shader_mat.set_shader_parameter("intensity", warning_intensity * (0.8 + urgency * 0.2))
+				shader_mat.set_shader_parameter("pulse_speed", warning_pulse_speed * (1.0 + urgency * 0.8))
+				shader_mat.set_shader_parameter("frame_thickness", warning_frame_thickness)
+				# Frame intensity increases subtly with urgency
+				shader_mat.set_shader_parameter("frame_intensity", warning_frame_intensity * (1.0 + urgency * 0.3))
+				# Subtle overlay color - frame is bright red
+				var color_intensity = 0.2 + urgency * 0.15
+				shader_mat.set_shader_parameter("warning_color", Color(1.0, 0.05 * (1.0 - urgency), 0.05 * (1.0 - urgency), color_intensity))
+		else:
+			# Fade out when not in warning state
+			var current_alpha = warning_overlay.modulate.a
+			warning_overlay.modulate.a = lerp(current_alpha, 0.0, 0.2)
+			if warning_overlay.modulate.a < 0.01:
+				warning_overlay.modulate.a = 0.0
 
 func calculate_rank(time: float) -> String:
 	"""Calculate rank based on time taken."""
