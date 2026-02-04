@@ -46,5 +46,5 @@ func _submit_name() -> void:
 	LeaderboardManager.player_name = player_name
 	print("Player name set to: ", player_name)
 	
-	# Go to first level (level.tscn)
-	get_tree().change_scene_to_file("res://level.tscn")
+	# Go to level selection menu
+	get_tree().change_scene_to_file("res://level_select_menu.tscn")
