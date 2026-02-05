@@ -4,8 +4,9 @@ signal time_expired
 
 @onready var timer_label: Label = $Control/TimerContainer/BarContainer/TimerLabel
 @onready var timer_bar: Panel = $Control/TimerContainer/BarContainer/TimerBar
-@onready var left_bands: ColorRect = $Control/TimerContainer/BarContainer/LeftBands
-@onready var right_bands: ColorRect = $Control/TimerContainer/BarContainer/RightBands
+@onready var fire_rect: ColorRect = $Control/TimerContainer/BarContainer/FireRect
+@onready var left_bands: ColorRect = $Control/TimerContainer/BarContainer/TimerBar/LeftBands
+@onready var right_bands: ColorRect = $Control/TimerContainer/BarContainer/TimerBar/RightBands
 @onready var bar_container: Control = $Control/TimerContainer/BarContainer
 @onready var rank_indicator: Label = $Control/TimerContainer/RankIndicator
 @onready var warning_overlay: ColorRect = $Control/WarningOverlay
@@ -27,8 +28,8 @@ signal time_expired
 
 @export_group("Timer Behavior")
 @export var min_bar_length: float = 100.0 ## Minimum length the bar will shrink to
-@export var green_threshold: float = 0.6 ## Time percentage above which bar is green
-@export var yellow_threshold: float = 0.3 ## Time percentage above which bar is yellow (below green)
+@export var green_threshold: float = 0.85 ## Time percentage above which bar is green (first 15%)
+@export var yellow_threshold: float = 0.7 ## Time percentage above which bar is yellow (next 15%)
 
 @export_group("Warning Overlay")
 @export var warning_threshold: float = 60.0  ## Time remaining (seconds) to trigger warning
@@ -53,6 +54,8 @@ var is_running: bool = false
 var dialogue_slow_mode: bool = false
 var is_rewinding: bool = false  # Is player currently rewinding (clock moves backwards)
 var bar_max_width: float = 0.0
+var last_pulse_second: int = -1  # Track last second for pulse effect
+var pulse_tween: Tween  # Store current pulse tween
 
 # Store initial positions from scene file so we don't override manual positioning
 var initial_bar_container_size: Vector2 = Vector2.ZERO
@@ -69,6 +72,7 @@ func _ready() -> void:
 	
 	# Wait for next frame to get proper sizes
 	await get_tree().process_frame
+	_setup_fire_visuals()
 	_setup_bars()
 	_apply_font_settings()
 	
@@ -76,7 +80,38 @@ func _ready() -> void:
 	update_display(current_time)
 	_update_rank_indicator()
 	
-	# Initialize warning overlay (hidden by default)
+	# Set pivot point to center for scaling effect
+	if timer_label:
+		timer_label.pivot_offset = timer_label.size / 2.0
+
+func _setup_fire_visuals() -> void:
+	if not fire_rect:
+		return
+		
+	# Setup Shader
+	var shader = preload("res://shaders/timer_fire.gdshader")
+	var mat = ShaderMaterial.new()
+	mat.shader = shader
+	
+	# Setup Noise Texture
+	var noise = FastNoiseLite.new()
+	noise.seed = randi()
+	noise.frequency = 0.02
+	noise.fractal_type = FastNoiseLite.FRACTAL_FBM
+	
+	var noise_tex = NoiseTexture2D.new()
+	noise_tex.noise = noise
+	noise_tex.width = 512
+	noise_tex.height = 128
+	noise_tex.seamless = true
+	
+	mat.set_shader_parameter("noise_tex", noise_tex)
+	fire_rect.material = mat
+	
+	# Ensure it's behind the bar
+	fire_rect.get_parent().move_child(fire_rect, 0)
+
+# Initialize warning overlay (hidden by default)
 	if warning_overlay:
 		warning_overlay.modulate.a = 0.0
 		# Ensure shader material is set up (scene file may already have it)
@@ -116,6 +151,10 @@ func _setup_edge_fades() -> void:
 		bar_mat.set_shader_parameter("left_fade_width", 0.3)
 		bar_mat.set_shader_parameter("right_fade_width", 0.3)
 		timer_bar.material = bar_mat
+	
+	if fire_rect and fire_rect.material is ShaderMaterial:
+		fire_rect.material.set_shader_parameter("left_fade_width", 0.3)
+		fire_rect.material.set_shader_parameter("right_fade_width", 0.3)
 		
 	# 2. Setup Bands fade
 	# LeftBands covers left half of bar. To fade left 30% of TOTAL bar,
@@ -183,6 +222,12 @@ func _update_bar_sizes(progress: float) -> void:
 		# Symmetrically adjust offsets from the edges
 		timer_bar.offset_left = shrink_amount
 		timer_bar.offset_right = -shrink_amount
+		
+		if fire_rect:
+			fire_rect.offset_left = shrink_amount
+			fire_rect.offset_right = -shrink_amount
+			if fire_rect.material is ShaderMaterial:
+				fire_rect.material.set_shader_parameter("rect_size", fire_rect.size)
 		
 		# Update band overlay logic
 		# LeftBands covers the left half (0.0 to 0.5)
@@ -283,11 +328,18 @@ func update_display(display_time: float) -> void:
 	var total_seconds = max(0, display_time)
 	var minutes = int(total_seconds / 60.0)
 	var seconds = int(total_seconds) % 60
+	var decimals = int((total_seconds - int(total_seconds)) * 100)
 	
 	# Update label text with clean formatting
 	if timer_label:
 		# Format as MM:SS - clean and readable
 		timer_label.text = "%02d:%02d" % [minutes, seconds]
+		
+		# Pulse effect on each second pass
+		var current_second = int(total_seconds)
+		if current_second != last_pulse_second:
+			last_pulse_second = current_second
+			_pulse_timer_label()
 	
 	# Calculate progress (0.0 = no time elapsed, 1.0 = time limit reached)
 	var progress = display_time / max_time
@@ -305,6 +357,7 @@ func update_display(display_time: float) -> void:
 	
 	# Update bar color
 	_update_bar_color(timer_bar, current_color)
+	_update_fire_state(time_left_percent)
 	
 	# Update bar sizes - bars shrink from outer edges, always meeting in center
 	_update_bar_sizes(progress)
@@ -324,6 +377,34 @@ func _update_bar_color(bar: Panel, color: Color) -> void:
 		# Fallback to modulate if stylebox isn't a FlatStyleBox or doesn't exist
 		bar.modulate = color
 
+func _update_fire_state(time_left_percent: float) -> void:
+	if not fire_rect or not fire_rect.material is ShaderMaterial:
+		return
+		
+	var mat = fire_rect.material as ShaderMaterial
+	
+	if time_left_percent > green_threshold:
+		# Green and mild - Hidden as requested
+		fire_rect.visible = false
+	elif time_left_percent > yellow_threshold:
+		# Yellow and moderate
+		fire_rect.visible = true
+		mat.set_shader_parameter("bottom_color", Color(1.0, 0.5, 0.0)) # Orange base
+		mat.set_shader_parameter("middle_color", Color(1.0, 1.0, 0.0)) # Yellow mid
+		mat.set_shader_parameter("top_color", Color(1.0, 1.0, 0.5)) # Light Yellow tip
+		mat.set_shader_parameter("fire_speed", Vector2(0.0, 1.0))
+		mat.set_shader_parameter("fire_alpha", 2)
+		mat.set_shader_parameter("fire_aperture", 0.8)
+	else:
+		# Red and blazing
+		fire_rect.visible = true
+		mat.set_shader_parameter("bottom_color", Color(1.0, 0.0, 0.0)) # Red base
+		mat.set_shader_parameter("middle_color", Color(1.0, 0.5, 0.0)) # Orange mid
+		mat.set_shader_parameter("top_color", Color(1.0, 0.8, 0.0)) # Yellow tip
+		mat.set_shader_parameter("fire_speed", Vector2(0.0, 3.5))
+		mat.set_shader_parameter("fire_alpha", 1.0)
+		mat.set_shader_parameter("fire_aperture", 0.5)
+
 func _get_contrasting_color(base_color: Color) -> Color:
 	# Calculate luminance to determine if we should use light or dark text
 	var luminance = 0.299 * base_color.r + 0.587 * base_color.g + 0.114 * base_color.b
@@ -334,15 +415,16 @@ func _get_contrasting_color(base_color: Color) -> Color:
 		return Color(0.1, 0.1, 0.1, 1.0)  # Very dark gray/black
 
 func _update_warning_overlay(display_time: float) -> void:
-	# Show warning overlay when remaining time is <= warning_threshold (last minute)
+	# Show warning overlay when remaining time is <= 30% of max_time
 	var remaining_time = max_time - display_time
+	var warning_threshold_dynamic = max_time * 0.3
 	var is_warning_active = false
 	var urgency = 0.0
 	
-	if remaining_time <= warning_threshold and remaining_time > 0:
+	if remaining_time <= warning_threshold_dynamic and remaining_time > 0:
 		is_warning_active = true
 		# Calculate urgency based on how close to zero (more intense as time runs out)
-		urgency = 1.0 - (remaining_time / warning_threshold)
+		urgency = 1.0 - (remaining_time / warning_threshold_dynamic)
 	
 	if warning_overlay:
 		if is_warning_active:
@@ -405,6 +487,22 @@ func _update_rank_indicator() -> void:
 	# Always ensure it's visible
 	rank_indicator.visible = true
 	rank_indicator.modulate = Color(1, 1, 1, 1)
+
+func _pulse_timer_label() -> void:
+	if not timer_label:
+		return
+		
+	if pulse_tween:
+		pulse_tween.kill()
+		
+	pulse_tween = create_tween()
+	pulse_tween.set_trans(Tween.TRANS_QUAD)
+	pulse_tween.set_ease(Tween.EASE_OUT)
+	
+	# Enlarge
+	pulse_tween.tween_property(timer_label, "scale", Vector2(1.2, 1.2), 0.1)
+	# Shrink back
+	pulse_tween.tween_property(timer_label, "scale", Vector2(1.0, 1.0), 0.2)
 
 func _on_dialogue_started(_id: String) -> void:
 	dialogue_slow_mode = true
