@@ -4,6 +4,8 @@ signal time_expired
 
 @onready var timer_label: Label = $Control/TimerContainer/BarContainer/TimerLabel
 @onready var timer_bar: Panel = $Control/TimerContainer/BarContainer/TimerBar
+@onready var left_bands: ColorRect = $Control/TimerContainer/BarContainer/LeftBands
+@onready var right_bands: ColorRect = $Control/TimerContainer/BarContainer/RightBands
 @onready var bar_container: Control = $Control/TimerContainer/BarContainer
 @onready var rank_indicator: Label = $Control/TimerContainer/RankIndicator
 @onready var warning_overlay: ColorRect = $Control/WarningOverlay
@@ -18,10 +20,15 @@ signal time_expired
 
 @export_group("Bar Settings")
 @export var bar_width: float = 1200.0  ## Total width of the timer bar
-@export var bar_height: float = 260.0  ## Height of the timer bar
+@export var bar_height: float = 65.0  ## Height of the timer bar
 @export var bar_outline_color: Color = Color.WHITE  ## Color of the bar outline
 @export var bar_outline_width: int = 3  ## Width of the bar outline
 @export var bar_corner_radius: int = 20  ## Corner radius for rounded corners
+
+@export_group("Timer Behavior")
+@export var min_bar_length: float = 100.0 ## Minimum length the bar will shrink to
+@export var green_threshold: float = 0.6 ## Time percentage above which bar is green
+@export var yellow_threshold: float = 0.3 ## Time percentage above which bar is yellow (below green)
 
 @export_group("Warning Overlay")
 @export var warning_threshold: float = 60.0  ## Time remaining (seconds) to trigger warning
@@ -98,95 +105,68 @@ func _ready() -> void:
 		DialogueManager.dialogue_finished.connect(_on_dialogue_finished)
 
 func _setup_bars() -> void:
-	# Read initial sizes from scene file to preserve manual positioning
-	# Only override if inspector values are explicitly set
-	
-	# Bar container - preserve scene file positioning
 	if bar_container:
-		initial_bar_container_size = bar_container.size
-		# Determine max width: prefer scene file, then inspector, then default
-		if bar_container.size.x > 0:
-			bar_max_width = bar_container.size.x
-		elif bar_width > 0:
-			bar_max_width = bar_width
-			# Inspector value overrides - update container
-			bar_container.offset_left = -bar_max_width / 2.0
-			bar_container.offset_right = bar_max_width / 2.0
-		else:
-			bar_max_width = 1200.0
+		# Ensure container is full width and has height
+		bar_container.anchor_left = 0.0
+		bar_container.anchor_right = 1.0
+		bar_container.offset_left = 0.0
+		bar_container.offset_right = 0.0
+		bar_container.offset_top = 0.0
+		bar_container.offset_bottom = bar_height
 		
-		# Only override height if inspector value is different from default
-		if bar_height != 260.0:
-			bar_container.offset_top = -bar_height / 2.0
-			bar_container.offset_bottom = bar_height / 2.0
+		# Now that container is set, get its actual width
+		bar_max_width = bar_container.size.x
+		if bar_max_width <= 0:
+			bar_max_width = get_viewport().get_visible_rect().size.x
 	
-	# Timer bar - preserve scene file positioning, only update width dynamically
 	if timer_bar:
-		initial_timer_bar_size = Vector2(timer_bar.size.x, timer_bar.size.y)
-		# Store the full width from scene file for shrinking animation
-		if timer_bar.size.x > 0:
-			bar_max_width = timer_bar.size.x
-		# Only override if inspector values are explicitly set
-		if bar_width > 0:
-			bar_max_width = bar_width
-			timer_bar.offset_left = 0.0
-			timer_bar.offset_right = bar_max_width
-		if bar_height != 260.0:
-			timer_bar.offset_top = -bar_height / 2.0
-			timer_bar.offset_bottom = bar_height / 2.0
+		timer_bar.anchor_left = 0.0
+		timer_bar.anchor_right = 1.0
+		timer_bar.offset_left = 0.0
+		timer_bar.offset_right = 0.0
+		timer_bar.offset_top = 0.0
+		timer_bar.offset_bottom = 0.0 # Full height of container
 	
-	# Timer label - preserve scene file positioning completely
-	if timer_label:
-		initial_timer_label_size = timer_label.size
-	
-	# Rank indicator - preserve scene file positioning completely
-	if rank_indicator:
-		initial_rank_indicator_pos = rank_indicator.position
-	
-	# Initialize bar to full width (timer starts at 0, so bar is full)
 	_update_bar_sizes(0.0)
 
 func _setup_bar_style(bar: Panel) -> void:
 	pass # Respect editor stylebox settings
 
 func _update_bar_sizes(progress: float) -> void:
-	# Single continuous bar shrinks from both ends toward center as time progresses
 	# progress: 0.0 = full bar, 1.0 = empty bar (meets at center)
-	# Only update the bar width dynamically - preserve all other positioning from scene file
 	
 	if bar_max_width <= 0:
-		# Recalculate if needed
-		if bar_width > 0:
-			bar_max_width = bar_width
-		elif bar_container and bar_container.size.x > 0:
-			bar_max_width = bar_container.size.x
-		elif timer_bar:
-			bar_max_width = timer_bar.size.x
-		else:
-			bar_max_width = 1200.0
+		bar_max_width = get_viewport().get_visible_rect().size.x
 	
 	if bar_max_width <= 0:
-		return  # Can't update if we don't have a valid width
+		return
 	
-	# Update the bar to shrink from both ends toward center
 	if timer_bar:
-		# Get the initial full width from scene file or stored value
 		var full_width = bar_max_width
-		# Calculate how much to shrink from each side
-		# When progress = 0.0: shrink_amount = 0 (full bar)
-		# When progress = 0.5: shrink_amount = full_width/2 (half from each side)
-		# When progress = 1.0: shrink_amount = full_width/2 (meets at center)
-		var shrink_amount = (full_width * progress) / 2.0
+		var target_width = lerp(full_width, min_bar_length, progress)
+		var shrink_amount = (full_width - target_width) / 2.0
 		
-		# Preserve original top and bottom from scene file
-		var original_top = timer_bar.offset_top
-		var original_bottom = timer_bar.offset_bottom
-		
-		# Shrink from both ends: left edge moves right, right edge moves left
+		# Symmetrically adjust offsets from the edges
 		timer_bar.offset_left = shrink_amount
-		timer_bar.offset_right = full_width - shrink_amount
-		timer_bar.offset_top = original_top  # Preserve from scene file
-		timer_bar.offset_bottom = original_bottom  # Preserve from scene file
+		timer_bar.offset_right = -shrink_amount
+		
+		# Update band overlay logic
+		# LeftBands covers the left half (0.0 to 0.5)
+		# RightBands covers the right half (0.5 to 1.0)
+		if left_bands:
+			left_bands.anchor_left = 0.0
+			left_bands.anchor_right = 0.5
+			left_bands.offset_left = 0
+			left_bands.offset_right = 0
+			left_bands.offset_top = 0
+			left_bands.offset_bottom = 0
+		if right_bands:
+			right_bands.anchor_left = 0.5
+			right_bands.anchor_right = 1.0
+			right_bands.offset_left = 0
+			right_bands.offset_right = 0
+			right_bands.offset_top = 0
+			right_bands.offset_bottom = 0
 
 func _apply_font_settings() -> void:
 	pass # Respect editor font settings
@@ -279,30 +259,18 @@ func update_display(display_time: float) -> void:
 	var progress = display_time / max_time
 	progress = clamp(progress, 0.0, 1.0)
 	
-	# Determine which color stage we're in based on rank thresholds
-	# S: < 60s, A: 60-119s, B: 120-179s, C: 180-239s, D: 240+s
-	var color_index = 0
-	if display_time < 60.0:
-		color_index = 0  # Cyan (S)
-	elif display_time < 120.0:
-		color_index = 1  # Green (A)
-	elif display_time < 180.0:
-		color_index = 2  # Yellow (B)
-	elif display_time < 240.0:
-		color_index = 3  # Orange (C)
+	# Determine color based on remaining time percentage (1.0 - progress)
+	var time_left_percent = 1.0 - progress
+	var current_color = Color.GREEN
+	if time_left_percent > green_threshold:
+		current_color = Color.GREEN
+	elif time_left_percent > yellow_threshold:
+		current_color = Color.YELLOW
 	else:
-		color_index = 4  # Red (D)
-	
-	var current_color = color_stages[color_index]
+		current_color = Color.RED
 	
 	# Update bar color
-	# _update_bar_color(timer_bar, current_color)
-	
-	# Update font color - always use white text with black outline for maximum visibility
-	# if timer_label:
-	# 	timer_label.add_theme_color_override("font_color", Color.WHITE)
-	# 	timer_label.add_theme_color_override("font_outline_color", Color.BLACK)
-	# 	timer_label.add_theme_constant_override("outline_size", 12)
+	_update_bar_color(timer_bar, current_color)
 	
 	# Update bar sizes - bars shrink from outer edges, always meeting in center
 	_update_bar_sizes(progress)
@@ -314,9 +282,13 @@ func _update_bar_color(bar: Panel, color: Color) -> void:
 	if not bar:
 		return
 	
+	# Try to update the stylebox if it exists
 	var style_box = bar.get_theme_stylebox("panel")
 	if style_box and style_box is StyleBoxFlat:
 		style_box.bg_color = color
+	else:
+		# Fallback to modulate if stylebox isn't a FlatStyleBox or doesn't exist
+		bar.modulate = color
 
 func _get_contrasting_color(base_color: Color) -> Color:
 	# Calculate luminance to determine if we should use light or dark text

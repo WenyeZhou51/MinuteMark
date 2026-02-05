@@ -1,8 +1,9 @@
-[gd_scene load_steps=5 format=3 uid="uid://dmp8rksh3a5yl"]
+[gd_scene load_steps=8 format=3 uid="uid://dmp8rksh3a5yl"]
 
 [ext_resource type="Script" path="res://timer_ui.gd" id="1_script"]
 [ext_resource type="FontFile" uid="uid://baaiikv2041fb" path="res://Fonts/Funkrocker.otf" id="3_sqymh"]
 [ext_resource type="Shader" path="res://shaders/time_warning_overlay.gdshader" id="4_warning_shader"]
+[ext_resource type="Shader" path="res://shaders/timer_bands.gdshader" id="5_bands_shader"]
 
 [sub_resource type="ShaderMaterial" id="1_warning_material"]
 shader = ExtResource("4_warning_shader")
@@ -13,6 +14,24 @@ shader_parameter/edge_roughness = 0.5
 shader_parameter/noise_scale = 10.0
 shader_parameter/frame_thickness = 0.02
 shader_parameter/frame_intensity = 0.6
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_left_bands"]
+shader = ExtResource("5_bands_shader")
+shader_parameter/speed = 0.5
+shader_parameter/band_count = 8.0
+shader_parameter/thickness = 0.1
+shader_parameter/angle = 0.8
+shader_parameter/move_right = true
+shader_parameter/point_right = true
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_right_bands"]
+shader = ExtResource("5_bands_shader")
+shader_parameter/speed = 0.5
+shader_parameter/band_count = 8.0
+shader_parameter/thickness = 0.1
+shader_parameter/angle = 0.8
+shader_parameter/move_right = false
+shader_parameter/point_right = false
 
 [node name="TimerUI" type="CanvasLayer"]
 layer = 100
@@ -39,33 +58,47 @@ color = Color(1, 0.1, 0.1, 0.6)
 
 [node name="TimerContainer" type="Control" parent="Control"]
 layout_mode = 1
-anchors_preset = 5
-anchor_left = 0.5
-anchor_right = 0.5
-offset_top = 20.0
-offset_bottom = 120.0
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 65.0
 grow_horizontal = 2
 
 [node name="BarContainer" type="Control" parent="Control/TimerContainer"]
 layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -600.0
-offset_top = -130.0
-offset_right = 600.0
-offset_bottom = 130.0
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 grow_horizontal = 2
-grow_vertical = 0
+grow_vertical = 2
 
 [node name="TimerBar" type="Panel" parent="Control/TimerContainer/BarContainer"]
-layout_mode = 0
-offset_left = -666.0
-offset_top = 52.0
-offset_right = 1864.0
-offset_bottom = 236.0
+clip_contents = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="LeftBands" type="ColorRect" parent="Control/TimerContainer/BarContainer/TimerBar"]
+material = SubResource("ShaderMaterial_left_bands")
+layout_mode = 1
+anchors_preset = -1
+anchor_right = 0.5
+anchor_bottom = 1.0
+grow_vertical = 2
+color = Color(1, 1, 1, 0)
+
+[node name="RightBands" type="ColorRect" parent="Control/TimerContainer/BarContainer/TimerBar"]
+material = SubResource("ShaderMaterial_right_bands")
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.5
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 0
+grow_vertical = 2
+color = Color(1, 1, 1, 0)
 
 [node name="TimerLabel" type="Label" parent="Control/TimerContainer/BarContainer"]
 layout_mode = 1

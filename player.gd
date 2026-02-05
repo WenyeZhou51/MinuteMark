@@ -262,10 +262,10 @@ var sfx_player: AudioStreamPlayer
 
 # TIMER CONFIGURATION
 @export_group("Timer System")
-@export var game_timer_duration: float = 300.0  ## Initial time on the clock
+@export var game_timer_duration: float = 15.0  ## Initial time on the clock
 @export var timer_ui_scene: PackedScene = preload("res://TimerUI.tscn")
 
-var current_game_time: float = 300.0
+var current_game_time: float = 15.0
 var timer_ui_instance: Node = null
 @export var rewind_history_duration: float = 3.0  ## How long to keep state history (seconds)
 @export var rewind_traceback_speed: float = 2.0  ## Speed of traceback while holding in slow-mo (2.0 = 2x relative to slow-mo time)
@@ -518,9 +518,11 @@ func _ready() -> void:
 	
 	# Setup timer system
 	current_game_time = game_timer_duration
-	if timer_ui_scene:
-		timer_ui_instance = timer_ui_scene.instantiate()
-		add_child(timer_ui_instance)
+	
+	# Timer UI is now placed manually in the scene
+	# We search for it in the "timer_ui" group instead of instantiating
+	timer_ui_instance = get_tree().get_first_node_in_group("timer_ui")
+	if timer_ui_instance:
 		timer_ui_instance.setup_timer(game_timer_duration)
 		timer_ui_instance.time_expired.connect(die)
 	
