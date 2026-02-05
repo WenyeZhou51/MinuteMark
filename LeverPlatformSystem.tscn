@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3 uid="uid://c2p1gqjfeqf38"]
+
+[ext_resource type="Script" uid="uid://dey3wfm73cn2r" path="res://lever_platform_system.gd" id="1_script"]
+
+[node name="LeverPlatformSystem" type="Node2D"]
+script = ExtResource("1_script")
+platform_count = 2
+start_phase = 0.5
+debug_logs = true
