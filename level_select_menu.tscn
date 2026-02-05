@@ -1,0 +1,318 @@
+[gd_scene load_steps=5 format=3 uid="uid://clbrllvajciy1"]
+
+[ext_resource type="Script" uid="uid://dv6gn5aukl7sp" path="res://level_select_menu.gd" id="1_level_select"]
+[ext_resource type="Texture2D" uid="uid://rte0t12en10e" path="res://Sprites/Pause bg.png" id="2_pause_bg"]
+[ext_resource type="FontFile" uid="uid://qjp835anti7g" path="res://Fonts/doctor punk.otf" id="2_t4l2a"]
+[ext_resource type="Texture2D" uid="uid://bpr70dxba6rqr" path="res://Sprites/Bg white overlay .png" id="3_white_overlay"]
+
+[node name="LevelSelectMenu" type="CanvasLayer"]
+layer = 100
+script = ExtResource("1_level_select")
+
+[node name="Background" type="ColorRect" parent="."]
+z_index = -10
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 1)
+
+[node name="PauseBg" type="TextureRect" parent="."]
+z_index = -5
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("2_pause_bg")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="WhiteOverlay" type="TextureRect" parent="."]
+z_index = -3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("3_white_overlay")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="MenuContainer" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Title" type="Label" parent="MenuContainer"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -731.0
+offset_top = -694.0
+offset_right = 823.0
+offset_bottom = -401.0
+grow_horizontal = 2
+grow_vertical = 2
+rotation = -0.05
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_colors/font_outline_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 25
+theme_override_fonts/font = ExtResource("2_t4l2a")
+theme_override_font_sizes/font_size = 280
+text = "MinuteMark"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="LevelsContainer" type="Control" parent="MenuContainer"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -500.0
+offset_top = -300.0
+offset_right = 500.0
+offset_bottom = 300.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Level1Block" type="Control" parent="MenuContainer/LevelsContainer"]
+anchors_preset = 0
+offset_left = 7.0
+offset_top = 24.0
+offset_right = 7.0
+offset_bottom = 24.0
+rotation = -0.1
+
+[node name="PaperScrap" type="Polygon2D" parent="MenuContainer/LevelsContainer/Level1Block"]
+z_index = 1
+position = Vector2(54.285347, 8.720229)
+scale = Vector2(2.067513, 1.5000544)
+color = Color(0.98, 0.96, 0.92, 1)
+polygon = PackedVector2Array(-125, -75, -130, -60, -125, -45, -128, -30, -125, -15, -132, 0, -125, 15, -130, 30, -125, 45, -128, 60, -120, 75, -100, 78, -80, 75, -60, 72, -40, 75, -20, 78, 0, 75, 20, 72, 40, 75, 60, 78, 80, 75, 100, 72, 120, 75, 125, 60, 128, 45, 125, 30, 130, 15, 125, 0, 132, -15, 125, -30, 128, -45, 125, -60, 120, -75, 100, -72, 80, -75, 60, -78, 40, -75, 20, -72, 0, -75, -20, -78, -40, -75, -60, -72, -80, -75, -100, -78, -120, -75)
+
+[node name="TornEdge" type="Line2D" parent="MenuContainer/LevelsContainer/Level1Block"]
+z_index = 2
+position = Vector2(54.285347, 8.720229)
+scale = Vector2(2.067513, 1.5000544)
+points = PackedVector2Array(-125, -75, -130, -60, -125, -45, -128, -30, -125, -15, -132, 0, -125, 15, -130, 30, -125, 45, -128, 60, -120, 75, -100, 78, -80, 75, -60, 72, -40, 75, -20, 78, 0, 75, 20, 72, 40, 75, 60, 78, 80, 75, 100, 72, 120, 75, 125, 60, 128, 45, 125, 30, 130, 15, 125, 0, 132, -15, 125, -30, 128, -45, 125, -60, 120, -75, 100, -72, 80, -75, 60, -78, 40, -75, 20, -72, 0, -75, -20, -78, -40, -75, -60, -72, -80, -75, -100, -78, -120, -75, -125, -75)
+width = 8.0
+default_color = Color(0.3, 0.25, 0.2, 1)
+
+[node name="LevelLabel" type="Label" parent="MenuContainer/LevelsContainer/Level1Block"]
+z_index = 3
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -181.6491
+offset_top = -52.687687
+offset_right = 277.51184
+offset_bottom = 70.58615
+grow_horizontal = 2
+grow_vertical = 2
+scale = Vector2(1.0251007, 1.1333897)
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_colors/font_outline_color = Color(1, 1, 1, 1)
+theme_override_constants/outline_size = 12
+theme_override_fonts/font = ExtResource("2_t4l2a")
+theme_override_font_sizes/font_size = 85
+text = "TUTORIAL"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Level2Block" type="Control" parent="MenuContainer/LevelsContainer"]
+anchors_preset = 0
+offset_left = 796.0
+offset_top = -16.00001
+offset_right = 796.0
+offset_bottom = -16.00001
+rotation = 0.050208956
+
+[node name="PaperScrap" type="Polygon2D" parent="MenuContainer/LevelsContainer/Level2Block"]
+z_index = 1
+position = Vector2(25.288391, 35.548096)
+scale = Vector2(1.156605, 1.4162472)
+color = Color(0.85, 0.82, 0.78, 1)
+polygon = PackedVector2Array(-375, -75, -380, -60, -375, -45, -378, -30, -375, -15, -382, 0, -375, 15, -380, 30, -375, 45, -378, 60, -370, 75, -350, 78, -330, 75, -310, 72, -290, 75, -270, 78, -250, 75, -230, 72, -210, 75, -190, 78, -170, 75, -150, 72, -130, 75, -110, 78, -90, 75, -70, 72, -50, 75, -30, 78, -10, 75, 10, 72, 30, 75, 50, 78, 70, 75, 90, 72, 110, 75, 130, 78, 150, 75, 170, 72, 190, 75, 210, 78, 230, 75, 250, 72, 270, 75, 290, 78, 310, 75, 330, 72, 350, 75, 370, 78, 375, 60, 378, 45, 375, 30, 380, 15, 375, 0, 382, -15, 375, -30, 378, -45, 375, -60, 370, -75, 350, -72, 330, -75, 310, -78, 290, -75, 270, -72, 250, -75, 230, -78, 210, -75, 190, -72, 170, -75, 150, -78, 130, -75, 110, -72, 90, -75, 70, -78, 50, -75, 30, -72, 10, -75, -10, -78, -30, -75, -50, -72, -70, -75, -90, -78, -110, -75, -130, -72, -150, -75, -170, -78, -190, -75, -210, -72, -230, -75, -250, -78, -270, -75, -290, -72, -310, -75, -330, -78, -350, -75, -370, -72)
+
+[node name="TornEdge" type="Line2D" parent="MenuContainer/LevelsContainer/Level2Block"]
+z_index = 2
+position = Vector2(25.288391, 35.548096)
+scale = Vector2(1.156605, 1.4162472)
+points = PackedVector2Array(-375, -75, -380, -60, -375, -45, -378, -30, -375, -15, -382, 0, -375, 15, -380, 30, -375, 45, -378, 60, -370, 75, -350, 78, -330, 75, -310, 72, -290, 75, -270, 78, -250, 75, -230, 72, -210, 75, -190, 78, -170, 75, -150, 72, -130, 75, -110, 78, -90, 75, -70, 72, -50, 75, -30, 78, -10, 75, 10, 72, 30, 75, 50, 78, 70, 75, 90, 72, 110, 75, 130, 78, 150, 75, 170, 72, 190, 75, 210, 78, 230, 75, 250, 72, 270, 75, 290, 78, 310, 75, 330, 72, 350, 75, 370, 78, 375, 60, 378, 45, 375, 30, 380, 15, 375, 0, 382, -15, 375, -30, 378, -45, 375, -60, 370, -75, 350, -72, 330, -75, 310, -78, 290, -75, 270, -72, 250, -75, 230, -78, 210, -75, 190, -72, 170, -75, 150, -78, 130, -75, 110, -72, 90, -75, 70, -78, 50, -75, 30, -72, 10, -75, -10, -78, -30, -75, -50, -72, -70, -75, -90, -78, -110, -75, -130, -72, -150, -75, -170, -78, -190, -75, -210, -72, -230, -75, -250, -78, -270, -75, -290, -72, -310, -75, -330, -78, -350, -75, -370, -72, -375, -75)
+width = 8.0
+default_color = Color(0.3, 0.25, 0.2, 1)
+
+[node name="LevelLabel" type="Label" parent="MenuContainer/LevelsContainer/Level2Block"]
+z_index = 3
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -240.27551
+offset_top = -18.85877
+offset_right = 136.54236
+offset_bottom = 71.14123
+grow_horizontal = 2
+grow_vertical = 2
+scale = Vector2(1.4746953, 1.4148918)
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 12
+theme_override_fonts/font = ExtResource("2_t4l2a")
+theme_override_font_sizes/font_size = 85
+text = "LEVEL 2"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Level3Block" type="Control" parent="MenuContainer/LevelsContainer"]
+anchors_preset = 0
+offset_left = 482.0
+offset_top = 302.0
+offset_right = 482.0
+offset_bottom = 302.0
+rotation = -0.03188473
+scale = Vector2(1.2703159, 1.0684214)
+
+[node name="PaperScrap" type="Polygon2D" parent="MenuContainer/LevelsContainer/Level3Block"]
+z_index = 1
+position = Vector2(34.76512, 47.80605)
+scale = Vector2(1.0788155, 1.0361024)
+color = Color(0.85, 0.82, 0.78, 1)
+polygon = PackedVector2Array(-500, -125, -505, -110, -500, -95, -503, -80, -500, -65, -507, -50, -500, -35, -505, -20, -500, -5, -503, 10, -500, 25, -507, 40, -500, 55, -505, 70, -500, 85, -503, 100, -495, 115, -475, 118, -455, 115, -435, 112, -415, 115, -395, 118, -375, 115, -355, 112, -335, 115, -315, 118, -295, 115, -275, 112, -255, 115, -235, 118, -215, 115, -195, 112, -175, 115, -155, 118, -135, 115, -115, 112, -95, 115, -75, 118, -55, 115, -35, 112, -15, 115, 5, 118, 25, 115, 45, 112, 65, 115, 85, 118, 105, 115, 125, 112, 145, 115, 165, 118, 185, 115, 205, 112, 225, 115, 245, 118, 265, 115, 285, 112, 305, 115, 325, 118, 345, 115, 365, 112, 385, 115, 405, 118, 425, 115, 445, 112, 465, 115, 485, 118, 500, 100, 503, 85, 500, 70, 505, 55, 500, 40, 507, 25, 500, 10, 503, -5, 500, -20, 505, -35, 500, -50, 503, -65, 500, -80, 507, -95, 500, -110, 495, -125, 475, -122, 455, -125, 435, -128, 415, -125, 395, -122, 375, -125, 355, -128, 335, -125, 315, -122, 295, -125, 275, -128, 255, -125, 235, -122, 215, -125, 195, -128, 175, -125, 155, -122, 135, -125, 115, -128, 95, -125, 75, -122, 55, -125, 35, -128, 15, -125, -5, -122, -25, -125, -45, -128, -65, -125, -85, -122, -105, -125, -125, -128, -145, -125, -165, -122, -185, -125, -205, -128, -225, -125, -245, -122, -265, -125, -285, -128, -305, -125, -325, -122, -345, -125, -365, -128, -385, -125, -405, -122, -425, -125, -445, -128, -465, -125, -485, -122)
+
+[node name="TornEdge" type="Line2D" parent="MenuContainer/LevelsContainer/Level3Block"]
+z_index = 2
+position = Vector2(34.76512, 47.80605)
+scale = Vector2(1.0788155, 1.0361024)
+points = PackedVector2Array(-500, -125, -505, -110, -500, -95, -503, -80, -500, -65, -507, -50, -500, -35, -505, -20, -500, -5, -503, 10, -500, 25, -507, 40, -500, 55, -505, 70, -500, 85, -503, 100, -495, 115, -475, 118, -455, 115, -435, 112, -415, 115, -395, 118, -375, 115, -355, 112, -335, 115, -315, 118, -295, 115, -275, 112, -255, 115, -235, 118, -215, 115, -195, 112, -175, 115, -155, 118, -135, 115, -115, 112, -95, 115, -75, 118, -55, 115, -35, 112, -15, 115, 5, 118, 25, 115, 45, 112, 65, 115, 85, 118, 105, 115, 125, 112, 145, 115, 165, 118, 185, 115, 205, 112, 225, 115, 245, 118, 265, 115, 285, 112, 305, 115, 325, 118, 345, 115, 365, 112, 385, 115, 405, 118, 425, 115, 445, 112, 465, 115, 485, 118, 500, 100, 503, 85, 500, 70, 505, 55, 500, 40, 507, 25, 500, 10, 503, -5, 500, -20, 505, -35, 500, -50, 503, -65, 500, -80, 507, -95, 500, -110, 495, -125, 475, -122, 455, -125, 435, -128, 415, -125, 395, -122, 375, -125, 355, -128, 335, -125, 315, -122, 295, -125, 275, -128, 255, -125, 235, -122, 215, -125, 195, -128, 175, -125, 155, -122, 135, -125, 115, -128, 95, -125, 75, -122, 55, -125, 35, -128, 15, -125, -5, -122, -25, -125, -45, -128, -65, -125, -85, -122, -105, -125, -125, -128, -145, -125, -165, -122, -185, -125, -205, -128, -225, -125, -245, -122, -265, -125, -285, -128, -305, -125, -325, -122, -345, -125, -365, -128, -385, -125, -405, -122, -425, -125, -445, -128, -465, -125, -485, -122, -500, -125)
+width = 8.0
+default_color = Color(0.3, 0.25, 0.2, 1)
+
+[node name="LevelLabel" type="Label" parent="MenuContainer/LevelsContainer/Level3Block"]
+z_index = 3
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -401.355
+offset_top = -41.440685
+offset_right = 139.20187
+offset_bottom = 90.111374
+grow_horizontal = 2
+grow_vertical = 2
+scale = Vector2(1.4848714, 1.4501979)
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 12
+theme_override_fonts/font = ExtResource("2_t4l2a")
+theme_override_font_sizes/font_size = 85
+text = "LEVEL 3"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Level4Block" type="Control" parent="MenuContainer/LevelsContainer"]
+anchors_preset = 0
+offset_left = 61.000008
+offset_top = 685.0
+offset_right = 61.000008
+offset_bottom = 685.0
+rotation = -0.08
+scale = Vector2(1.5751996, 1.0286721)
+
+[node name="PaperScrap" type="Polygon2D" parent="MenuContainer/LevelsContainer/Level4Block"]
+z_index = 1
+color = Color(0.85, 0.82, 0.78, 1)
+polygon = PackedVector2Array(-125, -100, -130, -85, -125, -70, -128, -55, -125, -40, -132, -25, -125, -10, -130, 5, -125, 20, -128, 35, -125, 50, -132, 65, -125, 80, -128, 95, -120, 100, -100, 103, -80, 100, -60, 97, -40, 100, -20, 103, 0, 100, 20, 97, 40, 100, 60, 103, 80, 100, 100, 97, 120, 100, 125, 85, 128, 70, 125, 55, 130, 40, 125, 25, 132, 10, 125, -5, 128, -20, 125, -35, 130, -50, 125, -65, 128, -80, 125, -95, 120, -100, 100, -97, 80, -100, 60, -103, 40, -100, 20, -97, 0, -100, -20, -103, -40, -100, -60, -97, -80, -100, -100, -103, -120, -100)
+
+[node name="TornEdge" type="Line2D" parent="MenuContainer/LevelsContainer/Level4Block"]
+z_index = 2
+points = PackedVector2Array(-125, -100, -130, -85, -125, -70, -128, -55, -125, -40, -132, -25, -125, -10, -130, 5, -125, 20, -128, 35, -125, 50, -132, 65, -125, 80, -128, 95, -120, 100, -100, 103, -80, 100, -60, 97, -40, 100, -20, 103, 0, 100, 20, 97, 40, 100, 60, 103, 80, 100, 100, 97, 120, 100, 125, 85, 128, 70, 125, 55, 130, 40, 125, 25, 132, 10, 125, -5, 128, -20, 125, -35, 130, -50, 125, -65, 128, -80, 125, -95, 120, -100, 100, -97, 80, -100, 60, -103, 40, -100, 20, -97, 0, -100, -20, -103, -40, -100, -60, -97, -80, -100, -100, -103, -120, -100, -125, -100)
+width = 8.0
+default_color = Color(0.3, 0.25, 0.2, 1)
+
+[node name="LevelLabel" type="Label" parent="MenuContainer/LevelsContainer/Level4Block"]
+z_index = 3
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -106.68132
+offset_top = -47.14263
+offset_right = 155.31868
+offset_bottom = 42.85737
+grow_horizontal = 2
+grow_vertical = 2
+scale = Vector2(0.83534425, 1.121631)
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 12
+theme_override_fonts/font = ExtResource("2_t4l2a")
+theme_override_font_sizes/font_size = 85
+text = "LEVEL 4"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Level5Block" type="Control" parent="MenuContainer/LevelsContainer"]
+anchors_preset = 0
+offset_left = 116.0
+offset_top = 286.0
+offset_right = 116.0
+offset_bottom = 286.0
+rotation = 0.026244037
+scale = Vector2(1.0880665, 1.0728636)
+
+[node name="PaperScrap" type="Polygon2D" parent="MenuContainer/LevelsContainer/Level5Block"]
+z_index = 1
+position = Vector2(618.4976, 340.7117)
+color = Color(0.85, 0.82, 0.78, 1)
+polygon = PackedVector2Array(-375, -100, -380, -85, -375, -70, -378, -55, -375, -40, -382, -25, -375, -10, -380, 5, -375, 20, -378, 35, -375, 50, -382, 65, -375, 80, -378, 95, -370, 100, -350, 103, -330, 100, -310, 97, -290, 100, -270, 103, -250, 100, -230, 97, -210, 100, -190, 103, -170, 100, -150, 97, -130, 100, -110, 103, -90, 100, -70, 97, -50, 100, -30, 103, -10, 100, 10, 97, 30, 100, 50, 103, 70, 100, 90, 97, 110, 100, 130, 103, 150, 100, 170, 97, 190, 100, 210, 103, 230, 100, 250, 97, 270, 100, 290, 103, 310, 100, 330, 97, 350, 100, 370, 103, 375, 85, 378, 70, 375, 55, 380, 40, 375, 25, 382, 10, 375, -5, 378, -20, 375, -35, 380, -50, 375, -65, 378, -80, 375, -95, 370, -100, 350, -97, 330, -100, 310, -103, 290, -100, 270, -97, 250, -100, 230, -103, 210, -100, 190, -97, 170, -100, 150, -103, 130, -100, 110, -97, 90, -100, 70, -103, 50, -100, 30, -97, 10, -100, -10, -103, -30, -100, -50, -97, -70, -100, -90, -103, -110, -100, -130, -97, -150, -100, -170, -103, -190, -100, -210, -97, -230, -100, -250, -103, -270, -100, -290, -97, -310, -100, -330, -103, -350, -100, -370, -97)
+
+[node name="TornEdge" type="Line2D" parent="MenuContainer/LevelsContainer/Level5Block"]
+z_index = 2
+position = Vector2(618.4976, 340.7117)
+points = PackedVector2Array(-375, -100, -380, -85, -375, -70, -378, -55, -375, -40, -382, -25, -375, -10, -380, 5, -375, 20, -378, 35, -375, 50, -382, 65, -375, 80, -378, 95, -370, 100, -350, 103, -330, 100, -310, 97, -290, 100, -270, 103, -250, 100, -230, 97, -210, 100, -190, 103, -170, 100, -150, 97, -130, 100, -110, 103, -90, 100, -70, 97, -50, 100, -30, 103, -10, 100, 10, 97, 30, 100, 50, 103, 70, 100, 90, 97, 110, 100, 130, 103, 150, 100, 170, 97, 190, 100, 210, 103, 230, 100, 250, 97, 270, 100, 290, 103, 310, 100, 330, 97, 350, 100, 370, 103, 375, 85, 378, 70, 375, 55, 380, 40, 375, 25, 382, 10, 375, -5, 378, -20, 375, -35, 380, -50, 375, -65, 378, -80, 375, -95, 370, -100, 350, -97, 330, -100, 310, -103, 290, -100, 270, -97, 250, -100, 230, -103, 210, -100, 190, -97, 170, -100, 150, -103, 130, -100, 110, -97, 90, -100, 70, -103, 50, -100, 30, -97, 10, -100, -10, -103, -30, -100, -50, -97, -70, -100, -90, -103, -110, -100, -130, -97, -150, -100, -170, -103, -190, -100, -210, -97, -230, -100, -250, -103, -270, -100, -290, -97, -310, -100, -330, -103, -350, -100, -370, -97, -375, -100)
+width = 8.0
+default_color = Color(0.3, 0.25, 0.2, 1)
+
+[node name="LevelLabel" type="Label" parent="MenuContainer/LevelsContainer/Level5Block"]
+z_index = 3
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = 468.49762
+offset_top = 295.7117
+offset_right = 768.4976
+offset_bottom = 385.7117
+grow_horizontal = 2
+grow_vertical = 2
+scale = Vector2(1.1752242, 1.1188866)
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 12
+theme_override_fonts/font = ExtResource("2_t4l2a")
+theme_override_font_sizes/font_size = 85
+text = "LEVEL 5"
+horizontal_alignment = 1
+vertical_alignment = 1

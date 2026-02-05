@@ -1,9 +1,9 @@
 [gd_scene load_steps=3 format=3 uid="uid://demedvhavmbbs"]
 
-[ext_resource type="Script" uid="uid://bl4oas7pp0xrq" path="res://falling_platform.gd" id="1_script"]
+[ext_resource type="Script" uid="uid://7tisbg0yeqgm" path="res://falling_platform.gd" id="1_script"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_falling_platform"]
-size = Vector2(947, 100)
+size = Vector2(947, 385)
 
 [node name="FallingPlatform" type="Node2D"]
 script = ExtResource("1_script")
@@ -11,6 +11,7 @@ script = ExtResource("1_script")
 [node name="PlatformBody" type="AnimatableBody2D" parent="."]
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="PlatformBody"]
+position = Vector2(2, 1)
 shape = SubResource("RectangleShape2D_falling_platform")
 
 [node name="Visual" type="Polygon2D" parent="PlatformBody"]
@@ -19,5 +20,5 @@ color = Color(0.55, 0.55, 0.6, 1)
 [node name="TriggerArea" type="Area2D" parent="PlatformBody"]
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="PlatformBody/TriggerArea"]
-position = Vector2(409.5, 38)
+position = Vector2(0, -4)
 shape = SubResource("RectangleShape2D_falling_platform")
