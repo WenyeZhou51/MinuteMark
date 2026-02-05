@@ -392,9 +392,9 @@ func _update_fire_state(time_left_percent: float) -> void:
 		mat.set_shader_parameter("bottom_color", Color(1.0, 0.5, 0.0)) # Orange base
 		mat.set_shader_parameter("middle_color", Color(1.0, 1.0, 0.0)) # Yellow mid
 		mat.set_shader_parameter("top_color", Color(1.0, 1.0, 0.5)) # Light Yellow tip
-		mat.set_shader_parameter("fire_speed", Vector2(0.0, 1.0))
-		mat.set_shader_parameter("fire_alpha", 2)
-		mat.set_shader_parameter("fire_aperture", 0.8)
+		mat.set_shader_parameter("fire_speed", Vector2(0.0, 3.5))
+		mat.set_shader_parameter("fire_alpha", 1.0)
+		mat.set_shader_parameter("fire_aperture", 0.3)
 	else:
 		# Red and blazing
 		fire_rect.visible = true
@@ -403,7 +403,7 @@ func _update_fire_state(time_left_percent: float) -> void:
 		mat.set_shader_parameter("top_color", Color(1.0, 0.8, 0.0)) # Yellow tip
 		mat.set_shader_parameter("fire_speed", Vector2(0.0, 3.5))
 		mat.set_shader_parameter("fire_alpha", 1.0)
-		mat.set_shader_parameter("fire_aperture", 0.5)
+		mat.set_shader_parameter("fire_aperture", 0.3)
 
 func _get_contrasting_color(base_color: Color) -> Color:
 	# Calculate luminance to determine if we should use light or dark text

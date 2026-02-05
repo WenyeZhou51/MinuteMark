@@ -18,24 +18,26 @@ shader_parameter/frame_intensity = 0.6
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_left_bands"]
 shader = ExtResource("5_bands_shader")
 shader_parameter/speed = 0.5
-shader_parameter/band_count = 8.0
+shader_parameter/pixels_per_band = 150.0
 shader_parameter/thickness = 0.1
 shader_parameter/angle = 0.8
 shader_parameter/move_right = true
 shader_parameter/point_right = true
 shader_parameter/left_fade_width = 0.0
 shader_parameter/right_fade_width = 0.0
+shader_parameter/rect_size = null
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_right_bands"]
 shader = ExtResource("5_bands_shader")
 shader_parameter/speed = 0.5
-shader_parameter/band_count = 8.0
+shader_parameter/pixels_per_band = 150.0
 shader_parameter/thickness = 0.1
 shader_parameter/angle = 0.8
 shader_parameter/move_right = false
 shader_parameter/point_right = false
 shader_parameter/left_fade_width = 0.0
 shader_parameter/right_fade_width = 0.0
+shader_parameter/rect_size = null
 
 [node name="TimerUI" type="CanvasLayer"]
 layer = 100
