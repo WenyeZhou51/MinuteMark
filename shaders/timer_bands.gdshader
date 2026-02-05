@@ -7,6 +7,10 @@ uniform float angle = 1.0;
 uniform bool move_right = true;
 uniform bool point_right = true;
 
+// Edge fade parameters (0.0 to 1.0 relative to UV width)
+uniform float left_fade_width = 0.0;
+uniform float right_fade_width = 0.0;
+
 void fragment() {
     vec2 uv = UV;
     
@@ -42,6 +46,19 @@ void fragment() {
     
     // Antialiased line
     float line = smoothstep(thickness, thickness - 0.05, dist);
+
+    // Calculate edge fade
+    float left_alpha = 1.0;
+    if (left_fade_width > 0.0) {
+        left_alpha = clamp(UV.x / left_fade_width, 0.0, 1.0);
+    }
     
-    COLOR = vec4(1.0, 1.0, 1.0, line * 0.6);
+    float right_alpha = 1.0;
+    if (right_fade_width > 0.0) {
+        right_alpha = clamp((1.0 - UV.x) / right_fade_width, 0.0, 1.0);
+    }
+    
+    float edge_fade = min(left_alpha, right_alpha);
+    
+    COLOR = vec4(1.0, 1.0, 1.0, line * 0.6 * edge_fade);
 }

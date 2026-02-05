@@ -91,6 +91,9 @@ func _ready() -> void:
 			shader_mat.set_shader_parameter("pulse_speed", warning_pulse_speed)
 			shader_mat.set_shader_parameter("frame_thickness", warning_frame_thickness)
 			shader_mat.set_shader_parameter("frame_intensity", warning_frame_intensity)
+			
+	# Setup edge fade for TimerBar and Bands
+	_setup_edge_fades()
 	
 	# Auto-start timer if max_time is set and timer hasn't been started yet
 	# This ensures the timer runs even if setup_timer wasn't called explicitly
@@ -103,6 +106,37 @@ func _ready() -> void:
 	if DialogueManager:
 		DialogueManager.dialogue_started.connect(_on_dialogue_started)
 		DialogueManager.dialogue_finished.connect(_on_dialogue_finished)
+
+func _setup_edge_fades() -> void:
+	# 1. Setup TimerBar background fade (linear fade on first and last 30%)
+	if timer_bar:
+		var bar_mat = ShaderMaterial.new()
+		bar_mat.shader = preload("res://shaders/edge_fade.gdshader")
+		# Fade 30% of the total width at both ends
+		bar_mat.set_shader_parameter("left_fade_width", 0.3)
+		bar_mat.set_shader_parameter("right_fade_width", 0.3)
+		timer_bar.material = bar_mat
+		
+	# 2. Setup Bands fade
+	# LeftBands covers left half of bar. To fade left 30% of TOTAL bar,
+	# we need to fade left 60% of the LeftBands (since it's half width).
+	if left_bands and left_bands.material is ShaderMaterial:
+		left_bands.material.set_shader_parameter("left_fade_width", 0.6)
+		left_bands.material.set_shader_parameter("right_fade_width", 0.0)
+		# Slower speed by 30% (from 0.5 to 0.35)
+		left_bands.material.set_shader_parameter("speed", 0.35)
+		# Wider by 50% (from 0.1 to 0.15)
+		left_bands.material.set_shader_parameter("thickness", 0.15)
+		
+	# RightBands covers right half of bar. To fade right 30% of TOTAL bar,
+	# we need to fade right 60% of the RightBands.
+	if right_bands and right_bands.material is ShaderMaterial:
+		right_bands.material.set_shader_parameter("left_fade_width", 0.0)
+		right_bands.material.set_shader_parameter("right_fade_width", 0.6)
+		# Slower speed by 30% (from 0.5 to 0.35)
+		right_bands.material.set_shader_parameter("speed", 0.35)
+		# Wider by 50% (from 0.1 to 0.15)
+		right_bands.material.set_shader_parameter("thickness", 0.15)
 
 func _setup_bars() -> void:
 	if bar_container:
