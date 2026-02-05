@@ -196,6 +196,9 @@ func setup(time_taken: float):
 		# Don't fetch here - let the submission callback handle it
 		# This ensures we wait for submission to complete first
 	
+	# Unlock next level
+	unlock_next_level()
+	
 	var rank = calculate_rank(time_taken)
 	var rank_upper = rank.to_upper()
 	
@@ -404,27 +407,68 @@ func _on_menu_button_pressed():
 	# 1. Block input
 	$Control.mouse_filter = Control.MOUSE_FILTER_STOP
 	
-	# 2. Open Pause Menu
-	var pause_menu = get_tree().root.find_child("PauseMenu", true, false)
-	if pause_menu:
-		print("VictoryUI: Found PauseMenu, opening it")
-		# We are currently paused. 
-		
-		# Let's hide Victory UI first
-		visible = false
-		
-		# Force pause menu to open using the new explicit method
-		if pause_menu.has_method("open_pause_menu"):
-			pause_menu.open_pause_menu(true)
-		elif pause_menu.has_method("toggle_pause"):
-			# Fallback if old version
-			get_tree().paused = false
-			pause_menu.toggle_pause()
-			
-		# And destroy ourselves
-		queue_free()
+	# 2. Unpause and go to level select menu
+	get_tree().paused = false
+	
+	# Hide Victory UI
+	visible = false
+	
+	# Change scene to level select menu
+	if ResourceLoader.exists("res://level_select_menu.tscn"):
+		get_tree().change_scene_to_file("res://level_select_menu.tscn")
 	else:
-		# Fallback: Just reload the level if we can't find menu (or print error)
-		print("VictoryUI: Could not find PauseMenu to switch to. Trying direct scene change.")
-		# Try to find a MainMenu scene or just reload
-		# get_tree().change_scene_to_file("res://MainMenu.tscn")
+		push_error("VictoryUI: level_select_menu.tscn not found!")
+	
+	# Clean up
+	queue_free()
+
+func unlock_next_level():
+	"""Unlock the next level after completing the current one"""
+	const SAVE_FILE_PATH = "user://level_progress.cfg"
+	
+	# Level configuration matching level_select_menu.gd
+	var level_paths = [
+		"res://level.tscn",      # Level 1 (Tutorial)
+		"res://level1.tscn",     # Level 2
+		"res://level.tscn",       # Level 3
+		"res://level1.tscn",      # Level 4
+		"res://level.tscn"        # Level 5
+	]
+	
+	# Get current scene path
+	var current_scene_path = get_tree().current_scene.scene_file_path
+	
+	# Find current level index
+	var current_level_index = -1
+	for i in range(level_paths.size()):
+		if level_paths[i] == current_scene_path:
+			current_level_index = i
+			break
+	
+	if current_level_index == -1:
+		print("VictoryUI: Could not determine current level from scene path: ", current_scene_path)
+		return
+	
+	# Calculate next level index
+	var next_level_index = current_level_index + 1
+	if next_level_index >= level_paths.size():
+		print("VictoryUI: All levels completed!")
+		return
+	
+	# Load existing progress
+	var config = ConfigFile.new()
+	var error = config.load(SAVE_FILE_PATH)
+	if error != OK:
+		# File doesn't exist, create new one
+		config = ConfigFile.new()
+	
+	# Unlock next level
+	var key = "level_%d_unlocked" % (next_level_index + 1)
+	config.set_value("progress", key, true)
+	
+	# Save progress
+	error = config.save(SAVE_FILE_PATH)
+	if error != OK:
+		push_error("VictoryUI: Failed to save level progress: " + str(error))
+	else:
+		print("VictoryUI: Unlocked level %d" % (next_level_index + 1))
