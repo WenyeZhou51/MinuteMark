@@ -10,6 +10,12 @@ func _enter_tree() -> void:
 		TutorialManager.clear_message()
 
 func _ready() -> void:
+	# Set current level path for dialogue stats tracking
+	var dialogue_stats = get_node_or_null("/root/DialogueStats")
+	if dialogue_stats:
+		var current_scene_path = get_tree().current_scene.scene_file_path
+		dialogue_stats.set_current_level(current_scene_path)
+	
 	# Listen for when dialogue starts/finishes to pause/resume
 	DialogueManager.dialogue_started.connect(_on_dialogue_started)
 	DialogueManager.dialogue_finished.connect(_on_dialogue_finished)

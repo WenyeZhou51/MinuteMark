@@ -19,6 +19,7 @@ config/icon="res://icon.svg"
 
 AudioManager="*res://audio_manager.gd"
 DialogueManager="*res://dialogue/DialogueManager.gd"
+DialogueStats="*res://dialogue/DialogueStats.gd"
 TutorialManager="*res://tutorial_manager.gd"
 TutorialBlockManager="*res://tutorial_block_manager.gd"
 LeaderboardManager="*res://leaderboard_manager.gd"

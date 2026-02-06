@@ -14,6 +14,10 @@ const SAVE_FILE_PATH = "user://level_progress.cfg"
 
 var level_blocks: Array[Control] = []
 var hovered_block_index: int = -1
+var detected_hover_index: int = -1  # What we detect this frame
+var stable_hover_index: int = -1   # What we've detected consistently
+var hover_stability_time: float = 0.0
+const HOVER_STABILITY_DELAY: float = 0.03  # Time before hover is considered stable (reduced for better responsiveness)
 var block_original_scales: Array[Vector2] = []
 var block_original_colors: Array[Color] = []
 
@@ -252,6 +256,7 @@ func _process(_delta):
 	"""Check for mouse hover on level blocks"""
 	var mouse_pos = get_viewport().get_mouse_position()
 	
+	# Detect what block we're hovering over this frame
 	var current_hovered = -1
 	for i in range(level_blocks.size()):
 		var block = level_blocks[i]
@@ -259,18 +264,43 @@ func _process(_delta):
 			current_hovered = i
 			break
 	
-	# Handle hover effects
-	if current_hovered != hovered_block_index:
-		# Exit previous hover
-		if hovered_block_index != -1 and hovered_block_index < level_blocks.size():
-			_apply_hover_effect(hovered_block_index, false)
+	# Check if the detected hover has changed
+	if current_hovered != detected_hover_index:
+		# Detection changed - exit previous stable hover immediately if switching blocks
+		if detected_hover_index != -1 and detected_hover_index != current_hovered:
+			if stable_hover_index == detected_hover_index and stable_hover_index < level_blocks.size():
+				_apply_hover_effect(stable_hover_index, false)
+				stable_hover_index = -1
 		
-		# Enter new hover
-		if current_hovered != -1:
-			_apply_hover_effect(current_hovered, true)
-			play_menu_select_sound()
+		detected_hover_index = current_hovered
+		
+		# If moving off (no hover), exit immediately
+		if current_hovered == -1:
+			if stable_hover_index != -1 and stable_hover_index < level_blocks.size():
+				_apply_hover_effect(stable_hover_index, false)
+				stable_hover_index = -1
+			hover_stability_time = 0.0
+		else:
+			# Moving to a new block - reset timer but keep checking
+			hover_stability_time = 0.0
+	else:
+		# Same detection, accumulate stability time
+		hover_stability_time += _delta
+		
+		# Apply hover effects when stable
+		if current_hovered != -1 and hover_stability_time >= HOVER_STABILITY_DELAY:
+			# Stable hover - apply effects if state changed
+			if stable_hover_index != current_hovered:
+				# Exit previous hover
+				if stable_hover_index != -1 and stable_hover_index < level_blocks.size():
+					_apply_hover_effect(stable_hover_index, false)
+				
+				# Enter new hover
+				_apply_hover_effect(current_hovered, true)
+				play_menu_select_sound()
+				stable_hover_index = current_hovered
 	
-	hovered_block_index = current_hovered
+	hovered_block_index = stable_hover_index
 
 func _apply_hover_effect(block_index: int, is_hovering: bool):
 	"""Apply hover effect to a level block"""
@@ -280,6 +310,14 @@ func _apply_hover_effect(block_index: int, is_hovering: bool):
 	var block = level_blocks[block_index]
 	if not block:
 		return
+	
+	# Check if already in the desired state to prevent redundant tweens
+	var is_already_hovering = block.get_meta("is_hovering", false)
+	if is_hovering == is_already_hovering:
+		return
+	
+	# Mark the hover state
+	block.set_meta("is_hovering", is_hovering)
 	
 	# Get the polygon for color changes
 	var polygon = block.get_node_or_null("PaperScrap")
