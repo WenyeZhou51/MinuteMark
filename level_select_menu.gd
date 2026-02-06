@@ -95,7 +95,7 @@ func update_level_block(block: Control, level_index: int):
 		else:
 			# Use paper-like colors with slight variations for unlocked levels
 			var colors = [
-				Color(0.98, 0.96, 0.92, 1),   # Tutorial - bright paper
+				Color(0.98, 0.96, 0.92, 0),   # Tutorial - transparent to show background image
 				Color(0.95, 0.93, 0.88, 1),   # Level 2 - slightly warmer paper
 				Color(0.92, 0.90, 0.85, 1),   # Level 3 - slightly aged paper
 				Color(0.96, 0.94, 0.89, 1),   # Level 4 - cream paper
