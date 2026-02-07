@@ -471,6 +471,11 @@ func _ready() -> void:
 	DialogueManager.action_triggered.connect(_on_dialogue_action)
 	DialogueManager.dialogue_finished.connect(_on_dialogue_finished)
 
+	# Configure CharacterBody2D slope behavior
+	floor_max_angle = deg_to_rad(46.0) # Allow 45 degree slopes (plus a tiny buffer)
+	floor_snap_length = 8.0            # Keep player stuck to slopes while moving down
+	floor_constant_speed = true        # Prevent speed changes when going up/down slopes
+
 	# Ensure time scale is normal on start
 	Engine.time_scale = 1.0
 	
@@ -1742,8 +1747,8 @@ func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceS
 		for i in range(get_slide_collision_count()):
 			var collision = get_slide_collision(i)
 			var collision_normal = collision.get_normal()
-			# A wall has a mostly horizontal normal
-			if abs(collision_normal.x) > 0.6:
+			# A wall has a mostly horizontal normal (threshold 0.8 to exclude 45° slopes whose normal.x ≈ 0.707)
+			if abs(collision_normal.x) > 0.8:
 				current_frame_wall_detected = true
 				var collider = collision.get_collider()
 				current_frame_wall_runnable = _is_runnable_wall(collider)
@@ -3745,8 +3750,8 @@ func _post_movement_updates(space_state: PhysicsDirectSpaceState2D) -> void:
 				# Ensure enough force to break
 				collider.kick(kick_dir, max(velocity.length(), 500.0))
 			
-			# A wall collision has a mostly horizontal normal
-			if abs(collision.get_normal().x) > 0.7:
+			# A wall collision has a mostly horizontal normal (threshold 0.8 to exclude 45° slopes)
+			if abs(collision.get_normal().x) > 0.8:
 				if is_ground_sliding:
 					# Only end slide if there's enough space above to stand up
 					if _can_stand_up():
