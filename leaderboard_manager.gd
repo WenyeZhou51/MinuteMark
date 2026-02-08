@@ -10,13 +10,18 @@ var local_leaderboard_data: Array[Dictionary] = []
 var global_leaderboard_data: Array[Dictionary] = []
 
 const MAX_ENTRIES: int = 100  # Keep top 100 scores locally
+const MAX_GLOBAL_PER_LEVEL: int = 20  # Keep top 20 scores per level on Supabase
+
+# Track last submitted level for leaderboard scene
+var last_submitted_level: int = 0
+var last_submitted_time: float = 0.0
 const SAVE_PATH: String = "user://leaderboard.json"
 const PLAYER_ID_PATH: String = "user://player_id.txt"
 const PLAYER_NAME_PATH: String = "user://player_name.txt"
 
 # Player identification
 var player_id: String = ""
-var player_name: String = "Player"
+var player_name: String = "PLAYER"
 var local_ip_address: String = ""
 
 # Supabase Configuration
@@ -100,16 +105,16 @@ func load_player_name():
 	if FileAccess.file_exists(PLAYER_NAME_PATH):
 		var file = FileAccess.open(PLAYER_NAME_PATH, FileAccess.READ)
 		if file:
-			player_name = file.get_as_text().strip_edges()
+			player_name = file.get_as_text().strip_edges().to_upper()
 			file.close()
 			if player_name.is_empty():
-				player_name = "Player"
+				player_name = "PLAYER"
 	
 	print("LeaderboardManager: Player name: " + player_name)
 
 func set_player_name(name: String):
 	"""Set and save player name."""
-	player_name = name
+	player_name = name.to_upper()
 	var file = FileAccess.open(PLAYER_NAME_PATH, FileAccess.WRITE)
 	if file:
 		file.store_string(player_name)
@@ -136,8 +141,21 @@ func add_score(time_taken: float) -> bool:
 	if local_leaderboard_data.is_empty() or time_taken < local_leaderboard_data[0]["time"]:
 		is_new_best = true
 	
-	# Add to local leaderboard
-	local_leaderboard_data.append(new_entry)
+	# Check for existing entry with same name (unique name constraint)
+	var existing_idx = -1
+	for i in range(local_leaderboard_data.size()):
+		if local_leaderboard_data[i].get("player_name", "").to_upper() == player_name.to_upper():
+			existing_idx = i
+			break
+	
+	if existing_idx >= 0:
+		# Name already exists locally — only update if new time is better
+		if time_taken < local_leaderboard_data[existing_idx]["time"]:
+			local_leaderboard_data[existing_idx] = new_entry
+		# If existing time is better or equal, don't modify local data
+	else:
+		# New name — add to local leaderboard
+		local_leaderboard_data.append(new_entry)
 	
 	# Sort by time (ascending - lower is better)
 	local_leaderboard_data.sort_custom(func(a, b): return a["time"] < b["time"])
@@ -149,10 +167,125 @@ func add_score(time_taken: float) -> bool:
 	save_local_leaderboard()
 	
 	# Submit to global leaderboard if API is enabled
+	# Skip INSERT if name already exists globally (to prevent duplicates)
 	if api_enabled:
-		submit_score_to_api(new_entry)
+		var existing_global = find_existing_entry_by_name(player_name)
+		if existing_global.is_empty():
+			submit_score_to_api(new_entry)
+		else:
+			print("LeaderboardManager: Name '%s' already exists globally, skipping INSERT" % player_name)
 	
 	return is_new_best
+
+func would_make_leaderboard(time_taken: float) -> bool:
+	"""Check if a time would qualify for the top 20 global leaderboard."""
+	# If we have fewer than MAX_GLOBAL_PER_LEVEL entries, it always qualifies
+	if global_leaderboard_data.size() < MAX_GLOBAL_PER_LEVEL:
+		return true
+	# If the new time is better (lower) than the worst entry in top 20, it qualifies
+	var worst_time = global_leaderboard_data[global_leaderboard_data.size() - 1]["time"]
+	return time_taken < worst_time
+
+func find_existing_entry_by_name(name: String) -> Dictionary:
+	"""Find an existing entry in the global leaderboard by player name (case-insensitive)."""
+	var upper_name = name.to_upper()
+	for entry in global_leaderboard_data:
+		if entry.get("player_name", "").to_upper() == upper_name:
+			return entry
+	return {}
+
+func update_score_for_name(new_time: float) -> bool:
+	"""Update an existing score for the current player name. Returns true if it's a new best."""
+	var is_new_best = false
+	if local_leaderboard_data.is_empty() or new_time < local_leaderboard_data[0]["time"]:
+		is_new_best = true
+	
+	# Update local leaderboard
+	var found_local = false
+	for i in range(local_leaderboard_data.size()):
+		if local_leaderboard_data[i].get("player_name", "").to_upper() == player_name.to_upper():
+			local_leaderboard_data[i]["time"] = new_time
+			local_leaderboard_data[i]["date"] = Time.get_datetime_string_from_system()
+			found_local = true
+			break
+	
+	if not found_local:
+		var new_entry = {
+			"time": new_time,
+			"date": Time.get_datetime_string_from_system(),
+			"player_id": player_id,
+			"player_name": player_name,
+			"ip_address": local_ip_address
+		}
+		local_leaderboard_data.append(new_entry)
+	
+	# Sort and trim
+	local_leaderboard_data.sort_custom(func(a, b): return a["time"] < b["time"])
+	if local_leaderboard_data.size() > MAX_ENTRIES:
+		local_leaderboard_data = local_leaderboard_data.slice(0, MAX_ENTRIES)
+	save_local_leaderboard()
+	
+	# Update on Supabase via PATCH
+	if api_enabled:
+		_update_score_on_api(new_time)
+	
+	return is_new_best
+
+func _update_score_on_api(new_time: float):
+	"""Update an existing score on Supabase using HTTP PATCH."""
+	if is_submitting:
+		print("LeaderboardManager: Already submitting, skipping update...")
+		return
+	
+	if not api_enabled:
+		return
+	
+	is_submitting = true
+	
+	var level = get_current_level_index()
+	last_submitted_level = level
+	last_submitted_time = new_time
+	
+	var encoded_name = player_name.uri_encode()
+	var url = SUPABASE_URL + "/rest/v1/" + SUPABASE_TABLE + "?player_name=eq." + encoded_name + "&level=eq." + str(level)
+	var payload = {"time_taken": new_time}
+	var json_payload = JSON.stringify(payload)
+	
+	var headers = [
+		"Content-Type: application/json",
+		"apikey: " + SUPABASE_API_KEY,
+		"Authorization: Bearer " + SUPABASE_API_KEY,
+		"Prefer: return=minimal"
+	]
+	
+	print("=== Updating existing entry on Supabase ===")
+	print("URL: %s" % url)
+	print("Payload: %s" % json_payload)
+	print("Player: %s" % player_name)
+	print("============================================")
+	
+	set_meta("is_updating_entry", true)
+	
+	var error = http_request.request(url, headers, HTTPClient.METHOD_PATCH, json_payload)
+	if error != OK:
+		push_error("LeaderboardManager: HTTP PATCH request failed. Error code: %d" % error)
+		is_submitting = false
+		remove_meta("is_updating_entry")
+
+func get_current_level_index() -> int:
+	"""Determine the current level index from the scene path."""
+	var level_paths = [
+		"res://level.tscn",      # Level 0 (Tutorial)
+		"res://level1.tscn",     # Level 1
+	]
+	
+	var tree = get_tree()
+	if tree and tree.current_scene:
+		var current_path = tree.current_scene.scene_file_path
+		for i in range(level_paths.size()):
+			if level_paths[i] == current_path:
+				return i
+	return 0
 
 func submit_score_to_api(score_data: Dictionary):
 	"""Submit a score to Supabase. First checks if cleanup is needed."""
@@ -166,18 +299,21 @@ func submit_score_to_api(score_data: Dictionary):
 	
 	is_submitting = true
 	
+	var level = get_current_level_index()
+	last_submitted_level = level
+	last_submitted_time = score_data["time"]
+	
 	# Store the score data for later use after checking for cleanup
 	var pending_submission = {
 		"player_name": score_data.get("player_name", "Player"),
 		"time_taken": score_data["time"],
-		"level": 0  # Tutorial level
+		"level": level
 	}
 	
 	# Store this so we can access it in the callback
 	set_meta("pending_submission", pending_submission)
 	
 	# First, check how many entries exist for this level and get the worst one
-	var level = pending_submission["level"]
 	var check_url = SUPABASE_URL + "/rest/v1/" + SUPABASE_TABLE + "?select=id,time_taken&level=eq.%d&order=time_taken.desc&limit=1" % level
 	
 	var headers = [
@@ -277,8 +413,8 @@ func _actually_submit_score():
 		remove_meta("is_actually_submitting")
 		remove_meta("pending_submission")
 
-func fetch_global_leaderboard():
-	"""Fetch the global leaderboard from Supabase."""
+func fetch_global_leaderboard(level: int = -1):
+	"""Fetch the global leaderboard from Supabase. If level is -1, uses last_submitted_level."""
 	if is_fetching:
 		print("LeaderboardManager: Already fetching leaderboard, skipping...")
 		return
@@ -287,16 +423,19 @@ func fetch_global_leaderboard():
 		print("LeaderboardManager: API disabled, skipping fetch")
 		return
 	
+	if level == -1:
+		level = last_submitted_level
+	
 	is_fetching = true
-	# Fetch top 100 scores for level 0, ordered by time_taken ascending
-	var url = SUPABASE_URL + "/rest/v1/" + SUPABASE_TABLE + "?select=*&level=eq.0&order=time_taken.asc&limit=100"
+	# Fetch top 20 scores for the level, ordered by time_taken ascending
+	var url = SUPABASE_URL + "/rest/v1/" + SUPABASE_TABLE + "?select=*&level=eq.%d&order=time_taken.asc&limit=%d" % [level, MAX_GLOBAL_PER_LEVEL]
 	
 	var headers = [
 		"apikey: " + SUPABASE_API_KEY,
 		"Authorization: Bearer " + SUPABASE_API_KEY
 	]
 	
-	print("=== Fetching from Supabase ===")
+	print("=== Fetching from Supabase (level %d) ===" % level)
 	print("URL: %s" % url)
 	print("==============================")
 	
@@ -319,6 +458,22 @@ func _on_http_request_completed(result: int, response_code: int, headers: Packed
 	print("Is submitting: %s" % is_submitting)
 	print("Is fetching: %s" % is_fetching)
 	print("=============================")
+	
+	# Handle entry update via PATCH
+	if has_meta("is_updating_entry"):
+		remove_meta("is_updating_entry")
+		is_submitting = false
+		
+		if response_code == 200 or response_code == 204:
+			print("LeaderboardManager: ✓ Entry updated successfully on Supabase")
+			var timer = get_tree().create_timer(0.5)
+			timer.timeout.connect(_on_submission_delay_complete)
+		else:
+			print("LeaderboardManager: ✗ Failed to update entry on Supabase")
+			print("  Response code: %d" % response_code)
+			print("  Error: %s" % response_text)
+			push_error("LeaderboardManager: Update failed. Response code: %d" % response_code)
+		return
 	
 	# Handle cleanup check (step 1: check for worst entry)
 	if has_meta("is_checking_cleanup"):
@@ -356,7 +511,7 @@ func _on_http_request_completed(result: int, response_code: int, headers: Packed
 				var entry_count = json.data.size()
 				print("LeaderboardManager: Level has %d total entries" % entry_count)
 				
-				if entry_count >= 10:
+				if entry_count >= MAX_GLOBAL_PER_LEVEL:
 					# Need to delete the worst entry before inserting
 					# Get the worst entry again (we need its ID)
 					if has_meta("pending_submission"):
@@ -378,8 +533,8 @@ func _on_http_request_completed(result: int, response_code: int, headers: Packed
 							is_submitting = false
 							remove_meta("pending_submission")
 				else:
-					# Less than 10 entries, just submit directly
-					print("LeaderboardManager: Less than 10 entries, no cleanup needed")
+					# Less than MAX_GLOBAL_PER_LEVEL entries, just submit directly
+					print("LeaderboardManager: Less than %d entries, no cleanup needed" % MAX_GLOBAL_PER_LEVEL)
 					_actually_submit_score()
 			else:
 				push_error("LeaderboardManager: Failed to parse entry count response")

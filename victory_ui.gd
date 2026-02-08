@@ -14,10 +14,18 @@ extends CanvasLayer
 @onready var leaderboard_entry_1 = $Control/Panel/LeaderboardContainer/Entry1
 @onready var leaderboard_entry_2 = $Control/Panel/LeaderboardContainer/Entry2
 @onready var leaderboard_entry_3 = $Control/Panel/LeaderboardContainer/Entry3
+@onready var name_entry_container = $Control/Panel/NameEntryContainer
+@onready var name_input: LineEdit = $Control/Panel/NameEntryContainer/NameInputRow/NameInput
+@onready var name_submit_btn: Button = $Control/Panel/NameEntryContainer/NameInputRow/SubmitButton
 
 var current_shake_intensity: float = 0.0
 var shake_timer: float = 0.0
 var original_control_pos: Vector2
+
+# Name entry state
+var made_leaderboard: bool = false
+var pending_time_taken: float = 0.0
+var name_submitted: bool = false
 
 # Audio
 var sfx_player: AudioStreamPlayer
@@ -50,19 +58,44 @@ func _ready():
 	if leaderboard_container:
 		leaderboard_container.modulate.a = 0
 	
+	# Initialize name entry container (hide initially)
+	if name_entry_container:
+		name_entry_container.modulate.a = 0
+	
+	# Setup name entry controls
+	if name_input:
+		name_input.process_mode = Node.PROCESS_MODE_ALWAYS
+		name_input.mouse_filter = Control.MOUSE_FILTER_STOP
+	if name_submit_btn:
+		name_submit_btn.process_mode = Node.PROCESS_MODE_ALWAYS
+		name_submit_btn.mouse_filter = Control.MOUSE_FILTER_STOP
+		name_submit_btn.focus_mode = Control.FOCUS_ALL
+		if not name_submit_btn.pressed.is_connected(_on_name_submit_pressed):
+			name_submit_btn.pressed.connect(_on_name_submit_pressed)
+	if name_input:
+		if not name_input.text_submitted.is_connected(_on_name_text_submitted):
+			name_input.text_submitted.connect(_on_name_text_submitted)
+		# Auto-capitalize input as the player types
+		if not name_input.text_changed.is_connected(_on_name_input_text_changed):
+			name_input.text_changed.connect(_on_name_input_text_changed)
+	
 	# Ensure buttons are clickable even when paused
 	var restart_btn = $Control/Panel/HBoxContainer/RestartButton
+	var leaderboard_btn = $Control/Panel/HBoxContainer/LeaderboardButton
 	var menu_btn = $Control/Panel/HBoxContainer/MenuButton
 	
 	restart_btn.process_mode = Node.PROCESS_MODE_ALWAYS
+	leaderboard_btn.process_mode = Node.PROCESS_MODE_ALWAYS
 	menu_btn.process_mode = Node.PROCESS_MODE_ALWAYS
 	
 	# Explicitly set focus mode to allow interaction
 	restart_btn.focus_mode = Control.FOCUS_ALL
+	leaderboard_btn.focus_mode = Control.FOCUS_ALL
 	menu_btn.focus_mode = Control.FOCUS_ALL
 	
 	# Ensure buttons are on top and not blocked
 	restart_btn.mouse_filter = Control.MOUSE_FILTER_STOP
+	leaderboard_btn.mouse_filter = Control.MOUSE_FILTER_STOP
 	menu_btn.mouse_filter = Control.MOUSE_FILTER_STOP
 	
 	# Grab focus on restart button for gamepad/keyboard support
@@ -78,6 +111,8 @@ func _ready():
 	# Connect signals manually to be sure
 	if not restart_btn.pressed.is_connected(_on_restart_button_pressed):
 		restart_btn.pressed.connect(_on_restart_button_pressed)
+	if not leaderboard_btn.pressed.is_connected(_on_leaderboard_button_pressed):
+		leaderboard_btn.pressed.connect(_on_leaderboard_button_pressed)
 	if not menu_btn.pressed.is_connected(_on_menu_button_pressed):
 		menu_btn.pressed.connect(_on_menu_button_pressed)
 		
@@ -178,23 +213,31 @@ func setup(time_taken: float):
 	if leaderboard_container:
 		leaderboard_container.modulate.a = 0
 	
-	# Save score to leaderboard
+	# Hide name entry initially
+	if name_entry_container:
+		name_entry_container.modulate.a = 0
+	
+	# Check if this time qualifies for the global leaderboard
+	pending_time_taken = time_taken
+	made_leaderboard = false
+	name_submitted = false
+	
 	if LeaderboardManager:
-		var is_new_best = LeaderboardManager.add_score(time_taken)
-		if is_new_best:
-			print("VictoryUI: New best score! Time: %.2f" % time_taken)
-			print("VictoryUI: Player: %s (ID: %s, IP: %s)" % [
-				LeaderboardManager.get_player_name(),
-				LeaderboardManager.get_player_id(),
-				LeaderboardManager.get_local_ip()
-			])
+		made_leaderboard = LeaderboardManager.would_make_leaderboard(time_taken)
+		
+		if made_leaderboard:
+			print("VictoryUI: Time %.2f qualifies for leaderboard! Showing name entry." % time_taken)
+			# DON'T submit yet — wait for the player to enter their name
+		else:
+			print("VictoryUI: Time %.2f does not qualify for leaderboard. Submitting immediately." % time_taken)
+			# Submit immediately with existing player name
+			var is_new_best = LeaderboardManager.add_score(time_taken)
+			if is_new_best:
+				print("VictoryUI: New best score! Time: %.2f" % time_taken)
 		
 		# Connect to leaderboard update signal to refresh display when data arrives
 		if not LeaderboardManager.global_leaderboard_updated.is_connected(_on_global_leaderboard_updated):
 			LeaderboardManager.global_leaderboard_updated.connect(_on_global_leaderboard_updated)
-		
-		# Don't fetch here - let the submission callback handle it
-		# This ensures we wait for submission to complete first
 	
 	# Unlock next level
 	unlock_next_level()
@@ -299,15 +342,34 @@ func setup(time_taken: float):
 	
 	tween.tween_interval(0.3)
 	
-	# 5. Update and show leaderboard
-	tween.tween_callback(_update_leaderboard_display)
-	if leaderboard_container:
-		tween.tween_property(leaderboard_container, "modulate:a", 1.0, 0.3)
-	
-	# 6. Buttons appear last
-	tween.tween_property($Control/Panel/HBoxContainer, "modulate:a", 1.0, 0.3)
+	if made_leaderboard:
+		# 5a. Show name entry instead of leaderboard
+		tween.tween_callback(func():
+			if name_entry_container:
+				name_entry_container.modulate.a = 0
+		)
+		if name_entry_container:
+			tween.tween_property(name_entry_container, "modulate:a", 1.0, 0.3)
+		tween.tween_callback(func():
+			# Focus the name input so the player can type immediately
+			if name_input:
+				name_input.grab_focus()
+		)
+		# Buttons are hidden until the player submits their name
+	else:
+		# 5b. Update and show leaderboard (no name entry needed)
+		tween.tween_callback(_update_leaderboard_display)
+		if leaderboard_container:
+			tween.tween_property(leaderboard_container, "modulate:a", 1.0, 0.3)
+		
+		# 6. Buttons appear last
+		tween.tween_property($Control/Panel/HBoxContainer, "modulate:a", 1.0, 0.3)
 	
 func _input(event):
+	# Don't handle shortcuts while the player is typing their name
+	if made_leaderboard and not name_submitted:
+		return
+	
 	# Fallback: Allow pressing 'R' or 'Enter' or 'Space' to restart if button fails
 	if not get_tree().paused:
 		return
@@ -386,6 +448,110 @@ func _on_global_leaderboard_updated():
 	# Refresh the display with new data
 	_refresh_leaderboard_display()
 
+func _on_name_submit_pressed():
+	"""Called when the OK button is pressed after entering name."""
+	_submit_player_name()
+
+func _on_name_text_submitted(_text: String):
+	"""Called when Enter is pressed in the name input field."""
+	_submit_player_name()
+
+func _on_name_input_text_changed(new_text: String):
+	"""Auto-capitalize text as the player types."""
+	var upper_text = new_text.to_upper()
+	if upper_text != new_text:
+		name_input.text = upper_text
+		name_input.caret_column = upper_text.length()
+
+func _submit_player_name():
+	"""Process the player's name entry and submit the score."""
+	if name_submitted:
+		return
+	
+	var entered_name = name_input.text.strip_edges().to_upper()
+	
+	# Validate name
+	if entered_name.is_empty():
+		entered_name = "PLAYER"
+	
+	# Clamp to 10 chars (LineEdit max_length should handle this, but just in case)
+	if entered_name.length() > 10:
+		entered_name = entered_name.substr(0, 10)
+	
+	name_submitted = true
+	print("VictoryUI: Player entered name: '%s'" % entered_name)
+	
+	# Check if name already exists on global leaderboard
+	if LeaderboardManager:
+		var existing_entry = LeaderboardManager.find_existing_entry_by_name(entered_name)
+		
+		if not existing_entry.is_empty():
+			var existing_time = existing_entry["time"]
+			
+			if pending_time_taken < existing_time:
+				# Current time is BETTER — update the existing entry
+				print("VictoryUI: Updating existing entry for '%s' (%.2f -> %.2f)" % [entered_name, existing_time, pending_time_taken])
+				LeaderboardManager.set_player_name(entered_name)
+				var is_new_best = LeaderboardManager.update_score_for_name(pending_time_taken)
+				if is_new_best:
+					print("VictoryUI: New best score! Time: %.2f" % pending_time_taken)
+				_animate_post_submission()
+				return
+			else:
+				# Existing time is BETTER or EQUAL — show rejection message
+				print("VictoryUI: Name '%s' already exists with better time (%.2f vs %.2f)" % [entered_name, existing_time, pending_time_taken])
+				_show_name_exists_message()
+				return
+	
+	# Name doesn't exist — normal submission flow
+	if LeaderboardManager:
+		LeaderboardManager.set_player_name(entered_name)
+		var is_new_best = LeaderboardManager.add_score(pending_time_taken)
+		if is_new_best:
+			print("VictoryUI: New best score! Time: %.2f" % pending_time_taken)
+	
+	_animate_post_submission()
+
+func _animate_post_submission():
+	"""Animate transition from name entry to leaderboard display."""
+	var tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	
+	# Fade out name entry
+	if name_entry_container:
+		tween.tween_property(name_entry_container, "modulate:a", 0.0, 0.2)
+	
+	# Show leaderboard
+	tween.tween_callback(_update_leaderboard_display)
+	if leaderboard_container:
+		tween.tween_property(leaderboard_container, "modulate:a", 1.0, 0.3)
+	
+	# Show buttons
+	tween.tween_property($Control/Panel/HBoxContainer, "modulate:a", 1.0, 0.3)
+	
+	# Grab focus on restart button
+	tween.tween_callback(func():
+		$Control/Panel/HBoxContainer/RestartButton.grab_focus()
+	)
+
+func _show_name_exists_message():
+	"""Show a message that the name already exists with a better time, then transition."""
+	var mark_lbl = $Control/Panel/NameEntryContainer/MarkLabel
+	var prompt_lbl = $Control/Panel/NameEntryContainer/NamePromptLabel
+	var input_row = $Control/Panel/NameEntryContainer/NameInputRow
+	
+	# Update message and hide input elements
+	if mark_lbl:
+		mark_lbl.text = "Name already exists with better result"
+	if prompt_lbl:
+		prompt_lbl.visible = false
+	if input_row:
+		input_row.visible = false
+	
+	# Wait 1 second, then transition to normal victory screen
+	var tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	tween.tween_interval(1.0)
+	tween.tween_callback(_animate_post_submission)
+
 func _on_restart_button_pressed():
 	print("VictoryUI: Restart button pressed")
 	_perform_restart()
@@ -401,6 +567,26 @@ func _perform_restart():
 	# 3. Do NOT remove UI immediately. 
 	# It will be removed by player.gd in the new scene's _ready().
 	# This covers the ugly reload frame/freeze.
+
+func _on_leaderboard_button_pressed():
+	print("VictoryUI: Leaderboard button pressed")
+	# 1. Block input
+	$Control.mouse_filter = Control.MOUSE_FILTER_STOP
+	
+	# 2. Unpause and go to leaderboard scene
+	get_tree().paused = false
+	
+	# Hide Victory UI
+	visible = false
+	
+	# Change scene to leaderboard
+	if ResourceLoader.exists("res://leaderboard_scene.tscn"):
+		get_tree().change_scene_to_file("res://leaderboard_scene.tscn")
+	else:
+		push_error("VictoryUI: leaderboard_scene.tscn not found!")
+	
+	# Clean up
+	queue_free()
 
 func _on_menu_button_pressed():
 	print("VictoryUI: Menu button pressed")
