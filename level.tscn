@@ -178,7 +178,7 @@ slam_freeze_duration = 0.2
 rewind_warning_size = Vector2(128, 128)
 rewind_warning_offset = Vector2(5, 20)
 rewind_warning_vibration_amplitude = 5.0
-game_timer_duration = 30.0
+game_timer_duration = 300.0
 
 [node name="Camera2D" parent="Player" index="10"]
 zoom = Vector2(1, 1)

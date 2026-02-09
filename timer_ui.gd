@@ -94,6 +94,13 @@ func set_rewind_active(active: bool) -> void:
 	is_rewinding = active
 
 func _process(delta: float) -> void:
+	# Stop timer if victory UI is shown (player has won)
+	var victory_ui = get_tree().root.get_node_or_null("VictoryUI")
+	if victory_ui:
+		if is_running:
+			is_running = false
+		return
+	
 	# Ensure timer is running if max_time is set
 	if max_time > 0 and not is_running:
 		is_running = true
