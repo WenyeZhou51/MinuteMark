@@ -3,7 +3,7 @@
 [ext_resource type="Script" uid="uid://dv6gn5aukl7sp" path="res://level_select_menu.gd" id="1_level_select"]
 [ext_resource type="FontFile" uid="uid://qjp835anti7g" path="res://Fonts/doctor punk.otf" id="2_t4l2a"]
 [ext_resource type="Texture2D" uid="uid://bpr70dxba6rqr" path="res://Sprites/Bg white overlay .png" id="4_placeholder"]
-[ext_resource type="Texture2D" uid="uid://d2s65k4flhtae" path="res://Sprites/level_backgrounds/tutorial_overview.JPG" id="5_tutorial_bg"]
+[ext_resource type="Texture2D" uid="uid://c56kf4b82oup5" path="res://Sprites/level_backgrounds/tutorial_overview.JPG" id="5_tutorial_bg"]
 [ext_resource type="Shader" uid="uid://6y2yips0giea" path="res://shaders/background_desaturate.gdshader" id="6_bg_shader"]
 [ext_resource type="Shader" uid="uid://bn43koovabgy4" path="res://shaders/comic_paper.gdshader" id="7_paper_shader"]
 
@@ -127,7 +127,7 @@ material = SubResource("ShaderMaterial_bg")
 position = Vector2(294, 164)
 scale = Vector2(1.5103418, 2.9356349)
 texture = ExtResource("5_tutorial_bg")
-texture_offset = Vector2(175, 60)
+texture_offset = Vector2(150, 70)
 texture_scale = Vector2(10, 9)
 polygon = PackedVector2Array(-150, -80, 210.5484, -82.43531, 209.22418, 77.666336, -148.31079, 109.68666, -150, -80)
 
