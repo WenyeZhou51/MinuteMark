@@ -263,14 +263,14 @@ func setup(time_taken: float):
 			else:
 				rank_impact_label.text = ""
 	
-	# Apply colors to both first letter and rest
+	# Apply colors to both first letter and rest (matching in-game rank indicator)
 	var rank_color: Color
 	match rank:
-		"Sonic": rank_color = Color.CYAN
-		"Agile": rank_color = Color.GREEN
-		"Brisks": rank_color = Color.YELLOW
-		"Casual": rank_color = Color.ORANGE
-		"Delayed": rank_color = Color.RED
+		"Sonic": rank_color = Color(1.0, 0.0, 0.0, 1.0)       # Red (S rank)
+		"Agile": rank_color = Color(1.0, 0.84, 0.0, 1.0)      # Gold (A rank)
+		"Brisks": rank_color = Color(0.0, 0.4, 1.0, 1.0)      # Blue (B rank)
+		"Casual": rank_color = Color(0.0, 1.0, 1.0, 1.0)      # Cyan (C rank)
+		"Delayed": rank_color = Color(0.6, 0.3, 0.0, 1.0)     # Brown (D rank)
 	
 	if rank_first_letter:
 		rank_first_letter.add_theme_color_override("font_color", rank_color)

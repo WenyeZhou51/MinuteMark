@@ -16,13 +16,13 @@ signal time_expired
 @export var shadow_offset: Vector2 = Vector2(3, 5)
 
 # Color stages matching victory UI rank colors
-# S: Cyan (< 60s), A: Green (60-119s), B: Yellow (120-179s), C: Orange (180-239s), D: Red (240+s)
+# S: Red (< 60s), A: Gold (60-119s), B: Blue (120-179s), C: Cyan (180-239s), D: Brown (240+s)
 var color_stages: Array[Color] = [
-	Color(0.0, 1.0, 1.0, 1.0),    # Cyan (S - < 60s)
-	Color(0.0, 1.0, 0.0, 1.0),    # Green (A - 60-119s)
-	Color(1.0, 1.0, 0.0, 1.0),    # Yellow (B - 120-179s)
-	Color(1.0, 0.65, 0.0, 1.0),   # Orange (C - 180-239s)
-	Color(1.0, 0.0, 0.0, 1.0),    # Red (D - 240+s)
+	Color(1.0, 0.0, 0.0, 1.0),    # Red (S - < 60s)
+	Color(1.0, 0.84, 0.0, 1.0),   # Gold (A - 60-119s)
+	Color(0.0, 0.4, 1.0, 1.0),    # Blue (B - 120-179s)
+	Color(0.0, 1.0, 1.0, 1.0),    # Cyan (C - 180-239s)
+	Color(0.6, 0.3, 0.0, 1.0),    # Brown (D - 240+s)
 ]
 
 var current_time: float = 0.0
@@ -32,6 +32,8 @@ var dialogue_slow_mode: bool = false
 var is_rewinding: bool = false
 var last_pulse_second: int = -1  # Track last second for pulse effect
 var pulse_tween: Tween  # Store current pulse tween
+var rank_pulse_tween: Tween  # Store current rank pulse tween
+var last_rank_pulse_second: int = -1  # Track last second for rank pulse
 
 func _ready() -> void:
 	# Ensure TimerUI runs even when the game is paused (e.g. during dialogue)
@@ -181,6 +183,16 @@ func calculate_rank(time: float) -> String:
 	else:
 		return "D"  # Delayed
 
+func _get_rank_color(rank: String) -> Color:
+	"""Get the color for a given rank letter."""
+	match rank:
+		"S": return Color(1.0, 0.0, 0.0, 1.0)       # Red
+		"A": return Color(1.0, 0.84, 0.0, 1.0)       # Gold
+		"B": return Color(0.0, 0.4, 1.0, 1.0)        # Blue
+		"C": return Color(0.0, 1.0, 1.0, 1.0)        # Cyan
+		"D": return Color(0.6, 0.3, 0.0, 1.0)        # Brown
+		_: return Color(1.0, 1.0, 1.0, 1.0)          # White fallback
+
 func _update_rank_indicator() -> void:
 	"""Update the rank indicator to the right of the timer bar based on current time."""
 	if not rank_indicator:
@@ -192,9 +204,19 @@ func _update_rank_indicator() -> void:
 	# Always update text
 	rank_indicator.text = rank
 	
+	# Apply rank-specific color
+	var rank_color = _get_rank_color(rank)
+	rank_indicator.add_theme_color_override("font_color", rank_color)
+	
 	# Always ensure it's visible
 	rank_indicator.visible = true
 	rank_indicator.modulate = Color(1, 1, 1, 1)
+	
+	# Pulse rank indicator each second
+	var current_second = int(current_time)
+	if current_second != last_rank_pulse_second:
+		last_rank_pulse_second = current_second
+		_pulse_rank_indicator()
 
 func _pulse_timer_label() -> void:
 	if not timer_label:
@@ -211,6 +233,28 @@ func _pulse_timer_label() -> void:
 	pulse_tween.tween_property(timer_label, "scale", Vector2(1.2, 1.2), 0.1)
 	# Shrink back
 	pulse_tween.tween_property(timer_label, "scale", Vector2(1.0, 1.0), 0.2)
+
+func _pulse_rank_indicator() -> void:
+	if not rank_indicator:
+		return
+	
+	# Set pivot for scaling from center
+	rank_indicator.pivot_offset = rank_indicator.size / 2.0
+	
+	if rank_pulse_tween:
+		rank_pulse_tween.kill()
+	
+	rank_pulse_tween = create_tween()
+	rank_pulse_tween.set_trans(Tween.TRANS_QUAD)
+	rank_pulse_tween.set_ease(Tween.EASE_OUT)
+	
+	# Store original scale
+	var base_scale = Vector2(0.958932, 0.883081)  # Original scale from .tscn
+	
+	# Enlarge
+	rank_pulse_tween.tween_property(rank_indicator, "scale", base_scale * 1.25, 0.12)
+	# Shrink back
+	rank_pulse_tween.tween_property(rank_indicator, "scale", base_scale, 0.25)
 
 func _on_dialogue_started(_id: String) -> void:
 	dialogue_slow_mode = true

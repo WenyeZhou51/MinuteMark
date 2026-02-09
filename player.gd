@@ -3924,11 +3924,7 @@ func _spawn_afterimage() -> void:
 	# Create a new afterimage instance
 	var afterimage = AfterimageScene.instantiate()
 	
-	# Set the afterimage's position and rotation to match the player
-	afterimage.global_position = global_position
-	afterimage.rotation = rotation
-	
-	# Initialize from current sprite
+	# Initialize from current sprite (before add_child, uses get_node_or_null fallback)
 	if afterimage.has_method("setup_from_sprite"):
 		afterimage.setup_from_sprite(animated_sprite)
 	elif afterimage.has_node("Polygon2D"):
@@ -3937,8 +3933,11 @@ func _spawn_afterimage() -> void:
 		afterimage_polygon.color = Color(0.2, 1.0, 0.2, 0.6)
 		afterimage_polygon.visible = true
 	
-	# Add the afterimage to the scene
+	# Add the afterimage to the scene FIRST, then set global_position
+	# (setting global_position before add_child doesn't account for parent transform)
 	get_parent().add_child(afterimage)
+	afterimage.global_position = global_position
+	afterimage.rotation = rotation
 	
 	# Ensure it's rendered behind the player
 	afterimage.z_index = z_index - 1
@@ -3947,10 +3946,6 @@ func _spawn_afterimage() -> void:
 func _spawn_air_dash_afterimage() -> void:
 	"""Spawn a specialized brighter/desaturated afterimage for air dashing."""
 	var afterimage = AfterimageScene.instantiate()
-	
-	# Set the afterimage's position and rotation to match the player
-	afterimage.global_position = global_position
-	afterimage.rotation = rotation
 	
 	# Alternate between bright yellow and bright electric pink for air dash
 	var dash_modulate: Color
@@ -3971,8 +3966,11 @@ func _spawn_air_dash_afterimage() -> void:
 		afterimage.lifetime = air_dash_afterimage_lifetime
 		afterimage.initial_alpha = air_dash_afterimage_alpha
 	
-	# Add to tree
+	# Add to tree FIRST, then set global_position
+	# (setting global_position before add_child doesn't account for parent transform)
 	get_parent().add_child(afterimage)
+	afterimage.global_position = global_position
+	afterimage.rotation = rotation
 	
 	# Ensure it's rendered at a consistent Z index relative to player
 	afterimage.z_index = z_index - 1
@@ -3981,10 +3979,6 @@ func _spawn_air_dash_afterimage() -> void:
 func _spawn_trail_afterimage(lifetime: float) -> void:
 	"""Spawn an afterimage for the speed trail with a specific lifetime."""
 	var afterimage = AfterimageScene.instantiate()
-	
-	# Set the afterimage's position and rotation to match the player
-	afterimage.global_position = global_position
-	afterimage.rotation = rotation
 	
 	if afterimage.has_method("setup_from_sprite"):
 		# Alternate between bright yellow and bright electric pink
@@ -4007,8 +4001,11 @@ func _spawn_trail_afterimage(lifetime: float) -> void:
 		# Ensure initial alpha matches our trail modulate
 		afterimage.initial_alpha = 0.9
 	
-	# Add the afterimage to the scene
+	# Add the afterimage to the scene FIRST, then set global_position
+	# (setting global_position before add_child doesn't account for parent transform)
 	get_parent().add_child(afterimage)
+	afterimage.global_position = global_position
+	afterimage.rotation = rotation
 	
 	# Ensure it's rendered behind the player
 	afterimage.z_index = z_index - 1
