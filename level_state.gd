@@ -151,4 +151,3 @@ func _clear_transient_nodes() -> void:
 		for node in level_node.get_tree().get_nodes_in_group(group_name):
 			if node and is_instance_valid(node):
 				node.queue_free()
-

@@ -1,0 +1,32 @@
+[gd_scene load_steps=4 format=3 uid="uid://door1234568aa"]
+
+[ext_resource type="Script" path="res://door.gd" id="1_door"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_door"]
+size = Vector2(80, 120)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_blocking"]
+size = Vector2(80, 120)
+
+[node name="Door" type="Area2D" groups=["kickable_objects"]]
+script = ExtResource("1_door")
+kick_speed = 2000.0
+rotation_speed_min = -10.0
+rotation_speed_max = 10.0
+bounce_damping = 0.4
+gravity_strength = 2000.0
+door_width = 80.0
+door_height = 120.0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_door")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+modulate = Color(1, 1, 1, 1)
+
+[node name="BlockingBody" type="StaticBody2D" parent="."]
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="BlockingBody"]
+shape = SubResource("RectangleShape2D_blocking")
