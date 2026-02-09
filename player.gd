@@ -5670,6 +5670,10 @@ func _handle_dust_effects(delta: float) -> void:
 
 func finish_level(time_taken: float) -> void:
 	"""Called when the player reaches the level finish trigger."""
+	# Stop the timer first to prevent it from expiring and triggering death
+	if timer_ui_instance and timer_ui_instance.has_method("stop_timer"):
+		timer_ui_instance.stop_timer()
+	
 	# Pause the game to stop the timer and player movement
 	get_tree().paused = true
 	

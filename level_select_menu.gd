@@ -324,7 +324,7 @@ func _apply_hover_effect(block_index: int, is_hovering: bool):
 	
 	if is_hovering:
 		# Hover effect: scale up and brighten
-		var target_scale = block_original_scales[block_index] * 1.1
+		var target_scale = block_original_scales[block_index] * 1.05
 		var tween = create_tween()
 		tween.set_ease(Tween.EASE_OUT)
 		tween.set_trans(Tween.TRANS_BACK)
