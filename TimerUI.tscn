@@ -1,41 +1,14 @@
-[gd_scene load_steps=8 format=3 uid="uid://dmp8rksh3a5yl"]
+[gd_scene load_steps=7 format=3 uid="uid://dmp8rksh3a5yl"]
 
 [ext_resource type="Script" path="res://timer_ui.gd" id="1_script"]
 [ext_resource type="FontFile" uid="uid://baaiikv2041fb" path="res://Fonts/Funkrocker.otf" id="3_sqymh"]
-[ext_resource type="Shader" path="res://shaders/time_warning_overlay.gdshader" id="4_warning_shader"]
-[ext_resource type="Shader" path="res://shaders/timer_bands.gdshader" id="5_bands_shader"]
+[ext_resource type="Texture2D" uid="uid://2lso1wvmvanl" path="res://Sprites/New timer (1).png" id="4_timer_frame"]
+[ext_resource type="Texture2D" uid="uid://be8yybtivqjvl" path="res://Sprites/Timerfill.png" id="5_timer_fill"]
+[ext_resource type="Shader" path="res://shaders/timer_fill_mask.gdshader" id="6_fill_shader"]
 
-[sub_resource type="ShaderMaterial" id="1_warning_material"]
-shader = ExtResource("4_warning_shader")
-shader_parameter/intensity = 0.5
-shader_parameter/pulse_speed = 3.0
-shader_parameter/warning_color = Color(1, 0.1, 0.1, 0.6)
-shader_parameter/edge_roughness = 0.5
-shader_parameter/noise_scale = 10.0
-shader_parameter/frame_thickness = 0.02
-shader_parameter/frame_intensity = 0.6
-
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_left_bands"]
-shader = ExtResource("5_bands_shader")
-shader_parameter/speed = 0.5
-shader_parameter/band_count = 10.0
-shader_parameter/thickness = 0.1
-shader_parameter/angle = 0.8
-shader_parameter/move_right = true
-shader_parameter/point_right = true
-shader_parameter/left_fade_width = 0.0
-shader_parameter/right_fade_width = 0.0
-
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_right_bands"]
-shader = ExtResource("5_bands_shader")
-shader_parameter/speed = 0.5
-shader_parameter/band_count = 10.0
-shader_parameter/thickness = 0.1
-shader_parameter/angle = 0.8
-shader_parameter/move_right = false
-shader_parameter/point_right = false
-shader_parameter/left_fade_width = 0.0
-shader_parameter/right_fade_width = 0.0
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_fill_mask"]
+shader = ExtResource("6_fill_shader")
+shader_parameter/progress = 0.0
 
 [node name="TimerUI" type="CanvasLayer"]
 layer = 100
@@ -49,91 +22,67 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="WarningOverlay" type="ColorRect" parent="Control"]
-modulate = Color(1, 1, 1, 0)
-material = SubResource("1_warning_material")
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-color = Color(1, 0.1, 0.1, 0.6)
-
 [node name="TimerContainer" type="Control" parent="Control"]
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
-offset_bottom = 65.0
+offset_bottom = 150.0
 grow_horizontal = 2
 
-[node name="BarContainer" type="Control" parent="Control/TimerContainer"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-
-[node name="FireRect" type="ColorRect" parent="Control/TimerContainer/BarContainer"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-color = Color(1, 1, 1, 0)
-
-[node name="TimerBar" type="Panel" parent="Control/TimerContainer/BarContainer"]
-clip_contents = true
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-
-[node name="LeftBands" type="ColorRect" parent="Control/TimerContainer/BarContainer/TimerBar"]
-material = SubResource("ShaderMaterial_left_bands")
-layout_mode = 1
-anchors_preset = -1
-anchor_right = 0.5
-anchor_bottom = 1.0
-grow_vertical = 2
-color = Color(1, 1, 1, 0)
-
-[node name="RightBands" type="ColorRect" parent="Control/TimerContainer/BarContainer/TimerBar"]
-material = SubResource("ShaderMaterial_right_bands")
-layout_mode = 1
-anchors_preset = -1
-anchor_left = 0.5
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 0
-grow_vertical = 2
-color = Color(1, 1, 1, 0)
-
-[node name="TimerLabel" type="Label" parent="Control/TimerContainer/BarContainer"]
+[node name="TimerFill" type="TextureRect" parent="Control/TimerContainer"]
+material = SubResource("ShaderMaterial_fill_mask")
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -200.0
-offset_top = -110.0
-offset_right = 200.0
-offset_bottom = 110.0
+offset_left = -1274.0
+offset_top = -81.0
+offset_right = 1281.0
+offset_bottom = 1044.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_colors/font_color = Color(1, 1, 1, 1)
+texture = ExtResource("5_timer_fill")
+expand_mode = 1
+
+[node name="NewTimer" type="TextureRect" parent="Control/TimerContainer"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -1278.0
+offset_top = -78.0
+offset_right = 1289.0
+offset_bottom = 891.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("4_timer_frame")
+expand_mode = 1
+
+[node name="TimerLabel" type="Label" parent="Control/TimerContainer"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -173.0
+offset_top = -122.0
+offset_right = 246.0
+offset_bottom = 146.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(0.905882, 0, 0, 1)
 theme_override_colors/font_shadow_color = Color(1, 0, 1, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/shadow_offset_x = 5
 theme_override_constants/shadow_offset_y = 10
-theme_override_constants/outline_size = 12
+theme_override_constants/outline_size = 20
 theme_override_fonts/font = ExtResource("3_sqymh")
-theme_override_font_sizes/font_size = 180
+theme_override_font_sizes/font_size = 75
 text = "00:00"
 horizontal_alignment = 1
 vertical_alignment = 1
@@ -145,10 +94,10 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = 941.0
-offset_top = -165.0
-offset_right = 1203.0
-offset_bottom = 430.0
+offset_left = 930.0
+offset_top = -175.0
+offset_right = 1120.0
+offset_bottom = 420.0
 grow_horizontal = 2
 grow_vertical = 2
 scale = Vector2(0.958932, 0.883081)
@@ -156,7 +105,7 @@ theme_override_colors/font_color = Color(1, 1, 0, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 20
 theme_override_fonts/font = ExtResource("3_sqymh")
-theme_override_font_sizes/font_size = 400
+theme_override_font_sizes/font_size = 200
 text = "S"
 horizontal_alignment = 1
 vertical_alignment = 1
