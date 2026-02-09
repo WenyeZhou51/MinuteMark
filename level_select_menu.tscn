@@ -118,9 +118,9 @@ grow_vertical = 2
 [node name="Level1Block" type="Control" parent="MenuContainer/LevelsContainer"]
 anchors_preset = 0
 offset_left = -218.0
-offset_top = -148.0
+offset_top = -159.0
 offset_right = 82.0
-offset_bottom = 52.0
+offset_bottom = 41.0
 
 [node name="BackgroundImage" type="Polygon2D" parent="MenuContainer/LevelsContainer/Level1Block"]
 material = SubResource("ShaderMaterial_bg")
@@ -129,20 +129,20 @@ scale = Vector2(1.5103418, 2.9356349)
 texture = ExtResource("5_tutorial_bg")
 texture_offset = Vector2(175, 60)
 texture_scale = Vector2(10, 9)
-polygon = PackedVector2Array(-150, -80, 210.5484, -82.43531, 209.22418, 77.666336, -149.63501, 113.433716, -150, -80)
+polygon = PackedVector2Array(-150, -80, 210.5484, -82.43531, 209.22418, 77.666336, -148.31079, 109.68666, -150, -80)
 
 [node name="PaperScrap" type="Polygon2D" parent="MenuContainer/LevelsContainer/Level1Block"]
 z_index = 1
 position = Vector2(294, 164)
 scale = Vector2(1.5103418, 2.9356349)
 color = Color(0.98, 0.96, 0.92, 0)
-polygon = PackedVector2Array(-150, -80, 210.5484, -82.43531, 217.16937, 85.50108, -149.63501, 113.433716, -150, -80)
+polygon = PackedVector2Array(-150, -80, 210.5484, -82.43531, 214.521, 84.138535, -148.97287, 108.66475, -150, -80)
 
 [node name="TornEdge" type="Line2D" parent="MenuContainer/LevelsContainer/Level1Block"]
 z_index = 2
 position = Vector2(294, 164)
 scale = Vector2(1.5103418, 2.9356349)
-points = PackedVector2Array(-150.95917, -82.43531, 210.5484, -82.43531, 211.21045, 80.05083, -149.63501, 113.433716, -149.63498, -82.43531)
+points = PackedVector2Array(-150.95917, -82.43531, 210.5484, -82.43531, 207.23785, 74.94119, -148.97287, 106.28026, -149.63498, -82.43531)
 width = 6.0
 default_color = Color(0.3, 0.25, 0.2, 1)
 
@@ -166,9 +166,9 @@ vertical_alignment = 1
 [node name="Level2Block" type="Control" parent="MenuContainer/LevelsContainer"]
 anchors_preset = 0
 offset_left = 617.0
-offset_top = -152.0
+offset_top = -163.0
 offset_right = 917.0
-offset_bottom = 48.0
+offset_bottom = 37.0
 
 [node name="PaperScrap" type="Polygon2D" parent="MenuContainer/LevelsContainer/Level2Block"]
 z_index = 1
@@ -195,7 +195,7 @@ stretch_mode = 5
 z_index = 2
 position = Vector2(111, 118.99999)
 scale = Vector2(1.8169482, 2.423356)
-points = PackedVector2Array(-151.90302, -79.64161, 254.82294, -82.117516, 254.82294, 58.59642, -154.10455, 110.59042, -153.55414, -82.53017)
+points = PackedVector2Array(-151.90302, -79.64161, 254.82294, -82.117516, 254.82294, 53.644608, -155.20526, 107.70187, -153.55414, -82.53017)
 width = 6.0
 default_color = Color(0.3, 0.25, 0.2, 1)
 
@@ -219,9 +219,9 @@ vertical_alignment = 1
 [node name="Level3Block" type="Control" parent="MenuContainer/LevelsContainer"]
 anchors_preset = 0
 offset_left = -4.0
-offset_top = 52.0
+offset_top = 41.0
 offset_right = 696.0
-offset_bottom = 152.0
+offset_bottom = 141.0
 
 [node name="PaperScrap" type="Polygon2D" parent="MenuContainer/LevelsContainer/Level3Block"]
 z_index = 1
@@ -281,15 +281,15 @@ z_index = 1
 position = Vector2(386, 35)
 scale = Vector2(2.7497795, 4.4660897)
 color = Color(0.96, 0.94, 0.89, 1)
-polygon = PackedVector2Array(-120.00963, -29.556046, 120, -30, 69.82379, 60.455566, -120.373276, 60.90338, -121.10062, -32.242966)
+polygon = PackedVector2Array(-120.00963, -29.556046, 123.28259, -30.899506, 59.277466, 59.559937, -120.373276, 60.90338, -121.10062, -32.242966)
 
 [node name="BackgroundImage" type="TextureRect" parent="MenuContainer/LevelsContainer/Level4Block/PaperScrap"]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = -121.10062
-offset_top = -32.242966
-offset_right = 120.0
+offset_top = -30.899506
+offset_right = 118.918625
 offset_bottom = 60.90338
 grow_horizontal = 2
 grow_vertical = 2
@@ -301,7 +301,7 @@ stretch_mode = 5
 z_index = 2
 position = Vector2(386, 35)
 scale = Vector2(2.7497795, 4.4660897)
-points = PackedVector2Array(-120.00963, -29.556046, 120, -30, 69.82379, 60.455566, -120.373276, 60.90338, -121.10062, -32.242966)
+points = PackedVector2Array(-120.00963, -29.556046, 125.4646, -29.108246, 58.91382, 59.559937, -120.73697, 59.783844, -121.10062, -32.242966)
 width = 6.0
 default_color = Color(0.3, 0.25, 0.2, 1)
 
@@ -353,7 +353,7 @@ stretch_mode = 5
 z_index = 2
 position = Vector2(-21.999966, 350.99994)
 scale = Vector2(2.5909688, 6.2923985)
-points = PackedVector2Array(-122.5556, -30.056885, 120, -30, 120.21069, 32.399445, -168.5834, 32.120636, -120.625854, -32.122864)
+points = PackedVector2Array(-99.57666, -29.7184, 120, -30, 120.21069, 32.399445, -168.66278, 32.102234, -97.64685, -30.830856)
 width = 6.0
 default_color = Color(0.3, 0.25, 0.2, 1)
 
