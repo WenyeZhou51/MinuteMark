@@ -102,7 +102,7 @@ func _physics_process(delta: float) -> void:
 		for body in bodies:
 			if body == platform_body or body == self:
 				continue
-			if _is_player(body) and _is_landing_from_above(body):
+			if _is_player(body) and (_is_landing_from_above(body) or _is_player_wall_interacting(body)):
 				is_triggered = true
 				fall_timer = 0.0
 				vibration_time = 0.0
@@ -139,7 +139,7 @@ func _on_body_entered(body: Node) -> void:
 		return
 	if not _is_player(body):
 		return
-	if not _is_landing_from_above(body):
+	if not _is_landing_from_above(body) and not _is_player_wall_interacting(body):
 		return
 	
 	is_triggered = true
@@ -172,6 +172,64 @@ func _is_landing_from_above(body: Node) -> bool:
 	return true
 
 
+func _is_player_wall_interacting(body: Node) -> bool:
+	"""Check if the player is wall running on or wall jumping off this platform."""
+	if not body is CharacterBody2D or not platform_body:
+		return false
+	var player_body := body as CharacterBody2D
+	
+	# Check if player is wall running on this platform
+	if player_body.get("is_wall_running") and player_body.is_wall_running:
+		# Verify they're actually colliding with THIS platform (side collision)
+		if _has_wall_collision_with_platform(player_body):
+			return true
+	
+	# Check if player is wall sliding on this platform
+	if player_body.get("is_wall_sliding") and player_body.is_wall_sliding:
+		if _has_wall_collision_with_platform(player_body):
+			return true
+	
+	# Check if player just wall jumped off this platform (wall_jump_cooldown was just set)
+	if player_body.get("wall_jump_cooldown") != null and player_body.wall_jump_cooldown > 0.2:
+		# Player very recently wall jumped — check proximity to this platform
+		if _is_player_beside_platform(player_body):
+			return true
+	
+	return false
+
+
+func _has_wall_collision_with_platform(player_body: CharacterBody2D) -> bool:
+	"""Check if the player has a wall-type slide collision with this platform's body."""
+	var collision_count = player_body.get_slide_collision_count()
+	for i in range(collision_count):
+		var collision = player_body.get_slide_collision(i)
+		# Wall collision = horizontal normal (abs(x) > 0.7)
+		if abs(collision.get_normal().x) > 0.7:
+			if collision.get_collider() == platform_body:
+				return true
+	return false
+
+
+func _is_player_beside_platform(player_body: CharacterBody2D) -> bool:
+	"""Check if the player is right beside (touching the side of) this platform."""
+	var half_width = _get_platform_half_width()
+	var half_height = _get_platform_half_height()
+	if half_width <= 0.0 or half_height <= 0.0:
+		return false
+	
+	var plat_pos = platform_body.global_position
+	var player_pos = player_body.global_position
+	
+	# Check vertical overlap (player is alongside the platform, not above/below)
+	var within_y = player_pos.y >= plat_pos.y - half_height - PLAYER_FALLBACK_MARGIN and \
+				   player_pos.y <= plat_pos.y + half_height + PLAYER_FALLBACK_MARGIN
+	# Check horizontal proximity (player is right next to the side)
+	var dist_x = abs(player_pos.x - plat_pos.x)
+	var within_x = dist_x <= half_width + PLAYER_FALLBACK_MARGIN + 20.0  # slightly wider margin for wall jump push-off
+	
+	return within_x and within_y
+
+
 func _get_platform_half_height() -> float:
 	if collision_shape and collision_shape.shape and collision_shape.shape is RectangleShape2D:
 		var rect_shape := collision_shape.shape as RectangleShape2D
@@ -190,8 +248,17 @@ func _try_trigger_from_player_fallback() -> void:
 	var player = get_tree().get_first_node_in_group("player")
 	if not player or not platform_body:
 		return
+	
+	# Check wall interaction first (wall run / wall jump / wall slide)
 	if player is CharacterBody2D:
 		var player_body := player as CharacterBody2D
+		if _is_player_wall_interacting(player_body):
+			is_triggered = true
+			fall_timer = 0.0
+			vibration_time = 0.0
+			if debug_logs:
+				print("[FallingPlatform] Triggered by wall interaction fallback at pos=", player.global_position)
+			return
 		if not _is_player_standing_on_platform(player_body):
 			return
 	
