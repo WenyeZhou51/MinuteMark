@@ -1,4 +1,4 @@
-[gd_scene load_steps=37 format=3 uid="uid://clfclx5p38xkv"]
+[gd_scene load_steps=38 format=3 uid="uid://clfclx5p38xkv"]
 
 [ext_resource type="Script" path="res://level_manager.gd" id="1_manager"]
 [ext_resource type="PackedScene" uid="uid://vv3m4nx6g3jo" path="res://player.tscn" id="1_qj3g4"]
@@ -26,6 +26,7 @@
 [ext_resource type="PackedScene" path="res://Turret.tscn" id="23_y3bce"]
 [ext_resource type="PackedScene" uid="uid://c2p1gqjfeqf38" path="res://LeverPlatformSystem.tscn" id="24_fj6e6"]
 [ext_resource type="PackedScene" uid="uid://b6ocum6m8b8o1" path="res://LeverTrigger.tscn" id="25_2h3vt"]
+[ext_resource type="PackedScene" uid="uid://be4ysm5xnwocm" path="res://door.tscn" id="26_door"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_dialogue_trigger"]
 size = Vector2(692, 332)
@@ -196,6 +197,9 @@ position = Vector2(6744, 827)
 position = Vector2(8740, 3803)
 
 [node name="KickableObjects" type="Node2D" parent="."]
+
+[node name="Door" parent="KickableObjects" instance=ExtResource("26_door")]
+position = Vector2(-661, 887)
 
 [node name="KickableObject5" parent="KickableObjects" instance=ExtResource("4_kickable")]
 position = Vector2(3446, 2623)

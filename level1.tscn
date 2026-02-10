@@ -1,4 +1,4 @@
-[gd_scene load_steps=35 format=3 uid="uid://dn6o2q1dl4r2m"]
+[gd_scene load_steps=36 format=3 uid="uid://dn6o2q1dl4r2m"]
 
 [ext_resource type="Script" path="res://level_manager.gd" id="1_38wbk"]
 [ext_resource type="Texture2D" uid="uid://d2g7jojkre5ug" path="res://Sprites/Bd.png" id="2_kqecp"]
@@ -25,6 +25,7 @@
 [ext_resource type="PackedScene" uid="uid://d8bd1w1cu2gs" path="res://crusher.tscn" id="24_crusher"]
 [ext_resource type="PackedScene" uid="uid://demedvhavmbbs" path="res://FallingPlatform.tscn" id="25_23juj"]
 [ext_resource type="PackedScene" uid="uid://dmp8rksh3a5yl" path="res://TimerUI.tscn" id="25_timer"]
+[ext_resource type="PackedScene" uid="uid://be4ysm5xnwocm" path="res://door.tscn" id="26_iwm8q"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_dialogue_trigger"]
 size = Vector2(692, 332)
@@ -179,6 +180,12 @@ zoom = Vector2(1, 1)
 
 [node name="Enemy2" parent="." instance=ExtResource("5_11mcu")]
 position = Vector2(4862, 16021)
+tracking_speed_degrees = 150.0
+detection_range = 1000.0
+laser_width = 6.0
+
+[node name="Enemy8" parent="." instance=ExtResource("5_11mcu")]
+position = Vector2(4198, 16796)
 tracking_speed_degrees = 150.0
 detection_range = 1000.0
 laser_width = 6.0
@@ -513,6 +520,10 @@ scale = Vector2(0.253875, 1.2294)
 fall_delay = 0.7
 fall_speed = 1500.0
 stop_on_first_platform = true
+
+[node name="Door" parent="." instance=ExtResource("26_iwm8q")]
+position = Vector2(3618, 16768)
+scale = Vector2(0.20002, 0.88)
 
 [editable path="Player"]
 [editable path="KickableObjects/Window1"]
