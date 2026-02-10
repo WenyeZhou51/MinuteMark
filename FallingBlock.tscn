@@ -1,0 +1,24 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://falling_platform.gd" id="1_script"]
+[ext_resource type="Texture2D" uid="uid://dis335h1ty76j" path="res://Sprites/Falling block sprite.png" id="2_sprite"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_falling_block"]
+size = Vector2(190, 77)
+
+[node name="FallingBlock" type="Node2D"]
+script = ExtResource("1_script")
+
+[node name="PlatformBody" type="AnimatableBody2D" parent="."]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="PlatformBody"]
+shape = SubResource("RectangleShape2D_falling_block")
+
+[node name="Visual" type="Sprite2D" parent="PlatformBody"]
+texture = ExtResource("2_sprite")
+
+[node name="TriggerArea" type="Area2D" parent="PlatformBody"]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="PlatformBody/TriggerArea"]
+position = Vector2(0, -4)
+shape = SubResource("RectangleShape2D_falling_block")

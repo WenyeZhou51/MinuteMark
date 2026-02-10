@@ -131,6 +131,11 @@ func kick(direction: Vector2, speed: float = 0.0) -> void:
 	# Shatter in the direction the player is dashing BEFORE time slow
 	_shatter(player_direction)
 	
+	# If broken by player dash, extend the dash duration
+	var player = get_tree().get_first_node_in_group("player")
+	if player and player.has_method("extend_dash_duration"):
+		player.extend_dash_duration()
+	
 	# Play shatter sound
 	if shatter_sfx:
 		sfx_player.stream = shatter_sfx

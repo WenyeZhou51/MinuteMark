@@ -3,7 +3,7 @@
 [ext_resource type="Script" path="res://falling_platform.gd" id="1_script"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_falling_platform"]
-size = Vector2(947, 385)
+size = Vector2(947, 357.688)
 
 [node name="FallingPlatform" type="Node2D"]
 script = ExtResource("1_script")

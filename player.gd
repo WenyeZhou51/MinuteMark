@@ -166,6 +166,7 @@ var action_lines_instance: CanvasLayer = null
 @export var air_dash_afterimage_count: int = 7 ## Number of afterimages to spawn during dash
 @export var air_dash_afterimage_lifetime: float = 0.4 ## How long each afterimage lasts
 @export var air_dash_afterimage_alpha: float = 0.7 ## Initial transparency of afterimages
+@export var air_dash_extension_duration: float = 0.35 ## Extension duration when breaking glass
 
 # KICK ATTACK CONFIGURATION
 @export_group("Kick Attack")
@@ -368,6 +369,7 @@ var air_dash_cooldown_timer: float = 0.0  # Cooldown timer for air dash
 var air_dash_afterimages_spawned: int = 0  # Counter for afterimages spawned during current dash
 var dash_direction: float = 1.0  # Horizontal direction of dash (1 = right, -1 = left)
 var pre_air_dash_horizontal_speed: float = 0.0  # Horizontal speed before air dash
+var is_dash_extended: bool = false  # Has the current dash been extended (e.g. by breaking glass)
 var velocity_before_move_and_slide: Vector2 = Vector2.ZERO  # Velocity before move_and_slide() for collision detection
 var original_collision_shape_height: float = 64.0  # Original height of collision shape
 var original_collision_layer: int = 1  # Store original collision layer
@@ -1784,6 +1786,27 @@ func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceS
 		# Only wall slide if pressing TOWARD the wall
 		if (wall_normal.x > 0 and input_direction < 0) or (wall_normal.x < 0 and input_direction > 0):
 			is_wall_sliding = true
+	
+	# DEBUG: Log why wall sliding isn't activating on platforms
+	if is_on_wall and is_on_runnable_wall and not is_wall_sliding:
+		# Check if we are near a falling platform
+		var is_near_falling = false
+		for i in range(get_slide_collision_count()):
+			var collision = get_slide_collision(i)
+			if collision.get_collider().name.to_lower().contains("platform"):
+				is_near_falling = true
+				break
+		
+		if is_near_falling:
+			print("[WALL SLIDE DEBUG] Not sliding on platform:")
+			print("  velocity.y: ", velocity.y)
+			print("  is_ground_sliding: ", is_ground_sliding)
+			print("  is_air_dashing: ", is_air_dashing)
+			print("  input_direction: ", input_direction)
+			print("  wall_normal: ", wall_normal)
+			var pressing_toward = (wall_normal.x > 0 and input_direction < 0) or (wall_normal.x < 0 and input_direction > 0)
+			print("  pressing_toward: ", pressing_toward)
+
 	elif is_on_wall and not is_on_runnable_wall:
 		pass
 
@@ -2311,6 +2334,31 @@ func _handle_jump_input() -> void:
 		if wall_jump_enabled and nearby_wall.detected and nearby_wall.runnable and not is_wall_running and wall_jump_cooldown <= 0 and not is_on_floor():
 			_perform_wall_jump(nearby_wall.normal)
 		else:
+			# DEBUG: Log why wall jump failed if near a falling platform
+			if nearby_wall.detected and nearby_wall.runnable and nearby_wall.normal != Vector2.ZERO:
+				var collider_name = "unknown"
+				# Try to find the collider for debug purposes
+				var space_state = get_world_2d().direct_space_state
+				var collision_shape = $CollisionShape2D
+				if collision_shape and collision_shape.shape:
+					var shape = collision_shape.shape as RectangleShape2D
+					var half_width = shape.size.x / 2.0
+					var ray_origin = global_position + collision_shape.position + Vector2(half_width * -sign(nearby_wall.normal.x), 0)
+					var ray_end = ray_origin + nearby_wall.normal * -20.0
+					var query = PhysicsRayQueryParameters2D.create(ray_origin, ray_end)
+					query.exclude = [self]
+					var hit = space_state.intersect_ray(query)
+					if hit:
+						collider_name = hit.collider.name
+				
+				if collider_name.to_lower().contains("platform"):
+					print("[WALL JUMP DEBUG] Jump failed near platform: ", collider_name)
+					print("  wall_jump_enabled: ", wall_jump_enabled)
+					print("  is_wall_running: ", is_wall_running)
+					print("  wall_jump_cooldown: ", wall_jump_cooldown)
+					print("  is_on_floor: ", is_on_floor())
+					print("  is_ground_sliding: ", is_ground_sliding)
+
 			# Check if we can jump immediately
 			var can_jump: bool = can_normal_jump
 			
@@ -3470,6 +3518,7 @@ func _start_air_dash(input_x: float) -> void:
 	
 	# Start air dash
 	is_air_dashing = true
+	is_dash_extended = false
 	air_dash_timer = 0.0
 	air_dash_afterimages_spawned = 0
 	air_dash_cooldown_timer = air_dash_cooldown
@@ -3523,13 +3572,17 @@ func _process_air_dash(delta: float) -> void:
 	air_dash_timer += delta
 	
 	# Spawn afterimages throughout the dash
-	var interval = air_dash_duration / float(air_dash_afterimage_count)
+	var effective_duration = air_dash_duration
+	if is_dash_extended:
+		effective_duration += air_dash_extension_duration
+		
+	var interval = effective_duration / float(air_dash_afterimage_count)
 	if air_dash_timer >= (air_dash_afterimages_spawned + 0.5) * interval and air_dash_afterimages_spawned < air_dash_afterimage_count:
 		_spawn_air_dash_afterimage()
 		air_dash_afterimages_spawned += 1
 	
 	# Check if air dash duration has elapsed
-	if air_dash_timer >= air_dash_duration:
+	if air_dash_timer >= effective_duration:
 		_end_air_dash()
 		return
 	
@@ -3543,6 +3596,7 @@ func _end_air_dash() -> void:
 		return
 	
 	is_air_dashing = false
+	is_dash_extended = false
 	air_dash_timer = 0.0
 	is_invulnerable = false  # End invulnerability
 	
@@ -3551,6 +3605,12 @@ func _end_air_dash() -> void:
 	velocity.y = air_dash_end_vertical_velocity
 	
 	# Could trigger air dash end effects here (particles fade, etc.)
+
+
+func extend_dash_duration() -> void:
+	"""Extend the current dash duration (called when breaking glass)."""
+	if is_air_dashing:
+		is_dash_extended = true
 
 
 func _set_collision_height(new_height: float) -> void:
