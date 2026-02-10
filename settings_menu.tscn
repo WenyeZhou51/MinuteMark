@@ -1,0 +1,240 @@
+[gd_scene load_steps=7 format=3 uid="uid://gy00r2xbxp1d"]
+
+[ext_resource type="Script" uid="uid://xenlxfqoahvs" path="res://settings_menu.gd" id="1_settings"]
+[ext_resource type="Texture2D" uid="uid://bpr70dxba6rqr" path="res://Sprites/Bg white overlay .png" id="3_white_overlay"]
+[ext_resource type="FontFile" uid="uid://baaiikv2041fb" path="res://Fonts/Funkrocker.otf" id="4_font"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_slider_bg"]
+bg_color = Color(0.2, 0.2, 0.2, 0.8)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_slider_grabber"]
+bg_color = Color(1, 1, 1, 1)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_slider_highlight"]
+bg_color = Color(0.9, 0.9, 0.9, 1)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[node name="SettingsMenu" type="Control"]
+process_mode = 3
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_settings")
+
+[node name="InnerMenuBg" type="TextureRect" parent="."]
+z_index = -2
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+expand_mode = 1
+stretch_mode = 6
+
+[node name="WhiteOverlay" type="TextureRect" parent="."]
+z_index = -3
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("3_white_overlay")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="MenuContainer" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -71.0
+offset_top = -496.0
+offset_right = 729.0
+offset_bottom = 311.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 24
+
+[node name="ScrollContainer" type="ScrollContainer" parent="MenuContainer"]
+custom_minimum_size = Vector2(800, 700)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="InnerVBox" type="VBoxContainer" parent="MenuContainer/ScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 28
+
+[node name="Title" type="Label" parent="MenuContainer/ScrollContainer/InnerVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_fonts/font = ExtResource("4_font")
+theme_override_font_sizes/font_size = 80
+text = "SETTINGS"
+horizontal_alignment = 1
+
+[node name="VideoSection" type="VBoxContainer" parent="MenuContainer/ScrollContainer/InnerVBox"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="VideoSectionTitle" type="Label" parent="MenuContainer/ScrollContainer/InnerVBox/VideoSection"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_fonts/font = ExtResource("4_font")
+theme_override_font_sizes/font_size = 56
+text = "Video"
+horizontal_alignment = 1
+
+[node name="BrightnessContainer" type="VBoxContainer" parent="MenuContainer/ScrollContainer/InnerVBox/VideoSection"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="BrightnessLabel" type="Label" parent="MenuContainer/ScrollContainer/InnerVBox/VideoSection/BrightnessContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_fonts/font = ExtResource("4_font")
+theme_override_font_sizes/font_size = 45
+text = "Screen Brightness: 100%"
+horizontal_alignment = 1
+
+[node name="BrightnessSlider" type="HSlider" parent="MenuContainer/ScrollContainer/InnerVBox/VideoSection/BrightnessContainer"]
+custom_minimum_size = Vector2(600, 40)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_styles/slider = SubResource("StyleBoxFlat_slider_bg")
+theme_override_styles/grabber_area = SubResource("StyleBoxFlat_slider_grabber")
+theme_override_styles/grabber_area_highlight = SubResource("StyleBoxFlat_slider_highlight")
+min_value = 0.3
+max_value = 2.0
+step = 0.01
+value = 1.0
+
+[node name="FullscreenContainer" type="HBoxContainer" parent="MenuContainer/ScrollContainer/InnerVBox/VideoSection"]
+layout_mode = 2
+alignment = 1
+
+[node name="FullscreenLabel" type="Label" parent="MenuContainer/ScrollContainer/InnerVBox/VideoSection/FullscreenContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_fonts/font = ExtResource("4_font")
+theme_override_font_sizes/font_size = 45
+text = "Fullscreen:"
+
+[node name="FullscreenToggle" type="CheckButton" parent="MenuContainer/ScrollContainer/InnerVBox/VideoSection/FullscreenContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_fonts/font = ExtResource("4_font")
+theme_override_font_sizes/font_size = 45
+
+[node name="AudioSection" type="VBoxContainer" parent="MenuContainer/ScrollContainer/InnerVBox"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="AudioSectionTitle" type="Label" parent="MenuContainer/ScrollContainer/InnerVBox/AudioSection"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_fonts/font = ExtResource("4_font")
+theme_override_font_sizes/font_size = 56
+text = "Audio"
+horizontal_alignment = 1
+
+[node name="MasterVolumeContainer" type="VBoxContainer" parent="MenuContainer/ScrollContainer/InnerVBox/AudioSection"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="MasterVolumeLabel" type="Label" parent="MenuContainer/ScrollContainer/InnerVBox/AudioSection/MasterVolumeContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_fonts/font = ExtResource("4_font")
+theme_override_font_sizes/font_size = 45
+text = "Master Volume: 100%"
+horizontal_alignment = 1
+
+[node name="MasterVolumeSlider" type="HSlider" parent="MenuContainer/ScrollContainer/InnerVBox/AudioSection/MasterVolumeContainer"]
+custom_minimum_size = Vector2(600, 40)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_styles/slider = SubResource("StyleBoxFlat_slider_bg")
+theme_override_styles/grabber_area = SubResource("StyleBoxFlat_slider_grabber")
+theme_override_styles/grabber_area_highlight = SubResource("StyleBoxFlat_slider_highlight")
+max_value = 1.0
+step = 0.01
+value = 1.0
+
+[node name="MusicVolumeContainer" type="VBoxContainer" parent="MenuContainer/ScrollContainer/InnerVBox/AudioSection"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="MusicVolumeLabel" type="Label" parent="MenuContainer/ScrollContainer/InnerVBox/AudioSection/MusicVolumeContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_fonts/font = ExtResource("4_font")
+theme_override_font_sizes/font_size = 45
+text = "Music Level: 100%"
+horizontal_alignment = 1
+
+[node name="MusicVolumeSlider" type="HSlider" parent="MenuContainer/ScrollContainer/InnerVBox/AudioSection/MusicVolumeContainer"]
+custom_minimum_size = Vector2(600, 40)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_styles/slider = SubResource("StyleBoxFlat_slider_bg")
+theme_override_styles/grabber_area = SubResource("StyleBoxFlat_slider_grabber")
+theme_override_styles/grabber_area_highlight = SubResource("StyleBoxFlat_slider_highlight")
+max_value = 1.0
+step = 0.01
+value = 1.0
+
+[node name="GameVolumeContainer" type="VBoxContainer" parent="MenuContainer/ScrollContainer/InnerVBox/AudioSection"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="GameVolumeLabel" type="Label" parent="MenuContainer/ScrollContainer/InnerVBox/AudioSection/GameVolumeContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_fonts/font = ExtResource("4_font")
+theme_override_font_sizes/font_size = 45
+text = "Game Sound: 100%"
+horizontal_alignment = 1
+
+[node name="GameVolumeSlider" type="HSlider" parent="MenuContainer/ScrollContainer/InnerVBox/AudioSection/GameVolumeContainer"]
+custom_minimum_size = Vector2(600, 40)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_styles/slider = SubResource("StyleBoxFlat_slider_bg")
+theme_override_styles/grabber_area = SubResource("StyleBoxFlat_slider_grabber")
+theme_override_styles/grabber_area_highlight = SubResource("StyleBoxFlat_slider_highlight")
+max_value = 1.0
+step = 0.01
+value = 1.0
+
+[node name="BackButton" type="Button" parent="MenuContainer"]
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_fonts/font = ExtResource("4_font")
+theme_override_font_sizes/font_size = 50
+text = "< BACK"
+
+[connection signal="value_changed" from="MenuContainer/ScrollContainer/InnerVBox/VideoSection/BrightnessContainer/BrightnessSlider" to="." method="_on_brightness_slider_value_changed"]
+[connection signal="toggled" from="MenuContainer/ScrollContainer/InnerVBox/VideoSection/FullscreenContainer/FullscreenToggle" to="." method="_on_fullscreen_toggle_toggled"]
+[connection signal="value_changed" from="MenuContainer/ScrollContainer/InnerVBox/AudioSection/MasterVolumeContainer/MasterVolumeSlider" to="." method="_on_master_volume_slider_value_changed"]
+[connection signal="value_changed" from="MenuContainer/ScrollContainer/InnerVBox/AudioSection/MusicVolumeContainer/MusicVolumeSlider" to="." method="_on_music_volume_slider_value_changed"]
+[connection signal="value_changed" from="MenuContainer/ScrollContainer/InnerVBox/AudioSection/GameVolumeContainer/GameVolumeSlider" to="." method="_on_game_volume_slider_value_changed"]
+[connection signal="pressed" from="MenuContainer/BackButton" to="." method="_on_back_pressed"]

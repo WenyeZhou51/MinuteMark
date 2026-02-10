@@ -76,10 +76,8 @@ func update_level_block(block: Control, level_index: int):
 	var level_data = levels[level_index]
 	var is_unlocked = level_data.get("unlocked", false)
 	
-	# Set level name label
+	# Label text is taken from the scene (.tscn); we only update colors for locked/unlocked
 	var label = block.get_node_or_null("LevelLabel")
-	if label:
-		label.text = level_data.get("name", "Level %d" % (level_index + 1))
 	
 	# Update paper scrap color based on unlock status
 	var polygon = block.get_node_or_null("PaperScrap")
