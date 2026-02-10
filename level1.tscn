@@ -1,6 +1,6 @@
-[gd_scene load_steps=41 format=3 uid="uid://dn6o2q1dl4r2m"]
+[gd_scene load_steps=43 format=3 uid="uid://dn6o2q1dl4r2m"]
 
-[ext_resource type="Script" path="res://level_manager.gd" id="1_38wbk"]
+[ext_resource type="Script" uid="uid://b4i78xyv03saw" path="res://level_manager.gd" id="1_38wbk"]
 [ext_resource type="Texture2D" uid="uid://d2g7jojkre5ug" path="res://Sprites/Bd.png" id="2_kqecp"]
 [ext_resource type="TileSet" uid="uid://cu555li7p074q" path="res://Sprites/tileset.tres" id="3_rxwa5"]
 [ext_resource type="PackedScene" uid="uid://vv3m4nx6g3jo" path="res://player.tscn" id="4_wd3oj"]
@@ -11,13 +11,13 @@
 [ext_resource type="FontFile" uid="uid://baaiikv2041fb" path="res://Fonts/Funkrocker.otf" id="9_e2aup"]
 [ext_resource type="PackedScene" uid="uid://b7q8n5ck2wh0e" path="res://pause_menu.tscn" id="10_4euaf"]
 [ext_resource type="PackedScene" uid="uid://b756hnxt8gukc" path="res://dialogue/DialogueUI.tscn" id="11_x7rbi"]
-[ext_resource type="Script" path="res://dialogue_trigger.gd" id="12_5ooox"]
-[ext_resource type="Script" path="res://tutorial_trigger.gd" id="13_3auyc"]
-[ext_resource type="Script" path="res://pendulum_trigger.gd" id="14_sig5a"]
-[ext_resource type="Script" path="res://minor_anim_system.gd" id="15_klwg2"]
+[ext_resource type="Script" uid="uid://bev7civrw5tfd" path="res://dialogue_trigger.gd" id="12_5ooox"]
+[ext_resource type="Script" uid="uid://b1y4vx8ub8uv5" path="res://tutorial_trigger.gd" id="13_3auyc"]
+[ext_resource type="Script" uid="uid://b16888vofurtu" path="res://pendulum_trigger.gd" id="14_sig5a"]
+[ext_resource type="Script" uid="uid://r2n5pymd3a5y" path="res://minor_anim_system.gd" id="15_klwg2"]
 [ext_resource type="PackedScene" uid="uid://6624qfeempan" path="res://LevelFinishTrigger.tscn" id="16_mdmfw"]
 [ext_resource type="PackedScene" uid="uid://c85yqfkymilcl" path="res://elevator.tscn" id="17_sikg8"]
-[ext_resource type="Script" path="res://tutorial_block.gd" id="18_urdle"]
+[ext_resource type="Script" uid="uid://bwb7gicnbx5rs" path="res://tutorial_block.gd" id="18_urdle"]
 [ext_resource type="Texture2D" uid="uid://b5v5ch6lmmej" path="res://Sprites/level_backgrounds/IMG_4518.jpg" id="20_8sahr"]
 [ext_resource type="PackedScene" uid="uid://b8lam3n4p5q6r" path="res://grapple_point.tscn" id="21_bs5op"]
 [ext_resource type="PackedScene" uid="uid://c2vxm8lal3p4n" path="res://laser_hazard.tscn" id="22_laser"]
@@ -31,6 +31,7 @@
 [ext_resource type="Texture2D" uid="uid://sn7rpwxwp23c" path="res://Sprites/S2.png" id="28_s2tex"]
 [ext_resource type="Texture2D" uid="uid://caqx2nlxyi6vo" path="res://Sprites/S3.png" id="29_s3tex"]
 [ext_resource type="Texture2D" uid="uid://dig73xvs6ijsb" path="res://Sprites/S4.png" id="30_s4tex"]
+[ext_resource type="Script" uid="uid://ctvb50sv5y6d5" path="res://death_area.gd" id="31_death"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_dialogue_trigger"]
 size = Vector2(692, 332)
@@ -55,6 +56,9 @@ size = Vector2(455, 194)
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_minor_anim"]
 radius = 655.433
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_death_area"]
+size = Vector2(20000, 1000)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_ait7k"]
 size = Vector2(631.5, 384)
@@ -457,6 +461,14 @@ shape = SubResource("CircleShape2D_minor_anim")
 [node name="LevelFinishTrigger" parent="." instance=ExtResource("16_mdmfw")]
 position = Vector2(8950, 3711)
 
+[node name="DeathArea" type="Area2D" parent="."]
+position = Vector2(9569, 20741.002)
+scale = Vector2(1.1199988, -2.8208213)
+script = ExtResource("31_death")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="DeathArea"]
+shape = SubResource("RectangleShape2D_death_area")
+
 [node name="Elevator" parent="." instance=ExtResource("17_sikg8")]
 z_index = -1
 position = Vector2(7197, 566)
@@ -501,7 +513,6 @@ stop_on_first_platform = true
 
 [node name="CollisionShape2D" parent="FallingBlock/PlatformBody/TriggerArea" index="0"]
 position = Vector2(1.25, 1.25)
-scale = Vector2(1, 1)
 
 [node name="FallingBlock5" parent="." instance=ExtResource("25_5xjyu")]
 position = Vector2(6305, 15029)
@@ -512,7 +523,6 @@ stop_on_first_platform = true
 
 [node name="CollisionShape2D" parent="FallingBlock5/PlatformBody/TriggerArea" index="0"]
 position = Vector2(1.25, 1.25)
-scale = Vector2(1, 1)
 
 [node name="FallingBlock6" parent="." instance=ExtResource("25_5xjyu")]
 position = Vector2(6409, 15029)
@@ -523,7 +533,6 @@ stop_on_first_platform = true
 
 [node name="CollisionShape2D" parent="FallingBlock6/PlatformBody/TriggerArea" index="0"]
 position = Vector2(1.25, 1.25)
-scale = Vector2(1, 1)
 
 [node name="FallingBlock7" parent="." instance=ExtResource("25_5xjyu")]
 position = Vector2(6512, 15029)
@@ -534,7 +543,6 @@ stop_on_first_platform = true
 
 [node name="CollisionShape2D" parent="FallingBlock7/PlatformBody/TriggerArea" index="0"]
 position = Vector2(1.25, 1.25)
-scale = Vector2(1, 1)
 
 [node name="FallingBlock8" parent="." instance=ExtResource("25_5xjyu")]
 position = Vector2(6615, 15029)
@@ -545,7 +553,6 @@ stop_on_first_platform = true
 
 [node name="CollisionShape2D" parent="FallingBlock8/PlatformBody/TriggerArea" index="0"]
 position = Vector2(1.25, 1.25)
-scale = Vector2(1, 1)
 
 [node name="FallingBlock9" parent="." instance=ExtResource("25_5xjyu")]
 position = Vector2(6717, 15029)
@@ -556,7 +563,6 @@ stop_on_first_platform = true
 
 [node name="CollisionShape2D" parent="FallingBlock9/PlatformBody/TriggerArea" index="0"]
 position = Vector2(1.25, 1.25)
-scale = Vector2(1, 1)
 
 [node name="FallingBlock10" parent="." instance=ExtResource("25_5xjyu")]
 position = Vector2(6823, 15029)
@@ -567,7 +573,6 @@ stop_on_first_platform = true
 
 [node name="CollisionShape2D" parent="FallingBlock10/PlatformBody/TriggerArea" index="0"]
 position = Vector2(1.25, 1.25)
-scale = Vector2(1, 1)
 
 [node name="FallingBlock11" parent="." instance=ExtResource("25_5xjyu")]
 position = Vector2(6823, 15029)
@@ -578,7 +583,6 @@ stop_on_first_platform = true
 
 [node name="CollisionShape2D" parent="FallingBlock11/PlatformBody/TriggerArea" index="0"]
 position = Vector2(1.25, 1.25)
-scale = Vector2(1, 1)
 
 [node name="FallingBlock12" parent="." instance=ExtResource("25_5xjyu")]
 position = Vector2(6928, 15029)
@@ -589,7 +593,6 @@ stop_on_first_platform = true
 
 [node name="CollisionShape2D" parent="FallingBlock12/PlatformBody/TriggerArea" index="0"]
 position = Vector2(1.25, 1.25)
-scale = Vector2(1, 1)
 
 [node name="FallingBlock13" parent="." instance=ExtResource("25_5xjyu")]
 position = Vector2(7031, 15029)
@@ -600,7 +603,6 @@ stop_on_first_platform = true
 
 [node name="CollisionShape2D" parent="FallingBlock13/PlatformBody/TriggerArea" index="0"]
 position = Vector2(1.25, 1.25)
-scale = Vector2(1, 1)
 
 [node name="FallingBlock14" parent="." instance=ExtResource("25_5xjyu")]
 position = Vector2(7136, 15029)
@@ -611,7 +613,6 @@ stop_on_first_platform = true
 
 [node name="CollisionShape2D" parent="FallingBlock14/PlatformBody/TriggerArea" index="0"]
 position = Vector2(1.25, 1.25)
-scale = Vector2(1, 1)
 
 [node name="FallingBlock15" parent="." instance=ExtResource("25_5xjyu")]
 position = Vector2(7234, 15029)
@@ -622,7 +623,6 @@ stop_on_first_platform = true
 
 [node name="CollisionShape2D" parent="FallingBlock15/PlatformBody/TriggerArea" index="0"]
 position = Vector2(1.25, 1.25)
-scale = Vector2(1, 1)
 
 [node name="FallingBlock16" parent="." instance=ExtResource("25_5xjyu")]
 position = Vector2(7347, 15029)
@@ -633,7 +633,6 @@ stop_on_first_platform = true
 
 [node name="CollisionShape2D" parent="FallingBlock16/PlatformBody/TriggerArea" index="0"]
 position = Vector2(1.25, 1.25)
-scale = Vector2(1, 1)
 
 [node name="FallingBlock17" parent="." instance=ExtResource("25_5xjyu")]
 position = Vector2(7434, 15029)
@@ -644,7 +643,6 @@ stop_on_first_platform = true
 
 [node name="CollisionShape2D" parent="FallingBlock17/PlatformBody/TriggerArea" index="0"]
 position = Vector2(1.25, 1.25)
-scale = Vector2(1, 1)
 
 [node name="FallingBlock2" parent="." instance=ExtResource("25_5xjyu")]
 position = Vector2(6097, 15029)
@@ -655,7 +653,6 @@ stop_on_first_platform = true
 
 [node name="CollisionShape2D" parent="FallingBlock2/PlatformBody/TriggerArea" index="0"]
 position = Vector2(1.25, 1.25)
-scale = Vector2(1, 1)
 
 [node name="FallingBlock3" parent="." instance=ExtResource("25_5xjyu")]
 position = Vector2(6200, 15029)
@@ -666,7 +663,6 @@ stop_on_first_platform = true
 
 [node name="CollisionShape2D" parent="FallingBlock3/PlatformBody/TriggerArea" index="0"]
 position = Vector2(1.25, 1.25)
-scale = Vector2(1, 1)
 
 [node name="FallingBlock4" parent="." instance=ExtResource("25_5xjyu")]
 position = Vector2(6200, 15029)
@@ -677,7 +673,6 @@ stop_on_first_platform = true
 
 [node name="CollisionShape2D" parent="FallingBlock4/PlatformBody/TriggerArea" index="0"]
 position = Vector2(1.25, 1.25)
-scale = Vector2(1, 1)
 
 [node name="FallingPlatform" parent="." instance=ExtResource("25_23juj")]
 position = Vector2(4916, 15832)
