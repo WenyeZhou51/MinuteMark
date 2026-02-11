@@ -88,10 +88,8 @@ func _ready():
 		$MenuContainer.visible = false
 	
 	# Setup inner menus
-	if has_node("VideoMenu"):
-		inner_menus["video"] = $VideoMenu
-	if has_node("AudioMenu"):
-		inner_menus["audio"] = $AudioMenu
+	if has_node("SettingsMenu"):
+		inner_menus["settings"] = $SettingsMenu
 	if has_node("InputMenu"):
 		inner_menus["inputs"] = $InputMenu
 	
@@ -108,6 +106,9 @@ func _ready():
 	
 	# Connect to all buttons for hover/select sounds
 	setup_button_audio_connections()
+	
+	# Connect hover-to-focus so mouse hover triggers the same scale/indicator effect as keyboard focus
+	setup_menu_button_hover()
 
 
 var pocket_watch_frames: Array[Texture2D] = []
@@ -182,8 +183,8 @@ func _inject_restart_button():
 	var buttons = []
 	if has_node("MenuContainer/ResumeButton"): buttons.append($MenuContainer/ResumeButton)
 	buttons.append(restart_btn) # The new one
-	if has_node("MenuContainer/VideoButton"): buttons.append($MenuContainer/VideoButton)
-	if has_node("MenuContainer/AudioButton"): buttons.append($MenuContainer/AudioButton)
+	if has_node("MenuContainer/SettingsButton"): buttons.append($MenuContainer/SettingsButton)
+	if has_node("MenuContainer/MenuButton"): buttons.append($MenuContainer/MenuButton)
 	if has_node("MenuContainer/InputButton"): buttons.append($MenuContainer/InputButton)
 	if has_node("MenuContainer/QuitButton"): buttons.append($MenuContainer/QuitButton)
 	
@@ -552,12 +553,8 @@ func _on_resume_pressed():
 	toggle_pause()
 
 
-func _on_video_pressed():
-	show_inner_menu("video")
-
-
-func _on_audio_pressed():
-	show_inner_menu("audio")
+func _on_settings_pressed():
+	show_inner_menu("settings")
 
 
 func _on_inputs_pressed():
@@ -577,10 +574,8 @@ func show_inner_menu(menu_name: String):
 	elif has_node("MenuContainer") and $MenuContainer.get_child_count() > 0:
 		# Fallback: manually map buttons if focus was lost or mouse was used
 		# (This logic is implicit; if we clicked Video, Video button is likely focused or at least the intended target)
-		if menu_name == "video" and has_node("MenuContainer/VideoButton"):
-			last_focused_button = $MenuContainer/VideoButton
-		elif menu_name == "audio" and has_node("MenuContainer/AudioButton"):
-			last_focused_button = $MenuContainer/AudioButton
+		if menu_name == "settings" and has_node("MenuContainer/SettingsButton"):
+			last_focused_button = $MenuContainer/SettingsButton
 		elif menu_name == "inputs" and has_node("MenuContainer/InputButton"):
 			last_focused_button = $MenuContainer/InputButton
 	
@@ -652,6 +647,16 @@ func show_main_menu_after_transition():
 			$MenuContainer/ResumeButton.grab_focus()
 
 
+func _on_menu_pressed():
+	"""Return to level select menu"""
+	get_tree().paused = false
+	_set_other_ui_visible(true)
+	if ResourceLoader.exists("res://level_select_menu.tscn"):
+		get_tree().change_scene_to_file("res://level_select_menu.tscn")
+	else:
+		push_error("PauseMenu: level_select_menu.tscn not found!")
+
+
 func _on_quit_pressed():
 	get_tree().quit()
 
@@ -686,6 +691,22 @@ func setup_audio_players():
 		menu_select_player.stream = load("res://audio/menu_select.wav")
 	elif ResourceLoader.exists("res://audio/menu_select.mp3"):
 		menu_select_player.stream = load("res://audio/menu_select.mp3")
+
+
+func setup_menu_button_hover():
+	"""Connect mouse_entered to grab_focus for all main menu buttons so hover shows focus effect"""
+	if not has_node("MenuContainer"):
+		return
+	for child in $MenuContainer.get_children():
+		if child is Button:
+			if not child.mouse_entered.is_connected(_on_menu_button_hover_entered):
+				child.mouse_entered.connect(_on_menu_button_hover_entered.bind(child))
+
+
+func _on_menu_button_hover_entered(btn: Button):
+	"""When hovering a menu button, give it focus so the Juicy focus/scale effect plays"""
+	if btn and is_instance_valid(btn):
+		btn.grab_focus()
 
 
 func setup_button_audio_connections():

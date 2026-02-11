@@ -206,6 +206,13 @@ theme_override_fonts/font = ExtResource("3_font")
 theme_override_font_sizes/font_size = 56
 text = "OK"
 
+[node name="CancelButton" type="Button" parent="Control/Panel/NameEntryContainer/NameInputRow"]
+custom_minimum_size = Vector2(220, 105)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("3_font")
+theme_override_font_sizes/font_size = 56
+text = "CANCEL"
+
 [node name="LeaderboardContainer" type="VBoxContainer" parent="Control/Panel"]
 modulate = Color(1, 1, 1, 0)
 layout_mode = 1
@@ -305,6 +312,7 @@ text = "MENU"
 
 [connection signal="text_submitted" from="Control/Panel/NameEntryContainer/NameInputRow/NameInput" to="." method="_on_name_text_submitted"]
 [connection signal="pressed" from="Control/Panel/NameEntryContainer/NameInputRow/SubmitButton" to="." method="_on_name_submit_pressed"]
+[connection signal="pressed" from="Control/Panel/NameEntryContainer/NameInputRow/CancelButton" to="." method="_on_name_cancel_pressed"]
 [connection signal="pressed" from="Control/Panel/HBoxContainer/RestartButton" to="." method="_on_restart_button_pressed"]
 [connection signal="pressed" from="Control/Panel/HBoxContainer/LeaderboardButton" to="." method="_on_leaderboard_button_pressed"]
 [connection signal="pressed" from="Control/Panel/HBoxContainer/MenuButton" to="." method="_on_menu_button_pressed"]
