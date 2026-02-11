@@ -17,6 +17,7 @@ extends CanvasLayer
 @onready var name_entry_container = $Control/Panel/NameEntryContainer
 @onready var name_input: LineEdit = $Control/Panel/NameEntryContainer/NameInputRow/NameInput
 @onready var name_submit_btn: Button = $Control/Panel/NameEntryContainer/NameInputRow/SubmitButton
+@onready var name_cancel_btn: Button = $Control/Panel/NameEntryContainer/NameInputRow/CancelButton
 
 var current_shake_intensity: float = 0.0
 var shake_timer: float = 0.0
@@ -72,6 +73,12 @@ func _ready():
 		name_submit_btn.focus_mode = Control.FOCUS_ALL
 		if not name_submit_btn.pressed.is_connected(_on_name_submit_pressed):
 			name_submit_btn.pressed.connect(_on_name_submit_pressed)
+	if name_cancel_btn:
+		name_cancel_btn.process_mode = Node.PROCESS_MODE_ALWAYS
+		name_cancel_btn.mouse_filter = Control.MOUSE_FILTER_STOP
+		name_cancel_btn.focus_mode = Control.FOCUS_ALL
+		if not name_cancel_btn.pressed.is_connected(_on_name_cancel_pressed):
+			name_cancel_btn.pressed.connect(_on_name_cancel_pressed)
 	if name_input:
 		if not name_input.text_submitted.is_connected(_on_name_text_submitted):
 			name_input.text_submitted.connect(_on_name_text_submitted)
@@ -451,6 +458,15 @@ func _on_global_leaderboard_updated():
 func _on_name_submit_pressed():
 	"""Called when the OK button is pressed after entering name."""
 	_submit_player_name()
+
+func _on_name_cancel_pressed():
+	"""Called when the Cancel button is pressed — do not record the run to the leaderboard."""
+	if name_submitted:
+		return
+	name_submitted = true
+	print("VictoryUI: Player declined to submit name; run will not be recorded.")
+	# Transition to leaderboard display without adding score
+	_animate_post_submission()
 
 func _on_name_text_submitted(_text: String):
 	"""Called when Enter is pressed in the name input field."""
