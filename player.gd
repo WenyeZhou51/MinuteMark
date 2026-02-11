@@ -2499,21 +2499,16 @@ func _perform_wall_jump(override_wall_normal: Vector2 = Vector2.ZERO) -> void:
 		print("  Inferred wall_normal: ", jump_wall_normal)
 	
 	
-	# Check if jumping from a wall run (empowered wall jump)
+	# Check if jumping from a wall run (end it)
 	if is_wall_running:
-		# Empowered wall jump with higher velocities
-		velocity.y = wall_run_empowered_jump_vertical
-		velocity.x = jump_wall_normal.x * wall_run_empowered_jump_horizontal
-		print("  EMPOWERED wall jump applied")
-		
 		# End wall run
 		_end_wall_run()
-	else:
-		# Normal wall jump
-		velocity.y = wall_jump_vertical_velocity
-		velocity.x = jump_wall_normal.x * wall_jump_horizontal_velocity
-		print("  NORMAL wall jump applied")
-		
+	
+	# All wall jumps use the same velocities
+	velocity.y = wall_jump_vertical_velocity
+	velocity.x = jump_wall_normal.x * wall_jump_horizontal_velocity
+	print("  Wall jump applied: ", velocity)
+	
 	
 	# Set jump state
 	is_jumping = true
