@@ -1753,7 +1753,7 @@ func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceS
 			if abs(collision_normal.x) > 0.8:
 				current_frame_wall_detected = true
 				var collider = collision.get_collider()
-				current_frame_wall_runnable = _is_runnable_wall(collider)
+				current_frame_wall_runnable = _is_runnable_wall(collider) if collider else false
 				current_frame_wall_normal = Vector2(sign(collision_normal.x), 0)
 				side_str = "LEFT (Fallback)" if current_frame_wall_normal.x > 0 else "RIGHT (Fallback)"
 				break
@@ -1793,7 +1793,8 @@ func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceS
 		var is_near_falling = false
 		for i in range(get_slide_collision_count()):
 			var collision = get_slide_collision(i)
-			if collision.get_collider().name.to_lower().contains("platform"):
+			var collider = collision.get_collider()
+			if collider and collider.name.to_lower().contains("platform"):
 				is_near_falling = true
 				break
 		
@@ -2123,7 +2124,8 @@ func _check_wall_run_activation() -> void:
 		for i in range(get_slide_collision_count()):
 			var collision = get_slide_collision(i)
 			if abs(collision.get_normal().x) > 0.7:
-				if _is_runnable_wall(collision.get_collider()):
+				var _collider = collision.get_collider()
+				if _collider and _is_runnable_wall(_collider):
 					has_actual_runnable_wall_collision = true
 					# Update wall_normal if it wasn't set correctly by raycasts
 					if wall_normal == Vector2.ZERO:
@@ -2146,7 +2148,8 @@ func _check_wall_run_activation() -> void:
 				var collision = get_slide_collision(i)
 				if abs(collision.get_normal().x) > 0.7:
 					if fmod(game_time, 0.5) < 0.016:
-						var is_runnable = _is_runnable_wall(collision.get_collider())
+						var _coll = collision.get_collider()
+						var is_runnable = _is_runnable_wall(_coll) if _coll else false
 		return
 		
 	if not _is_wall_at_lower_quarter():

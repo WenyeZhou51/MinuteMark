@@ -1,4 +1,4 @@
-[gd_scene load_steps=45 format=3 uid="uid://dn6o2q1dl4r2m"]
+[gd_scene load_steps=47 format=3 uid="uid://dn6o2q1dl4r2m"]
 
 [ext_resource type="Script" uid="uid://c2socii74g5wh" path="res://level_manager.gd" id="1_38wbk"]
 [ext_resource type="TileSet" uid="uid://cu555li7p074q" path="res://Sprites/tileset.tres" id="3_rxwa5"]
@@ -30,6 +30,8 @@
 [ext_resource type="Texture2D" uid="uid://sn7rpwxwp23c" path="res://Sprites/S2.png" id="28_s2tex"]
 [ext_resource type="Texture2D" uid="uid://caqx2nlxyi6vo" path="res://Sprites/S3.png" id="29_s3tex"]
 [ext_resource type="Texture2D" uid="uid://dig73xvs6ijsb" path="res://Sprites/S4.png" id="30_s4tex"]
+[ext_resource type="PackedScene" uid="uid://c2p1gqjfeqf38" path="res://LeverPlatformSystem.tscn" id="36_xhed0"]
+[ext_resource type="PackedScene" uid="uid://b6ocum6m8b8o1" path="res://LeverTrigger.tscn" id="37_6tyme"]
 [ext_resource type="Script" uid="uid://dhbv6b1ht3ibp" path="res://parallax_background.gd" id="px_script"]
 [ext_resource type="Texture2D" uid="uid://c4j73s3v0y5pl" path="res://parallax/1.png" id="px_tex1"]
 [ext_resource type="Texture2D" uid="uid://b3rmm2ysa5ihm" path="res://parallax/2.png" id="px_tex2"]
@@ -842,6 +844,18 @@ scale = Vector2(0.20002, 0.88)
 [node name="Door2" parent="." instance=ExtResource("26_iwm8q")]
 position = Vector2(4766, 16750)
 scale = Vector2(0.20002, 1.24)
+
+[node name="LeverPlatformSystem" parent="." instance=ExtResource("36_xhed0")]
+position = Vector2(18623, 14384)
+platform_spacing = 4000.0
+platform_speed = 700.0
+platform_size = Vector2(1000, 100)
+system_size = Vector2(2000, 5000)
+start_phase = 0.0
+
+[node name="LeverTrigger" parent="." instance=ExtResource("37_6tyme")]
+position = Vector2(17394, 13309)
+target_system_path = NodePath("../LeverPlatformSystem")
 
 [editable path="Player"]
 [editable path="KickableObjects/Window1"]
