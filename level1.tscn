@@ -1,7 +1,6 @@
-[gd_scene load_steps=41 format=3 uid="uid://dn6o2q1dl4r2m"]
+[gd_scene load_steps=45 format=3 uid="uid://dn6o2q1dl4r2m"]
 
-[ext_resource type="Script" path="res://level_manager.gd" id="1_38wbk"]
-[ext_resource type="Texture2D" uid="uid://d2g7jojkre5ug" path="res://Sprites/Bd.png" id="2_kqecp"]
+[ext_resource type="Script" uid="uid://c2socii74g5wh" path="res://level_manager.gd" id="1_38wbk"]
 [ext_resource type="TileSet" uid="uid://cu555li7p074q" path="res://Sprites/tileset.tres" id="3_rxwa5"]
 [ext_resource type="PackedScene" uid="uid://vv3m4nx6g3jo" path="res://player.tscn" id="4_wd3oj"]
 [ext_resource type="PackedScene" uid="uid://b8x7lam2n4p5q" path="res://enemy.tscn" id="5_11mcu"]
@@ -11,13 +10,13 @@
 [ext_resource type="FontFile" uid="uid://baaiikv2041fb" path="res://Fonts/Funkrocker.otf" id="9_e2aup"]
 [ext_resource type="PackedScene" uid="uid://b7q8n5ck2wh0e" path="res://pause_menu.tscn" id="10_4euaf"]
 [ext_resource type="PackedScene" uid="uid://b756hnxt8gukc" path="res://dialogue/DialogueUI.tscn" id="11_x7rbi"]
-[ext_resource type="Script" path="res://dialogue_trigger.gd" id="12_5ooox"]
-[ext_resource type="Script" path="res://tutorial_trigger.gd" id="13_3auyc"]
-[ext_resource type="Script" path="res://pendulum_trigger.gd" id="14_sig5a"]
-[ext_resource type="Script" path="res://minor_anim_system.gd" id="15_klwg2"]
+[ext_resource type="Script" uid="uid://baf1vsu4t0fhx" path="res://dialogue_trigger.gd" id="12_5ooox"]
+[ext_resource type="Script" uid="uid://b1y4vx8ub8uv5" path="res://tutorial_trigger.gd" id="13_3auyc"]
+[ext_resource type="Script" uid="uid://c45ixkm1xxjhf" path="res://pendulum_trigger.gd" id="14_sig5a"]
+[ext_resource type="Script" uid="uid://k7nuntbsw4by" path="res://minor_anim_system.gd" id="15_klwg2"]
 [ext_resource type="PackedScene" uid="uid://6624qfeempan" path="res://LevelFinishTrigger.tscn" id="16_mdmfw"]
 [ext_resource type="PackedScene" uid="uid://c85yqfkymilcl" path="res://elevator.tscn" id="17_sikg8"]
-[ext_resource type="Script" path="res://tutorial_block.gd" id="18_urdle"]
+[ext_resource type="Script" uid="uid://bpt3h6dwgdrnx" path="res://tutorial_block.gd" id="18_urdle"]
 [ext_resource type="Texture2D" uid="uid://b5v5ch6lmmej" path="res://Sprites/level_backgrounds/IMG_4518.jpg" id="20_8sahr"]
 [ext_resource type="PackedScene" uid="uid://b8lam3n4p5q6r" path="res://grapple_point.tscn" id="21_bs5op"]
 [ext_resource type="PackedScene" uid="uid://c2vxm8lal3p4n" path="res://laser_hazard.tscn" id="22_laser"]
@@ -31,6 +30,11 @@
 [ext_resource type="Texture2D" uid="uid://sn7rpwxwp23c" path="res://Sprites/S2.png" id="28_s2tex"]
 [ext_resource type="Texture2D" uid="uid://caqx2nlxyi6vo" path="res://Sprites/S3.png" id="29_s3tex"]
 [ext_resource type="Texture2D" uid="uid://dig73xvs6ijsb" path="res://Sprites/S4.png" id="30_s4tex"]
+[ext_resource type="Script" uid="uid://dhbv6b1ht3ibp" path="res://parallax_background.gd" id="px_script"]
+[ext_resource type="Texture2D" uid="uid://c4j73s3v0y5pl" path="res://parallax/1.png" id="px_tex1"]
+[ext_resource type="Texture2D" uid="uid://b3rmm2ysa5ihm" path="res://parallax/2.png" id="px_tex2"]
+[ext_resource type="Texture2D" uid="uid://bvhobesnqci3w" path="res://parallax/3.png" id="px_tex3"]
+[ext_resource type="Texture2D" uid="uid://mvvkmdm6h3ub" path="res://parallax/4.png" id="px_tex4"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_dialogue_trigger"]
 size = Vector2(692, 332)
@@ -64,15 +68,42 @@ position = Vector2(-1082, -7301)
 script = ExtResource("1_38wbk")
 
 [node name="ParallaxBackground" type="ParallaxBackground" parent="."]
-visible = false
+script = ExtResource("px_script")
 
-[node name="ParallaxLayer" type="ParallaxLayer" parent="ParallaxBackground"]
-motion_scale = Vector2(0.2, 0.2)
-motion_mirroring = Vector2(5000, 0)
+[node name="Layer1" type="ParallaxLayer" parent="ParallaxBackground"]
+motion_mirroring = Vector2(19873.7, 0)
 
-[node name="Sprite2D" type="Sprite2D" parent="ParallaxBackground/ParallaxLayer"]
-scale = Vector2(2, 2)
-texture = ExtResource("2_kqecp")
+[node name="Sprite2D" type="Sprite2D" parent="ParallaxBackground/Layer1"]
+position = Vector2(0, 4627.0005)
+scale = Vector2(2.4889996, 2.4889998)
+texture = ExtResource("px_tex1")
+centered = false
+
+[node name="Layer2" type="ParallaxLayer" parent="ParallaxBackground"]
+motion_mirroring = Vector2(19873.7, 0)
+
+[node name="Sprite2D" type="Sprite2D" parent="ParallaxBackground/Layer2"]
+position = Vector2(0, 4627.0005)
+scale = Vector2(2.4889996, 2.4889998)
+texture = ExtResource("px_tex2")
+centered = false
+
+[node name="Layer3" type="ParallaxLayer" parent="ParallaxBackground"]
+motion_mirroring = Vector2(19873.7, 0)
+
+[node name="Sprite2D" type="Sprite2D" parent="ParallaxBackground/Layer3"]
+position = Vector2(0, 4627.0005)
+scale = Vector2(2.4889996, 2.4889998)
+texture = ExtResource("px_tex3")
+centered = false
+
+[node name="Layer4" type="ParallaxLayer" parent="ParallaxBackground"]
+motion_mirroring = Vector2(19873.7, 0)
+
+[node name="Sprite2D" type="Sprite2D" parent="ParallaxBackground/Layer4"]
+position = Vector2(0, 4627.0005)
+scale = Vector2(2.4889996, 2.4889998)
+texture = ExtResource("px_tex4")
 centered = false
 
 [node name="TimerUI" parent="." instance=ExtResource("25_timer")]
