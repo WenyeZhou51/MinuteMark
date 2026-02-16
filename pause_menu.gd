@@ -110,6 +110,31 @@ func _ready():
 	# Connect hover-to-focus so mouse hover triggers the same scale/indicator effect as keyboard focus
 	setup_menu_button_hover()
 
+	# Set focus order by visual position so S/Down moves top-to-bottom correctly
+	call_deferred("_update_pause_menu_focus_order")
+
+
+func _update_pause_menu_focus_order():
+	"""Set focus_neighbor_top/bottom so keyboard (S/Down) navigates buttons in visual top-to-bottom order."""
+	if not has_node("MenuContainer"):
+		return
+	var buttons: Array[Control] = []
+	for child in $MenuContainer.get_children():
+		if child is Button and child.focus_mode != Control.FOCUS_NONE and child.visible:
+			buttons.append(child)
+	if buttons.is_empty():
+		return
+	# Sort by vertical position (top = smaller Y)
+	buttons.sort_custom(func(a: Control, b: Control) -> bool:
+		return a.global_position.y < b.global_position.y
+	)
+	for i in range(buttons.size()):
+		var btn = buttons[i]
+		var prev = buttons[i - 1] if i > 0 else buttons[buttons.size() - 1]
+		var next = buttons[i + 1] if i < buttons.size() - 1 else buttons[0]
+		btn.focus_neighbor_top = prev.get_path()
+		btn.focus_neighbor_bottom = next.get_path()
+
 
 var pocket_watch_frames: Array[Texture2D] = []
 
