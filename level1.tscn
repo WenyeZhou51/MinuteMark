@@ -1,6 +1,6 @@
 [gd_scene load_steps=47 format=3 uid="uid://dn6o2q1dl4r2m"]
 
-[ext_resource type="Script" uid="uid://dcd0andxt0hx3" path="res://level_manager.gd" id="1_38wbk"]
+[ext_resource type="Script" path="res://level_manager.gd" id="1_38wbk"]
 [ext_resource type="TileSet" uid="uid://cu555li7p074q" path="res://Sprites/tileset.tres" id="3_rxwa5"]
 [ext_resource type="PackedScene" uid="uid://vv3m4nx6g3jo" path="res://player.tscn" id="4_wd3oj"]
 [ext_resource type="PackedScene" uid="uid://b8x7lam2n4p5q" path="res://enemy.tscn" id="5_11mcu"]
@@ -10,19 +10,19 @@
 [ext_resource type="FontFile" uid="uid://baaiikv2041fb" path="res://Fonts/Funkrocker.otf" id="9_e2aup"]
 [ext_resource type="PackedScene" uid="uid://b7q8n5ck2wh0e" path="res://pause_menu.tscn" id="10_4euaf"]
 [ext_resource type="PackedScene" uid="uid://b756hnxt8gukc" path="res://dialogue/DialogueUI.tscn" id="11_x7rbi"]
-[ext_resource type="Script" uid="uid://b7qrmm1ub7a5l" path="res://dialogue_trigger.gd" id="12_5ooox"]
-[ext_resource type="Script" uid="uid://beegyi2jgpwbd" path="res://tutorial_trigger.gd" id="13_3auyc"]
-[ext_resource type="Script" uid="uid://g336vr3eb3sn" path="res://pendulum_trigger.gd" id="14_sig5a"]
-[ext_resource type="Script" uid="uid://k7nuntbsw4by" path="res://minor_anim_system.gd" id="15_klwg2"]
+[ext_resource type="Script" path="res://dialogue_trigger.gd" id="12_5ooox"]
+[ext_resource type="Script" path="res://tutorial_trigger.gd" id="13_3auyc"]
+[ext_resource type="Script" path="res://pendulum_trigger.gd" id="14_sig5a"]
+[ext_resource type="Script" path="res://minor_anim_system.gd" id="15_klwg2"]
 [ext_resource type="PackedScene" uid="uid://6624qfeempan" path="res://LevelFinishTrigger.tscn" id="16_mdmfw"]
 [ext_resource type="PackedScene" uid="uid://c85yqfkymilcl" path="res://elevator.tscn" id="17_sikg8"]
-[ext_resource type="Script" uid="uid://b1wge8i3j3rr0" path="res://tutorial_block.gd" id="18_urdle"]
+[ext_resource type="Script" path="res://tutorial_block.gd" id="18_urdle"]
 [ext_resource type="Texture2D" uid="uid://b5v5ch6lmmej" path="res://Sprites/level_backgrounds/IMG_4518.jpg" id="20_8sahr"]
 [ext_resource type="PackedScene" uid="uid://b8lam3n4p5q6r" path="res://grapple_point.tscn" id="21_bs5op"]
 [ext_resource type="PackedScene" uid="uid://c2vxm8lal3p4n" path="res://laser_hazard.tscn" id="22_laser"]
 [ext_resource type="PackedScene" uid="uid://b4k7n2p8q5sam" path="res://spike_trap.tscn" id="23_spike"]
 [ext_resource type="PackedScene" uid="uid://d8bd1w1cu2gs" path="res://crusher.tscn" id="24_crusher"]
-[ext_resource type="PackedScene" path="res://FallingBlock.tscn" id="25_5xjyu"]
+[ext_resource type="PackedScene" uid="uid://cqmsblkjjhgrp" path="res://FallingBlock.tscn" id="25_5xjyu"]
 [ext_resource type="PackedScene" uid="uid://demedvhavmbbs" path="res://FallingPlatform.tscn" id="25_23juj"]
 [ext_resource type="PackedScene" uid="uid://dmp8rksh3a5yl" path="res://TimerUI.tscn" id="25_timer"]
 [ext_resource type="PackedScene" uid="uid://be4ysm5xnwocm" path="res://door.tscn" id="26_iwm8q"]
@@ -32,7 +32,7 @@
 [ext_resource type="Texture2D" uid="uid://dig73xvs6ijsb" path="res://Sprites/S4.png" id="30_s4tex"]
 [ext_resource type="PackedScene" uid="uid://c2p1gqjfeqf38" path="res://LeverPlatformSystem.tscn" id="36_xhed0"]
 [ext_resource type="PackedScene" uid="uid://b6ocum6m8b8o1" path="res://LeverTrigger.tscn" id="37_6tyme"]
-[ext_resource type="Script" uid="uid://65m107g1b7di" path="res://parallax_background.gd" id="px_script"]
+[ext_resource type="Script" path="res://parallax_background.gd" id="px_script"]
 [ext_resource type="Texture2D" uid="uid://c4j73s3v0y5pl" path="res://parallax/1.png" id="px_tex1"]
 [ext_resource type="Texture2D" uid="uid://b3rmm2ysa5ihm" path="res://parallax/2.png" id="px_tex2"]
 [ext_resource type="Texture2D" uid="uid://bvhobesnqci3w" path="res://parallax/3.png" id="px_tex3"]
@@ -76,8 +76,8 @@ script = ExtResource("px_script")
 motion_mirroring = Vector2(19873.7, 0)
 
 [node name="Sprite2D" type="Sprite2D" parent="ParallaxBackground/Layer1"]
-position = Vector2(0, 4627.0005)
-scale = Vector2(2.4889996, 2.4889998)
+position = Vector2(0, 4627)
+scale = Vector2(2.489, 2.489)
 texture = ExtResource("px_tex1")
 centered = false
 
@@ -85,8 +85,8 @@ centered = false
 motion_mirroring = Vector2(19873.7, 0)
 
 [node name="Sprite2D" type="Sprite2D" parent="ParallaxBackground/Layer2"]
-position = Vector2(0, 4627.0005)
-scale = Vector2(2.4889996, 2.4889998)
+position = Vector2(0, 4627)
+scale = Vector2(2.489, 2.489)
 texture = ExtResource("px_tex2")
 centered = false
 
@@ -94,8 +94,8 @@ centered = false
 motion_mirroring = Vector2(19873.7, 0)
 
 [node name="Sprite2D" type="Sprite2D" parent="ParallaxBackground/Layer3"]
-position = Vector2(0, 4627.0005)
-scale = Vector2(2.4889996, 2.4889998)
+position = Vector2(0, 4627)
+scale = Vector2(2.489, 2.489)
 texture = ExtResource("px_tex3")
 centered = false
 
@@ -103,8 +103,8 @@ centered = false
 motion_mirroring = Vector2(19873.7, 0)
 
 [node name="Sprite2D" type="Sprite2D" parent="ParallaxBackground/Layer4"]
-position = Vector2(0, 4627.0005)
-scale = Vector2(2.4889996, 2.4889998)
+position = Vector2(0, 4627)
+scale = Vector2(2.489, 2.489)
 texture = ExtResource("px_tex4")
 centered = false
 
@@ -772,7 +772,7 @@ scale = Vector2(4.08217, 1)
 texture = ExtResource("29_s3tex")
 
 [node name="FallingPlatform4" parent="." instance=ExtResource("25_23juj")]
-position = Vector2(5752.0005, 16322.001)
+position = Vector2(5752, 16322)
 scale = Vector2(0.253875, 1.2294)
 fall_delay = 0.7
 fall_speed = 1500.0

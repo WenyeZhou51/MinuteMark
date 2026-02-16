@@ -166,7 +166,7 @@ var action_lines_instance: CanvasLayer = null
 @export var air_dash_afterimage_count: int = 7 ## Number of afterimages to spawn during dash
 @export var air_dash_afterimage_lifetime: float = 0.4 ## How long each afterimage lasts
 @export var air_dash_afterimage_alpha: float = 0.7 ## Initial transparency of afterimages
-@export var air_dash_extension_duration: float = 0.35 ## Extension duration when breaking glass
+@export var air_dash_extension_duration: float = 0.2 ## Minimum remaining dash time guaranteed when breaking glass
 
 # KICK ATTACK CONFIGURATION
 @export_group("Kick Attack")
@@ -370,6 +370,7 @@ var air_dash_afterimages_spawned: int = 0  # Counter for afterimages spawned dur
 var dash_direction: float = 1.0  # Horizontal direction of dash (1 = right, -1 = left)
 var pre_air_dash_horizontal_speed: float = 0.0  # Horizontal speed before air dash
 var is_dash_extended: bool = false  # Has the current dash been extended (e.g. by breaking glass)
+var dash_effective_duration: float = 0.0  # Effective end time when dash is extended
 var velocity_before_move_and_slide: Vector2 = Vector2.ZERO  # Velocity before move_and_slide() for collision detection
 var original_collision_shape_height: float = 64.0  # Original height of collision shape
 var original_collision_layer: int = 1  # Store original collision layer
@@ -3238,15 +3239,9 @@ func _end_stun() -> void:
 
 
 func _on_enemy_touched(enemy: Node2D = null) -> void:
-	"""Called when player touches an enemy without attacking."""
-	# If we are already trying to parry (too early press), trigger it immediately!
-	if early_parry_timer > 0 and not kick_has_fired and is_instance_valid(enemy):
-		_trigger_early_parry(KickTargetType.ENEMY, enemy)
-		return
-		
-	# Check for invulnerability from dashes, already stunned, grace period active, or post-stun invulnerability
-	if not is_attacking and not is_stunned and not is_invulnerable and not grace_period_active and stun_invulnerability_timer <= 0:
-		_start_stun(enemy)
+	"""Called when player touches an enemy - no hitstun from contact."""
+	# Player is not stunned by running into enemies; only bullets cause hitstun.
+	pass
 
 
 func _on_enemy_destroyed() -> void:
@@ -3517,6 +3512,7 @@ func _start_air_dash(input_x: float) -> void:
 	# Start air dash
 	is_air_dashing = true
 	is_dash_extended = false
+	dash_effective_duration = air_dash_duration
 	air_dash_timer = 0.0
 	air_dash_afterimages_spawned = 0
 	air_dash_cooldown_timer = air_dash_cooldown
@@ -3570,10 +3566,7 @@ func _process_air_dash(delta: float) -> void:
 	air_dash_timer += delta
 	
 	# Spawn afterimages throughout the dash
-	var effective_duration = air_dash_duration
-	if is_dash_extended:
-		effective_duration += air_dash_extension_duration
-		
+	var effective_duration = dash_effective_duration
 	var interval = effective_duration / float(air_dash_afterimage_count)
 	if air_dash_timer >= (air_dash_afterimages_spawned + 0.5) * interval and air_dash_afterimages_spawned < air_dash_afterimage_count:
 		_spawn_air_dash_afterimage()
@@ -3606,9 +3599,16 @@ func _end_air_dash() -> void:
 
 
 func extend_dash_duration() -> void:
-	"""Extend the current dash duration (called when breaking glass)."""
+	"""Ensure at least air_dash_extension_duration seconds of dash remain after glass impact.
+	If the dash already has more time left, keep the original duration unchanged."""
 	if is_air_dashing:
-		is_dash_extended = true
+		var remaining := air_dash_duration - air_dash_timer
+		if is_dash_extended:
+			# Already extended once, check against the extended end time
+			remaining = dash_effective_duration - air_dash_timer
+		if remaining < air_dash_extension_duration:
+			is_dash_extended = true
+			dash_effective_duration = air_dash_timer + air_dash_extension_duration
 
 
 func _set_collision_height(new_height: float) -> void:

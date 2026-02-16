@@ -76,6 +76,7 @@ stream = ExtResource("5_slide_sound")
 volume_db = 4.5
 
 [node name="Camera2D" type="Camera2D" parent="."]
+position = Vector2(0, -320)
 zoom = Vector2(1.5, 1.5)
 process_callback = 0
 position_smoothing_enabled = true

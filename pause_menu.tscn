@@ -10,7 +10,7 @@
 [ext_resource type="Script" path="res://addons/juicy-effect/Effects/juicy_set_active.gd" id="5_active"]
 [ext_resource type="Script" path="res://addons/juicy-effect/Effects/juicy_set_order.gd" id="6_order"]
 [ext_resource type="Script" path="res://addons/juicy-effect/UI/Wiggle_polygon.gd" id="7_wiggle"]
-[ext_resource type="PackedScene" path="res://settings_menu.tscn" id="8_settings_menu"]
+[ext_resource type="PackedScene" uid="uid://gy00r2xbxp1d" path="res://settings_menu.tscn" id="8_settings_menu"]
 [ext_resource type="PackedScene" uid="uid://btpudyf5rfdba" path="res://input_menu.tscn" id="10_input_menu"]
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_focus"]

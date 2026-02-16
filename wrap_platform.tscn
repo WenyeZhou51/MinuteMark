@@ -1,15 +1,15 @@
-[gd_scene load_steps=2 format=3 uid="uid://d1wq8gd2i2f0x"]
+[gd_scene load_steps=3 format=3 uid="uid://d1wq8gd2i2f0x"]
+
+[ext_resource type="Script" path="res://metal_beam_visual.gd" id="1_metal"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_wrap_platform"]
 size = Vector2(160, 24)
 
 [node name="WrapPlatform" type="AnimatableBody2D"]
-collision_layer = 1
 collision_mask = 0
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("RectangleShape2D_wrap_platform")
 
-[node name="Visual" type="Polygon2D" parent="."]
-color = Color(0.55, 0.55, 0.6, 1)
-polygon = PackedVector2Array(-80, -12, 80, -12, 80, 12, -80, 12)
+[node name="Visual" type="Node2D" parent="."]
+script = ExtResource("1_metal")

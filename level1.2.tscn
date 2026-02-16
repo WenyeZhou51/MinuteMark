@@ -1,7 +1,7 @@
-[gd_scene load_steps=47 format=3 uid="uid://bonnl6ybfa2f6"]
+[gd_scene load_steps=47 format=3 uid="uid://ctc8m4wskidqg"]
 
-[ext_resource type="Script" uid="uid://dcd0andxt0hx3" path="res://level_manager.gd" id="1_1baqj"]
-[ext_resource type="Script" uid="uid://65m107g1b7di" path="res://parallax_background.gd" id="2_g3uvw"]
+[ext_resource type="Script" path="res://level_manager.gd" id="1_1baqj"]
+[ext_resource type="Script" path="res://parallax_background.gd" id="2_g3uvw"]
 [ext_resource type="Texture2D" uid="uid://c4j73s3v0y5pl" path="res://parallax/1.png" id="3_t70hm"]
 [ext_resource type="Texture2D" uid="uid://b3rmm2ysa5ihm" path="res://parallax/2.png" id="4_v0yob"]
 [ext_resource type="Texture2D" uid="uid://bvhobesnqci3w" path="res://parallax/3.png" id="5_786hm"]
@@ -16,19 +16,19 @@
 [ext_resource type="FontFile" uid="uid://baaiikv2041fb" path="res://Fonts/Funkrocker.otf" id="14_fb122"]
 [ext_resource type="PackedScene" uid="uid://b7q8n5ck2wh0e" path="res://pause_menu.tscn" id="15_2ykx8"]
 [ext_resource type="PackedScene" uid="uid://b756hnxt8gukc" path="res://dialogue/DialogueUI.tscn" id="16_0hatp"]
-[ext_resource type="Script" uid="uid://b7qrmm1ub7a5l" path="res://dialogue_trigger.gd" id="17_3mh3b"]
-[ext_resource type="Script" uid="uid://beegyi2jgpwbd" path="res://tutorial_trigger.gd" id="18_3bftc"]
-[ext_resource type="Script" uid="uid://g336vr3eb3sn" path="res://pendulum_trigger.gd" id="19_agaua"]
-[ext_resource type="Script" uid="uid://k7nuntbsw4by" path="res://minor_anim_system.gd" id="20_hbp51"]
+[ext_resource type="Script" path="res://dialogue_trigger.gd" id="17_3mh3b"]
+[ext_resource type="Script" path="res://tutorial_trigger.gd" id="18_3bftc"]
+[ext_resource type="Script" path="res://pendulum_trigger.gd" id="19_agaua"]
+[ext_resource type="Script" path="res://minor_anim_system.gd" id="20_hbp51"]
 [ext_resource type="PackedScene" uid="uid://6624qfeempan" path="res://LevelFinishTrigger.tscn" id="21_3nqki"]
 [ext_resource type="PackedScene" uid="uid://c85yqfkymilcl" path="res://elevator.tscn" id="22_8on4t"]
-[ext_resource type="Script" uid="uid://b1wge8i3j3rr0" path="res://tutorial_block.gd" id="23_i1a1s"]
+[ext_resource type="Script" path="res://tutorial_block.gd" id="23_i1a1s"]
 [ext_resource type="Texture2D" uid="uid://b5v5ch6lmmej" path="res://Sprites/level_backgrounds/IMG_4518.jpg" id="24_txq2s"]
 [ext_resource type="PackedScene" uid="uid://b8lam3n4p5q6r" path="res://grapple_point.tscn" id="25_pcbgw"]
 [ext_resource type="PackedScene" uid="uid://c2vxm8lal3p4n" path="res://laser_hazard.tscn" id="26_k4n2f"]
 [ext_resource type="PackedScene" uid="uid://b4k7n2p8q5sam" path="res://spike_trap.tscn" id="27_lhttq"]
 [ext_resource type="PackedScene" uid="uid://d8bd1w1cu2gs" path="res://crusher.tscn" id="28_6q1v2"]
-[ext_resource type="PackedScene" path="res://FallingBlock.tscn" id="29_wghfa"]
+[ext_resource type="PackedScene" uid="uid://cqmsblkjjhgrp" path="res://FallingBlock.tscn" id="29_wghfa"]
 [ext_resource type="PackedScene" uid="uid://demedvhavmbbs" path="res://FallingPlatform.tscn" id="30_xm6v3"]
 [ext_resource type="Texture2D" uid="uid://clen32qjmp4uh" path="res://Sprites/S1.png" id="31_876et"]
 [ext_resource type="Texture2D" uid="uid://caqx2nlxyi6vo" path="res://Sprites/S3.png" id="32_pmwk8"]
@@ -76,8 +76,8 @@ script = ExtResource("2_g3uvw")
 motion_mirroring = Vector2(19873.7, 0)
 
 [node name="Sprite2D" type="Sprite2D" parent="ParallaxBackground/Layer1"]
-position = Vector2(0, 4627.0005)
-scale = Vector2(2.4889996, 2.4889998)
+position = Vector2(0, 4627)
+scale = Vector2(2.489, 2.489)
 texture = ExtResource("3_t70hm")
 centered = false
 
@@ -85,8 +85,8 @@ centered = false
 motion_mirroring = Vector2(19873.7, 0)
 
 [node name="Sprite2D" type="Sprite2D" parent="ParallaxBackground/Layer2"]
-position = Vector2(0, 4627.0005)
-scale = Vector2(2.4889996, 2.4889998)
+position = Vector2(0, 4627)
+scale = Vector2(2.489, 2.489)
 texture = ExtResource("4_v0yob")
 centered = false
 
@@ -94,8 +94,8 @@ centered = false
 motion_mirroring = Vector2(19873.7, 0)
 
 [node name="Sprite2D" type="Sprite2D" parent="ParallaxBackground/Layer3"]
-position = Vector2(0, 4627.0005)
-scale = Vector2(2.4889996, 2.4889998)
+position = Vector2(0, 4627)
+scale = Vector2(2.489, 2.489)
 texture = ExtResource("5_786hm")
 centered = false
 
@@ -103,8 +103,8 @@ centered = false
 motion_mirroring = Vector2(19873.7, 0)
 
 [node name="Sprite2D" type="Sprite2D" parent="ParallaxBackground/Layer4"]
-position = Vector2(0, 4627.0005)
-scale = Vector2(2.4889996, 2.4889998)
+position = Vector2(0, 4627)
+scale = Vector2(2.489, 2.489)
 texture = ExtResource("6_lcdg2")
 centered = false
 
@@ -772,7 +772,7 @@ scale = Vector2(4.08217, 1)
 texture = ExtResource("32_pmwk8")
 
 [node name="FallingPlatform4" parent="." instance=ExtResource("30_xm6v3")]
-position = Vector2(5752.0005, 16322.001)
+position = Vector2(5752, 16322)
 scale = Vector2(0.253875, 1.2294)
 fall_delay = 0.7
 fall_speed = 1500.0

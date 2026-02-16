@@ -10,6 +10,11 @@ extends Node2D
 @export var platform_scene: PackedScene = preload("res://wrap_platform.tscn")
 @export var debug_logs: bool = false
 
+@export_group("Editor Visuals")
+@export var show_bounds: bool = true ## Show system bounds and platform zones in editor
+@export var bounds_color: Color = Color(0.2, 0.8, 0.4, 0.35) ## Color for boundary outlines
+@export var platform_preview_color: Color = Color(0.4, 0.7, 1.0, 0.25) ## Color for platform start positions
+
 var is_active: bool = false
 var platforms: Array[Node2D] = []
 var cycle_height: float = 0.0
@@ -19,6 +24,7 @@ var half_platform_height: float = 0.0
 
 func _ready() -> void:
 	_rebuild_platforms()
+	queue_redraw()
 
 
 func start_motion() -> void:
@@ -77,13 +83,18 @@ func _configure_platform(platform: Node2D) -> void:
 		body.collision_mask = 0
 		body.add_to_group("platforms")
 	
+	# Resize collision shape to match platform_size
 	var shape_node = platform.get_node_or_null("CollisionShape2D") as CollisionShape2D
 	if shape_node and shape_node.shape is RectangleShape2D:
 		var rect_shape := shape_node.shape as RectangleShape2D
 		rect_shape.size = platform_size
 	
+	# Configure metal beam visual
 	var visual = platform.get_node_or_null("Visual")
-	if visual is Polygon2D:
+	if visual and visual.has_method("set_beam_size"):
+		visual.set_beam_size(platform_size)
+	elif visual is Polygon2D:
+		# Fallback: plain Polygon2D visual
 		var poly := visual as Polygon2D
 		var half = platform_size / 2.0
 		poly.polygon = PackedVector2Array([
@@ -126,3 +137,74 @@ func _clear_platforms() -> void:
 		if platform and is_instance_valid(platform):
 			platform.queue_free()
 	platforms.clear()
+
+
+# ---- Editor / runtime visual indicators ----
+
+func _draw() -> void:
+	if not show_bounds:
+		return
+	
+	var half_sys := system_size / 2.0
+	var half_plat_w := platform_size.x / 2.0
+	
+	# --- System bounds rectangle ---
+	var bounds_rect := Rect2(-half_sys, system_size)
+	draw_rect(bounds_rect, bounds_color, false, 2.0)
+	
+	# --- Top boundary label line (spawn/despawn edge) ---
+	var top_y := -half_sys.y
+	var bot_y := half_sys.y
+	
+	# Top line - "EXIT" zone where platforms despawn
+	var exit_color := Color(1.0, 0.3, 0.3, 0.5)
+	draw_line(Vector2(-half_sys.x, top_y), Vector2(half_sys.x, top_y), exit_color, 2.0)
+	_draw_dashed_line(Vector2(-half_sys.x, top_y + half_platform_height), Vector2(half_sys.x, top_y + half_platform_height), exit_color * Color(1, 1, 1, 0.6), 1.0, 8.0)
+	
+	# Bottom line - "ENTRY" zone where platforms wrap to
+	var entry_color := Color(0.3, 1.0, 0.3, 0.5)
+	draw_line(Vector2(-half_sys.x, bot_y), Vector2(half_sys.x, bot_y), entry_color, 2.0)
+	_draw_dashed_line(Vector2(-half_sys.x, bot_y - half_platform_height), Vector2(half_sys.x, bot_y - half_platform_height), entry_color * Color(1, 1, 1, 0.6), 1.0, 8.0)
+	
+	# --- Platform start position previews ---
+	if platform_count > 0 and platform_spacing > 0:
+		var preview_half := platform_size / 2.0
+		var local_cycle := platform_spacing * platform_count
+		var local_min_y := -system_size.y / 2.0 + platform_size.y / 2.0
+		
+		for i in range(platform_count):
+			var base_y := local_min_y + (i * platform_spacing)
+			var y := base_y - (start_phase * local_cycle)
+			# Wrap
+			var wrap_min := local_min_y
+			var wrap_max := local_min_y + local_cycle
+			while y < wrap_min:
+				y += local_cycle
+			while y >= wrap_max:
+				y -= local_cycle
+			
+			var plat_rect := Rect2(
+				Vector2(-preview_half.x, y - preview_half.y),
+				platform_size
+			)
+			draw_rect(plat_rect, platform_preview_color, true)
+			draw_rect(plat_rect, platform_preview_color * Color(1, 1, 1, 2.0), false, 1.0)
+	
+
+
+func _draw_dashed_line(from: Vector2, to: Vector2, color: Color, width: float, dash_length: float) -> void:
+	var direction := (to - from).normalized()
+	var total_length := from.distance_to(to)
+	var drawn := 0.0
+	var drawing := true
+	
+	while drawn < total_length:
+		var segment_end := minf(drawn + dash_length, total_length)
+		if drawing:
+			draw_line(
+				from + direction * drawn,
+				from + direction * segment_end,
+				color, width
+			)
+		drawn = segment_end
+		drawing = not drawing
