@@ -419,6 +419,9 @@ var state_history: Array[Dictionary] = []  # Stores state snapshots with timesta
 var game_time: float = 0.0  # Total game time elapsed (for timestamping)
 var is_rewind_tracing: bool = false  # Is player currently in rewind traceback animation
 var is_rewind_holding: bool = false  # Is player currently holding R for rewind
+var is_rewind_toggled: bool = false  # Is rewind in "toggle" mode (short press)
+var rewind_press_real_time_ms: int = 0  # Real-time ms when R was pressed
+const REWIND_SHORT_PRESS_THRESHOLD_MS: int = 200  # Under this = short press (toggle mode)
 var in_elevator_bottom_zone: bool = false # Is player in the elevator bottom zone (auto-hold rewind)
 var elevator_exit_grace_period: float = 0.0 # Grace period timer after exiting elevator (0.5s before stopping auto-rewind)
 const ELEVATOR_EXIT_GRACE_PERIOD_DURATION: float = 0.1 # 0.1 seconds grace period
@@ -739,6 +742,7 @@ func cancel_rewind_and_set_cooldown() -> void:
 	# End rewind state
 	is_rewind_holding = false
 	is_rewind_tracing = false
+	is_rewind_toggled = false
 	rewind_current_progress = 0.0
 	rewind_traceback_frame_data = []
 	
@@ -1064,10 +1068,16 @@ func _physics_process(delta: float) -> void:
 			# Otherwise, block rewind
 		else:
 			# Normal rewind handling (NON-TUTORIAL)
-			# Check if rewind button was just pressed (start rewind)
+			# Check if rewind button was just pressed (start rewind or toggle off)
 			if Input.is_action_just_pressed("rewind"):
-				if not is_stunned and not is_slam_frozen and not is_rewind_tracing:
+				if is_rewind_toggled and is_rewind_holding:
+					# Second tap while in toggle mode - stop rewind
+					_stop_rewind_hold()
+					if is_dying:
+						return
+				elif not is_stunned and not is_slam_frozen and not is_rewind_tracing:
 					_start_rewind_hold()
+					rewind_press_real_time_ms = Time.get_ticks_msec()
 					# If minimum hold is required (elevator), track time
 					if require_minimum_rewind_hold:
 						tutorial_rewind_hold_time = 0.0
@@ -1077,12 +1087,15 @@ func _physics_process(delta: float) -> void:
 			if require_minimum_rewind_hold and is_rewind_holding and not tutorial_rewind_auto_completing:
 				tutorial_rewind_hold_time += delta
 			
-			# Check if rewind button was just released (stop and spawn shadow)
+			# Check if rewind button was just released (stop, toggle, or spawn shadow)
 			# This must be checked AFTER the press check to avoid same-frame conflicts
 			if Input.is_action_just_released("rewind") and is_rewind_holding:
+				if is_rewind_toggled:
+					# Already in toggle mode - ignore release (from the second tap)
+					pass
 				# ELEVATOR ZONE: Ignore release if inside elevator bottom zone (auto-hold)
 				# Check both the flag and directly check the trigger as fallback
-				if in_elevator_bottom_zone or _check_in_elevator_rewind_trigger():
+				elif in_elevator_bottom_zone or _check_in_elevator_rewind_trigger():
 					# Continue rewinding automatically - don't stop
 					# Also set the flag if it wasn't set yet (fallback)
 					if not in_elevator_bottom_zone:
@@ -1101,11 +1114,17 @@ func _physics_process(delta: float) -> void:
 						# Released too early, enter auto-complete mode
 						tutorial_rewind_auto_completing = true
 				elif not require_minimum_rewind_hold:
-					# No minimum hold required, normal behavior
-					_stop_rewind_hold()
-					# Check if die() was called during stop
-					if is_dying:
-						return
+					# Short press detection: if held < threshold, enter toggle mode
+					var hold_duration_ms = Time.get_ticks_msec() - rewind_press_real_time_ms
+					if hold_duration_ms < REWIND_SHORT_PRESS_THRESHOLD_MS:
+						# Short press - enter toggle mode (rewind continues hands-free)
+						is_rewind_toggled = true
+					else:
+						# Long hold - normal behavior, stop rewind
+						_stop_rewind_hold()
+						# Check if die() was called during stop
+						if is_dying:
+							return
 	
 	# Update run state based on speed (sprint state when speed exceeds threshold)
 	var current_speed = velocity.length()
@@ -4329,6 +4348,7 @@ func _stop_rewind_hold() -> void:
 	# End rewind
 	is_rewind_holding = false
 	is_rewind_tracing = false
+	is_rewind_toggled = false
 	rewind_current_progress = 0.0
 	rewind_traceback_frame_data = []
 	
@@ -4441,12 +4461,12 @@ func _process_rewind_traceback(delta: float) -> void:
 		elevator_exit_grace_period -= delta
 		if elevator_exit_grace_period <= 0.0:
 			# Grace period expired - stop rewind if not holding R
-			if not Input.is_action_pressed("rewind") and not tutorial_rewind_auto_completing:
+			if not Input.is_action_pressed("rewind") and not tutorial_rewind_auto_completing and not is_rewind_toggled:
 				_stop_rewind_hold()
 				return
 	
-	# Check if button is still being held (skip check if auto-completing, in elevator zone, or in grace period)
-	if not tutorial_rewind_auto_completing and not in_zone and elevator_exit_grace_period <= 0.0 and not Input.is_action_pressed("rewind"):
+	# Check if button is still being held (skip check if auto-completing, in elevator zone, in grace period, or toggled)
+	if not tutorial_rewind_auto_completing and not in_zone and elevator_exit_grace_period <= 0.0 and not Input.is_action_pressed("rewind") and not is_rewind_toggled:
 		# Button was released and not in grace period - stop rewind
 		_stop_rewind_hold()
 		return
@@ -4680,6 +4700,7 @@ func _complete_rewind_hold() -> void:
 	# End rewind
 	is_rewind_holding = false
 	is_rewind_tracing = false
+	is_rewind_toggled = false
 	rewind_current_progress = 0.0
 	rewind_traceback_frame_data = []
 	
@@ -5281,6 +5302,7 @@ func die() -> void:
 		_clear_ghost_path_visualization()
 		is_rewind_holding = false
 		is_rewind_tracing = false
+		is_rewind_toggled = false
 	
 	# Explicitly remove the grayscale overlay from the tree root (it persists across scene reloads)
 	var canvas_layer = get_tree().root.get_node_or_null("GrayscaleOverlay")
