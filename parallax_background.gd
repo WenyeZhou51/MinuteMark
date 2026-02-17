@@ -30,4 +30,20 @@ func _apply_scroll_factors() -> void:
 			# layers follow the camera exactly vertically (no vertical
 			# parallax) but always remain visible on screen.
 			child.motion_scale = Vector2(factors[layer_index], 1.0)
+			_apply_layer_mirroring(child)
 			layer_index += 1
+
+
+func _apply_layer_mirroring(layer: ParallaxLayer) -> void:
+	# Keep motion_mirroring in sync with the actual rendered sprite size.
+	# If the sprite is scaled but motion_mirroring isn't, you'll see seams/gaps
+	# where the background is supposed to repeat.
+	var sprite := layer.get_node_or_null("Sprite2D") as Sprite2D
+	if sprite == null:
+		return
+	if sprite.texture == null:
+		return
+
+	var tex_size := sprite.texture.get_size() # Vector2i in Godot 4
+	var rendered_width := float(tex_size.x) * sprite.scale.x * layer.scale.x
+	layer.motion_mirroring = Vector2(rendered_width, 0.0)
