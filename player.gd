@@ -5607,12 +5607,17 @@ func _update_animations() -> void:
 		
 	var is_moving_horizontally = abs(velocity.x) > 10.0
 	
-	# BUG FIX: If player is moving at low speed against a wall, transition to idle
+	# BUG FIX: If player is actually blocked by a wall on floor, transition to idle
 	# This prevents animation flickering when velocity is non-zero but player is blocked
+	# NOTE: Only suppress run animation when the player is ACTUALLY blocked (low velocity),
+	# not merely when a wall is detected nearby by raycasts. The old check used is_on_wall
+	# (raycast-based), which could trigger while the player was running freely near a wall,
+	# suppressing the run animation and making the player appear to "slide" without animating.
 	if is_on_wall and is_on_floor():
 		var wall_norm = wall_normal
-		# If pushing into the wall, don't consider it "moving horizontally" for animation
-		if (wall_norm.x > 0 and velocity.x < -0.1) or (wall_norm.x < 0 and velocity.x > 0.1):
+		# If pushing into the wall AND actually blocked (velocity is very low after move_and_slide)
+		var pushing_into_wall = (wall_norm.x > 0 and velocity.x < -0.1) or (wall_norm.x < 0 and velocity.x > 0.1)
+		if pushing_into_wall and abs(velocity.x) < 50.0:
 			is_moving_horizontally = false
 	
 	# Determine which animation to play and its scale/offset

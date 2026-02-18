@@ -20,6 +20,7 @@ var platforms: Array[Node2D] = []
 var cycle_height: float = 0.0
 var center_min_y: float = 0.0
 var half_platform_height: float = 0.0
+var _pending_collision_enable: Array[CollisionShape2D] = []
 
 
 func _ready() -> void:
@@ -34,20 +35,37 @@ func start_motion() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	# Re-enable collision shapes that were disabled during a wrap teleport last frame.
+	# This ensures the AnimatableBody2D has one clean frame at the new position before
+	# collisions resume, preventing a massive velocity spike from the teleport.
+	for shape in _pending_collision_enable:
+		if is_instance_valid(shape):
+			shape.disabled = false
+	_pending_collision_enable.clear()
+	
 	if not is_active or platforms.is_empty():
 		return
 	
 	var step = platform_speed * delta
 	for i in range(platforms.size()):
 		var platform = platforms[i]
-		if not platform:
+		if not platform or not is_instance_valid(platform):
 			continue
 		var next_y = platform.position.y - step
 		if next_y < center_min_y:
-			_despawn_platform(platform)
+			# Wrap: reuse existing platform instead of destroy + create.
+			# Destroying and recreating an AnimatableBody2D causes it to lose its
+			# velocity history for 1-2 frames (velocity = 0). Since the platform
+			# moves ~12 px/frame at 700 px/sec, exceeding floor_snap_length (8 px),
+			# the player loses floor contact and falls through.
 			var respawn_y = _wrap_center_y(next_y + cycle_height)
-			var new_platform = _spawn_platform_at(respawn_y)
-			platforms[i] = new_platform
+			# Briefly disable collision during the teleport so the physics server
+			# doesn't compute a huge velocity from the large position jump.
+			var shape = platform.get_node_or_null("CollisionShape2D") as CollisionShape2D
+			if shape:
+				shape.disabled = true
+				_pending_collision_enable.append(shape)
+			platform.position.y = respawn_y
 		else:
 			platform.position.y = next_y
 
