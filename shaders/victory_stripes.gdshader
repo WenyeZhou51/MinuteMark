@@ -1,25 +1,23 @@
 shader_type canvas_item;
 
-uniform vec2 center = vec2(0.5);
-uniform int stripes = 24;
-uniform float speed : hint_range(0.0, 5.0, 0.1) = 0.2;
-uniform int direction : hint_range(-1, 1, 2) = 1;
-uniform vec4 stripe_colors[8];
-uniform int color_count : hint_range(1, 8) = 2;
+uniform sampler2D noise : repeat_enable;
+uniform vec4 line_color_a: source_color = vec4(2.0, 0.0, 0.0, 1.0);
+uniform vec4 line_color_b: source_color = vec4(1.0, 1.0, 0.0, 1.0);
+uniform vec4 back_color: source_color = vec4(0.271,0,0,1);
+uniform float line_threshold: hint_range(0.0, 1.0, 0.01) = 0.8;
+uniform float speed: hint_range(0.0, 1.0, 0.01) = 0.03;
+uniform float line_length = 1000.0;
+uniform float angle: hint_range(0.0, 360.0) = 60.0;
+
 
 void fragment() {
-    vec2 uv_deriv = fwidthFine(UV);
-    float aspect_ratio = uv_deriv.y / uv_deriv.x;
-    vec2 corrected_uv = UV * vec2(aspect_ratio, 1.0);
-    vec2 corrected_center = center * vec2(aspect_ratio, 1.0);
-
-    vec2 dir = corrected_center - corrected_uv;
-    float angle = atan(dir.y, dir.x) - (TIME * speed * float(direction));
-
-    int stripe_index = int(floor(angle / (TAU / float(stripes)))) % stripes;
-    int color_index = stripe_index % color_count;
-    color_index = clamp(color_index, 0, color_count - 1);
-
-    // Apply the color
-    COLOR.rgb = stripe_colors[color_index].rgb;
+	vec2 uv = vec2(UV.x * cos(radians(angle)) - UV.y * sin(radians(angle)), UV.x * sin(radians(angle)) + UV.y * cos(radians(angle)));
+	vec4 noise_line = texture(noise, vec2(uv.x / line_length + fract(TIME) * speed, uv.y));
+	vec4 color;
+	if (noise_line.r < line_threshold){
+		color = back_color;
+	} else {
+		color = mix(line_color_a, line_color_b, 1.0 - noise_line.r);
+	}
+	COLOR = color;
 }

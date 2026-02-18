@@ -1,11 +1,11 @@
 [gd_scene load_steps=9 format=3 uid="uid://clbrllvajciy1"]
 
-[ext_resource type="Script" uid="uid://dv6gn5aukl7sp" path="res://level_select_menu.gd" id="1_level_select"]
+[ext_resource type="Script" path="res://level_select_menu.gd" id="1_level_select"]
 [ext_resource type="FontFile" uid="uid://qjp835anti7g" path="res://Fonts/doctor punk.otf" id="2_t4l2a"]
 [ext_resource type="Texture2D" uid="uid://bpr70dxba6rqr" path="res://Sprites/Bg white overlay .png" id="4_placeholder"]
 [ext_resource type="Texture2D" uid="uid://c56kf4b82oup5" path="res://Sprites/level_backgrounds/tutorial_overview.JPG" id="5_tutorial_bg"]
-[ext_resource type="Shader" uid="uid://6y2yips0giea" path="res://shaders/background_desaturate.gdshader" id="6_bg_shader"]
-[ext_resource type="Shader" uid="uid://bn43koovabgy4" path="res://shaders/comic_paper.gdshader" id="7_paper_shader"]
+[ext_resource type="Shader" path="res://shaders/background_desaturate.gdshader" id="6_bg_shader"]
+[ext_resource type="Shader" path="res://shaders/comic_paper.gdshader" id="7_paper_shader"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_paper"]
 shader = ExtResource("7_paper_shader")
@@ -91,7 +91,7 @@ offset_bottom = -428.0
 grow_horizontal = 2
 grow_vertical = 2
 rotation = -0.05
-scale = Vector2(0.71584105, 0.6390182)
+scale = Vector2(0.715841, 0.639018)
 theme_override_colors/font_color = Color(0, 0, 0, 1)
 theme_override_colors/font_outline_color = Color(1, 1, 1, 1)
 theme_override_constants/outline_size = 25
@@ -125,24 +125,24 @@ offset_bottom = 41.0
 [node name="BackgroundImage" type="Polygon2D" parent="MenuContainer/LevelsContainer/Level1Block"]
 material = SubResource("ShaderMaterial_bg")
 position = Vector2(294, 164)
-scale = Vector2(1.5103418, 2.9356349)
+scale = Vector2(1.51034, 2.93563)
 texture = ExtResource("5_tutorial_bg")
 texture_offset = Vector2(150, 70)
 texture_scale = Vector2(10, 9)
-polygon = PackedVector2Array(-150, -80, 210.5484, -82.43531, 209.22418, 77.666336, -148.31079, 109.68666, -150, -80)
+polygon = PackedVector2Array(-150, -80, 210.548, -82.4353, 209.224, 77.6663, -148.311, 109.687, -150, -80)
 
 [node name="PaperScrap" type="Polygon2D" parent="MenuContainer/LevelsContainer/Level1Block"]
 z_index = 1
 position = Vector2(294, 164)
-scale = Vector2(1.5103418, 2.9356349)
+scale = Vector2(1.51034, 2.93563)
 color = Color(0.98, 0.96, 0.92, 0)
-polygon = PackedVector2Array(-150, -80, 210.5484, -82.43531, 214.521, 84.138535, -148.97287, 108.66475, -150, -80)
+polygon = PackedVector2Array(-150, -80, 210.548, -82.4353, 214.521, 84.1385, -148.973, 108.665, -150, -80)
 
 [node name="TornEdge" type="Line2D" parent="MenuContainer/LevelsContainer/Level1Block"]
 z_index = 2
 position = Vector2(294, 164)
-scale = Vector2(1.5103418, 2.9356349)
-points = PackedVector2Array(-150.95917, -82.43531, 210.5484, -82.43531, 207.23785, 74.94119, -148.97287, 106.28026, -149.63498, -82.43531)
+scale = Vector2(1.51034, 2.93563)
+points = PackedVector2Array(-150.959, -82.4353, 210.548, -82.4353, 207.238, 74.9412, -148.973, 106.28, -149.635, -82.4353)
 width = 6.0
 default_color = Color(0.3, 0.25, 0.2, 1)
 
@@ -173,19 +173,19 @@ offset_bottom = 37.0
 
 [node name="PaperScrap" type="Polygon2D" parent="MenuContainer/LevelsContainer/Level2Block"]
 z_index = 1
-position = Vector2(111, 118.99999)
-scale = Vector2(1.8169482, 2.423356)
+position = Vector2(111, 119)
+scale = Vector2(1.81695, 2.42336)
 color = Color(0.95, 0.93, 0.88, 1)
-polygon = PackedVector2Array(-150, -80, 254.82294, -82.117516, 254.82294, 58.59642, -154.10455, 110.59042, -150, -80)
+polygon = PackedVector2Array(-150, -80, 254.823, -82.1175, 254.823, 58.5964, -154.105, 110.59, -150, -80)
 
 [node name="BackgroundImage" type="TextureRect" parent="MenuContainer/LevelsContainer/Level2Block/PaperScrap"]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -154.10455
-offset_top = -82.117516
-offset_right = 254.82294
-offset_bottom = 110.59042
+offset_left = -154.105
+offset_top = -82.1175
+offset_right = 254.823
+offset_bottom = 110.59
 grow_horizontal = 2
 grow_vertical = 2
 texture = ExtResource("4_placeholder")
@@ -194,9 +194,9 @@ stretch_mode = 5
 
 [node name="TornEdge" type="Line2D" parent="MenuContainer/LevelsContainer/Level2Block"]
 z_index = 2
-position = Vector2(111, 118.99999)
-scale = Vector2(1.8169482, 2.423356)
-points = PackedVector2Array(-151.90302, -79.64161, 254.82294, -82.117516, 254.82294, 53.644608, -155.20526, 107.70187, -153.55414, -82.53017)
+position = Vector2(111, 119)
+scale = Vector2(1.81695, 2.42336)
+points = PackedVector2Array(-151.903, -79.6416, 254.823, -82.1175, 254.823, 53.6446, -155.205, 107.702, -153.554, -82.5302)
 width = 6.0
 default_color = Color(0.3, 0.25, 0.2, 1)
 
@@ -228,17 +228,17 @@ offset_bottom = 141.0
 [node name="PaperScrap" type="Polygon2D" parent="MenuContainer/LevelsContainer/Level3Block"]
 z_index = 1
 position = Vector2(522, 362)
-scale = Vector2(1.682266, 4.462571)
+scale = Vector2(1.68227, 4.46257)
 color = Color(0.92, 0.9, 0.85, 1)
-polygon = PackedVector2Array(-399.46118, -3.137207, 400.6501, -55.79744, 400, 40, -199.85706, 40, -296.2008, 40, -400, 40, -399.46118, -3.3612976)
+polygon = PackedVector2Array(-399.461, -3.13721, 400.65, -55.7974, 400, 40, -199.857, 40, -296.201, 40, -400, 40, -399.461, -3.3613)
 
 [node name="BackgroundImage" type="TextureRect" parent="MenuContainer/LevelsContainer/Level3Block/PaperScrap"]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -400.6501
-offset_top = -55.79744
-offset_right = 400.6501
+offset_left = -400.65
+offset_top = -55.7974
+offset_right = 400.65
 offset_bottom = 40.0
 grow_horizontal = 2
 grow_vertical = 2
@@ -249,8 +249,8 @@ stretch_mode = 5
 [node name="TornEdge" type="Line2D" parent="MenuContainer/LevelsContainer/Level3Block"]
 z_index = 2
 position = Vector2(522, 362)
-scale = Vector2(1.682266, 4.462571)
-points = PackedVector2Array(-399.46118, -3.137207, 400.6501, -55.79744, 400.2798, -1.2112579, 400, 40, -199.85706, 40, -296.2008, 40, -400, 40, -399.46118, -3.3612976)
+scale = Vector2(1.68227, 4.46257)
+points = PackedVector2Array(-399.461, -3.13721, 400.65, -55.7974, 400.28, -1.21126, 400, 40, -199.857, 40, -296.201, 40, -400, 40, -399.461, -3.3613)
 width = 6.0
 default_color = Color(0.3, 0.25, 0.2, 1)
 
@@ -267,7 +267,8 @@ theme_override_colors/font_outline_color = Color(1, 1, 1, 1)
 theme_override_constants/outline_size = 12
 theme_override_fonts/font = ExtResource("2_t4l2a")
 theme_override_font_sizes/font_size = 85
-text = "LEVEL 3"
+text = "Neon Countdown
+Alternative"
 horizontal_alignment = 1
 vertical_alignment = 1
 
@@ -281,18 +282,18 @@ offset_bottom = 849.0
 [node name="PaperScrap" type="Polygon2D" parent="MenuContainer/LevelsContainer/Level4Block"]
 z_index = 1
 position = Vector2(386, 35)
-scale = Vector2(2.7497795, 4.4660897)
+scale = Vector2(2.74978, 4.46609)
 color = Color(0.96, 0.94, 0.89, 1)
-polygon = PackedVector2Array(-120.00963, -29.556046, 123.28259, -30.899506, 59.277466, 59.559937, -120.373276, 60.90338, -121.10062, -32.242966)
+polygon = PackedVector2Array(-120.01, -29.556, 123.283, -30.8995, 59.2775, 59.5599, -120.373, 60.9034, -121.101, -32.243)
 
 [node name="BackgroundImage" type="TextureRect" parent="MenuContainer/LevelsContainer/Level4Block/PaperScrap"]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -121.10062
-offset_top = -30.899506
-offset_right = 118.918625
-offset_bottom = 60.90338
+offset_left = -121.101
+offset_top = -30.8995
+offset_right = 118.919
+offset_bottom = 60.9034
 grow_horizontal = 2
 grow_vertical = 2
 texture = ExtResource("4_placeholder")
@@ -302,8 +303,8 @@ stretch_mode = 5
 [node name="TornEdge" type="Line2D" parent="MenuContainer/LevelsContainer/Level4Block"]
 z_index = 2
 position = Vector2(386, 35)
-scale = Vector2(2.7497795, 4.4660897)
-points = PackedVector2Array(-120.00963, -29.556046, 125.4646, -29.108246, 58.91382, 59.559937, -120.73697, 59.783844, -121.10062, -32.242966)
+scale = Vector2(2.74978, 4.46609)
+points = PackedVector2Array(-120.01, -29.556, 125.465, -29.1082, 58.9138, 59.5599, -120.737, 59.7838, -121.101, -32.243)
 width = 6.0
 default_color = Color(0.3, 0.25, 0.2, 1)
 
@@ -332,19 +333,19 @@ offset_bottom = 597.0
 
 [node name="PaperScrap" type="Polygon2D" parent="MenuContainer/LevelsContainer/Level5Block"]
 z_index = 1
-position = Vector2(-21.999966, 350.99994)
-scale = Vector2(2.5909688, 6.2923985)
+position = Vector2(-22, 351)
+scale = Vector2(2.59097, 6.2924)
 color = Color(0.94, 0.92, 0.87, 1)
-polygon = PackedVector2Array(-122.5556, -30.056885, 120, -30, 120.21069, 32.399445, -168.5834, 32.120636, -120.625854, -32.122864)
+polygon = PackedVector2Array(-122.556, -30.0569, 120, -30, 120.211, 32.3994, -168.583, 32.1206, -120.626, -32.1229)
 
 [node name="BackgroundImage" type="TextureRect" parent="MenuContainer/LevelsContainer/Level5Block/PaperScrap"]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -168.5834
-offset_top = -32.122864
-offset_right = 120.21069
-offset_bottom = 32.399445
+offset_left = -168.583
+offset_top = -32.1229
+offset_right = 120.211
+offset_bottom = 32.3994
 grow_horizontal = 2
 grow_vertical = 2
 texture = ExtResource("4_placeholder")
@@ -353,9 +354,9 @@ stretch_mode = 5
 
 [node name="TornEdge" type="Line2D" parent="MenuContainer/LevelsContainer/Level5Block"]
 z_index = 2
-position = Vector2(-21.999966, 350.99994)
-scale = Vector2(2.5909688, 6.2923985)
-points = PackedVector2Array(-99.57666, -29.7184, 120, -30, 120.21069, 32.399445, -168.66278, 32.102234, -97.64685, -30.830856)
+position = Vector2(-22, 351)
+scale = Vector2(2.59097, 6.2924)
+points = PackedVector2Array(-99.5767, -29.7184, 120, -30, 120.211, 32.3994, -168.663, 32.1022, -97.6469, -30.8309)
 width = 6.0
 default_color = Color(0.3, 0.25, 0.2, 1)
 

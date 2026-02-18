@@ -4,10 +4,10 @@ extends CanvasLayer
 @export_group("Level Configuration")
 @export var levels: Array[Dictionary] = [
 	{"name": "Tutorial", "scene_path": "res://level.tscn", "unlocked": true},
-	{"name": "Level 2", "scene_path": "res://level1.tscn", "unlocked": false},
-	{"name": "Level 3", "scene_path": "res://level.tscn", "unlocked": false},
-	{"name": "Level 4", "scene_path": "res://level1.tscn", "unlocked": false},
-	{"name": "Level 5", "scene_path": "res://level.tscn", "unlocked": false}
+	{"name": "Neon Countdown", "scene_path": "res://level1.3.tscn", "unlocked": true},
+	{"name": "Neon Countdown Alternative", "scene_path": "res://level1.1.tscn", "unlocked": true},
+	{"name": "Level 4", "scene_path": "res://level1.tscn", "unlocked": true},
+	{"name": "Level 5", "scene_path": "res://level.tscn", "unlocked": true}
 ]
 
 const SAVE_FILE_PATH = "user://level_progress.cfg"
@@ -209,16 +209,15 @@ func load_level_progress():
 	
 	if error != OK:
 		# File doesn't exist or error loading - use defaults
-		# First level is always unlocked
-		levels[0]["unlocked"] = true
-		for i in range(1, levels.size()):
-			levels[i]["unlocked"] = false
+		# All levels are unlocked by default
+		for i in range(levels.size()):
+			levels[i]["unlocked"] = true
 		return
 	
 	# Load saved progress
 	for i in range(levels.size()):
 		var key = "level_%d_unlocked" % (i + 1)
-		var unlocked = config.get_value("progress", key, i == 0)  # First level defaults to unlocked
+		var unlocked = config.get_value("progress", key, true)  # All levels unlocked by default
 		levels[i]["unlocked"] = unlocked
 	
 	print("LevelSelectMenu: Progress loaded")

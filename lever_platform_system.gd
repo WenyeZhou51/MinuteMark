@@ -7,6 +7,7 @@ extends Node2D
 @export var platform_size: Vector2 = Vector2(160, 24)
 @export var system_size: Vector2 = Vector2(320, 600) ## Rect bounds for placement
 @export_range(0.0, 1.0, 0.01) var start_phase: float = 0.0
+@export var always_active: bool = false ## If true, system is always active and lever trigger has no effect
 @export var platform_scene: PackedScene = preload("res://wrap_platform.tscn")
 @export var debug_logs: bool = false
 
@@ -25,11 +26,13 @@ var _pending_collision_enable: Array[CollisionShape2D] = []
 
 func _ready() -> void:
 	_rebuild_platforms()
+	if always_active:
+		is_active = true
 	queue_redraw()
 
 
 func start_motion() -> void:
-	if is_active:
+	if is_active or always_active:
 		return
 	is_active = true
 
