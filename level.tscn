@@ -1,6 +1,6 @@
-[gd_scene load_steps=38 format=3 uid="uid://clfclx5p38xkv"]
+[gd_scene load_steps=33 format=3 uid="uid://clfclx5p38xkv"]
 
-[ext_resource type="Script" path="res://level_manager.gd" id="1_manager"]
+[ext_resource type="Script" uid="uid://dcd0andxt0hx3" path="res://level_manager.gd" id="1_manager"]
 [ext_resource type="PackedScene" uid="uid://vv3m4nx6g3jo" path="res://player.tscn" id="1_qj3g4"]
 [ext_resource type="PackedScene" uid="uid://b8x7lam2n4p5q" path="res://enemy.tscn" id="2_enemy"]
 [ext_resource type="PackedScene" path="res://ParryTutorialEnemy.tscn" id="2_parry_enemy"]
@@ -10,23 +10,18 @@
 [ext_resource type="PackedScene" uid="uid://c4k3l8m5n2qar" path="res://kickable_object.tscn" id="4_kickable"]
 [ext_resource type="PackedScene" uid="uid://b7q8n5ck2wh0e" path="res://pause_menu.tscn" id="8_b0gwe"]
 [ext_resource type="PackedScene" uid="uid://b756hnxt8gukc" path="res://dialogue/DialogueUI.tscn" id="9_dialogue"]
-[ext_resource type="Script" path="res://tutorial_trigger.gd" id="10_o05kg"]
-[ext_resource type="Script" path="res://dialogue_trigger.gd" id="10_trigger"]
+[ext_resource type="Script" uid="uid://beegyi2jgpwbd" path="res://tutorial_trigger.gd" id="10_o05kg"]
+[ext_resource type="Script" uid="uid://b7qrmm1ub7a5l" path="res://dialogue_trigger.gd" id="10_trigger"]
 [ext_resource type="PackedScene" uid="uid://dyetqoxdfluq0" path="res://window.tscn" id="10_window"]
-[ext_resource type="Script" path="res://pendulum_trigger.gd" id="11_pendulum_trigger"]
+[ext_resource type="Script" uid="uid://g336vr3eb3sn" path="res://pendulum_trigger.gd" id="11_pendulum_trigger"]
 [ext_resource type="FontFile" uid="uid://baaiikv2041fb" path="res://Fonts/Funkrocker.otf" id="12_font"]
-[ext_resource type="Script" path="res://minor_anim_system.gd" id="14_wxjrc"]
-[ext_resource type="Script" path="res://tutorial_block.gd" id="18_4c15r"]
+[ext_resource type="Script" uid="uid://k7nuntbsw4by" path="res://minor_anim_system.gd" id="14_wxjrc"]
+[ext_resource type="Script" uid="uid://b1wge8i3j3rr0" path="res://tutorial_block.gd" id="18_4c15r"]
 [ext_resource type="Texture2D" uid="uid://b5v5ch6lmmej" path="res://Sprites/level_backgrounds/IMG_4518.jpg" id="19_42xju"]
 [ext_resource type="Texture2D" uid="uid://iqnxi42u7eex" path="res://Sprites/level_backgrounds/IMG_4463.JPG" id="19_ait7k"]
 [ext_resource type="PackedScene" uid="uid://6624qfeempan" path="res://LevelFinishTrigger.tscn" id="19_finish"]
 [ext_resource type="PackedScene" uid="uid://c85yqfkymilcl" path="res://elevator.tscn" id="20_elevator"]
-[ext_resource type="PackedScene" uid="uid://demedvhavmbbs" path="res://FallingPlatform.tscn" id="21_v7sqt"]
-[ext_resource type="PackedScene" uid="uid://byg21xptk7abp" path="res://MovingPlatform.tscn" id="22_ilwjd"]
 [ext_resource type="PackedScene" path="res://Turret.tscn" id="23_y3bce"]
-[ext_resource type="PackedScene" uid="uid://c2p1gqjfeqf38" path="res://LeverPlatformSystem.tscn" id="24_fj6e6"]
-[ext_resource type="PackedScene" uid="uid://b6ocum6m8b8o1" path="res://LeverTrigger.tscn" id="25_2h3vt"]
-[ext_resource type="PackedScene" uid="uid://be4ysm5xnwocm" path="res://door.tscn" id="26_door"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_dialogue_trigger"]
 size = Vector2(692, 332)
@@ -198,9 +193,6 @@ position = Vector2(8740, 3803)
 
 [node name="KickableObjects" type="Node2D" parent="."]
 
-[node name="Door" parent="KickableObjects" instance=ExtResource("26_door")]
-position = Vector2(-661, 887)
-
 [node name="KickableObject5" parent="KickableObjects" instance=ExtResource("4_kickable")]
 position = Vector2(3446, 2623)
 fragment_count = 3
@@ -343,7 +335,7 @@ Press D to move right"
 horizontal_alignment = 1
 
 [node name="MinorAnimSystem" type="Node2D" parent="."]
-position = Vector2(2201, -6)
+position = Vector2(2727, 520)
 script = ExtResource("14_wxjrc")
 frame_folder = "res://Sprites/bird_anim_frames"
 fps = 7.0
@@ -351,10 +343,11 @@ show_first_frame_by_default = true
 debug_mode = true
 
 [node name="Area2D" type="Area2D" parent="MinorAnimSystem"]
+position = Vector2(0, -4)
 collision_layer = 0
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="MinorAnimSystem/Area2D"]
-position = Vector2(17, 318)
+position = Vector2(1, 2)
 shape = SubResource("CircleShape2D_minor_anim")
 
 [node name="LevelFinishTrigger" parent="." instance=ExtResource("19_finish")]
@@ -419,26 +412,9 @@ position = Vector2(8544, 3582)
 scale = Vector2(0.859795, 0.399391)
 texture = ExtResource("19_42xju")
 
-[node name="FallingPlatform" parent="." instance=ExtResource("21_v7sqt")]
-position = Vector2(-95, 410)
-
-[node name="MovingPlatform" parent="." instance=ExtResource("22_ilwjd")]
-position = Vector2(5882, 208)
-
 [node name="Turret" parent="." instance=ExtResource("23_y3bce")]
 position = Vector2(3887, 888)
 base_direction_degrees = 270.0
-
-[node name="LeverPlatformSystem" parent="." instance=ExtResource("24_fj6e6")]
-position = Vector2(3311, 432)
-platform_spacing = 400.0
-platform_speed = 300.0
-platform_size = Vector2(320, 48)
-start_phase = 0.0
-
-[node name="LeverTrigger" parent="." instance=ExtResource("25_2h3vt")]
-position = Vector2(2760, 538)
-target_system_path = NodePath("../LeverPlatformSystem")
 
 [editable path="Player"]
 [editable path="KickableObjects/Window1"]
