@@ -6,7 +6,8 @@ signal global_leaderboard_updated
 
 # Leaderboard data structure: Array of dictionaries with "time", "date", "player_id", "player_name", "ip_address" keys
 # Lower times are better (faster completion)
-var local_leaderboard_data: Array[Dictionary] = []
+# Local leaderboard is per-level: Dictionary mapping level_index (int) -> Array of score dicts
+var all_local_leaderboard_data: Dictionary = {}  # {level_index: [{time, date, ...}, ...]}
 var global_leaderboard_data: Array[Dictionary] = []
 
 const MAX_ENTRIES: int = 100  # Keep top 100 scores locally
@@ -127,8 +128,22 @@ func _generate_player_id() -> String:
 	var random = str(randi() % 1000000)
 	return "player_" + timestamp + "_" + random
 
+func _get_local_data_for_level(level_index: int) -> Array:
+	"""Get the local leaderboard array for a specific level, creating it if needed."""
+	var key = str(level_index)
+	if not all_local_leaderboard_data.has(key):
+		all_local_leaderboard_data[key] = []
+	return all_local_leaderboard_data[key]
+
+func _set_local_data_for_level(level_index: int, data: Array) -> void:
+	"""Set the local leaderboard array for a specific level."""
+	all_local_leaderboard_data[str(level_index)] = data
+
 func add_score(time_taken: float) -> bool:
 	"""Add a new score to the leaderboard. Returns true if it's a new best score."""
+	var level = get_current_level_index()
+	var local_data = _get_local_data_for_level(level)
+	
 	var new_entry = {
 		"time": time_taken,
 		"date": Time.get_datetime_string_from_system(),
@@ -138,32 +153,33 @@ func add_score(time_taken: float) -> bool:
 	}
 	
 	var is_new_best = false
-	if local_leaderboard_data.is_empty() or time_taken < local_leaderboard_data[0]["time"]:
+	if local_data.is_empty() or time_taken < local_data[0]["time"]:
 		is_new_best = true
 	
 	# Check for existing entry with same name (unique name constraint)
 	var existing_idx = -1
-	for i in range(local_leaderboard_data.size()):
-		if local_leaderboard_data[i].get("player_name", "").to_upper() == player_name.to_upper():
+	for i in range(local_data.size()):
+		if local_data[i].get("player_name", "").to_upper() == player_name.to_upper():
 			existing_idx = i
 			break
 	
 	if existing_idx >= 0:
 		# Name already exists locally — only update if new time is better
-		if time_taken < local_leaderboard_data[existing_idx]["time"]:
-			local_leaderboard_data[existing_idx] = new_entry
+		if time_taken < local_data[existing_idx]["time"]:
+			local_data[existing_idx] = new_entry
 		# If existing time is better or equal, don't modify local data
 	else:
 		# New name — add to local leaderboard
-		local_leaderboard_data.append(new_entry)
+		local_data.append(new_entry)
 	
 	# Sort by time (ascending - lower is better)
-	local_leaderboard_data.sort_custom(func(a, b): return a["time"] < b["time"])
+	local_data.sort_custom(func(a, b): return a["time"] < b["time"])
 	
 	# Keep only top MAX_ENTRIES
-	if local_leaderboard_data.size() > MAX_ENTRIES:
-		local_leaderboard_data = local_leaderboard_data.slice(0, MAX_ENTRIES)
+	if local_data.size() > MAX_ENTRIES:
+		local_data = local_data.slice(0, MAX_ENTRIES)
 	
+	_set_local_data_for_level(level, local_data)
 	save_local_leaderboard()
 	
 	# Submit to global leaderboard if API is enabled
@@ -196,16 +212,19 @@ func find_existing_entry_by_name(name: String) -> Dictionary:
 
 func update_score_for_name(new_time: float) -> bool:
 	"""Update an existing score for the current player name. Returns true if it's a new best."""
+	var level = get_current_level_index()
+	var local_data = _get_local_data_for_level(level)
+	
 	var is_new_best = false
-	if local_leaderboard_data.is_empty() or new_time < local_leaderboard_data[0]["time"]:
+	if local_data.is_empty() or new_time < local_data[0]["time"]:
 		is_new_best = true
 	
 	# Update local leaderboard
 	var found_local = false
-	for i in range(local_leaderboard_data.size()):
-		if local_leaderboard_data[i].get("player_name", "").to_upper() == player_name.to_upper():
-			local_leaderboard_data[i]["time"] = new_time
-			local_leaderboard_data[i]["date"] = Time.get_datetime_string_from_system()
+	for i in range(local_data.size()):
+		if local_data[i].get("player_name", "").to_upper() == player_name.to_upper():
+			local_data[i]["time"] = new_time
+			local_data[i]["date"] = Time.get_datetime_string_from_system()
 			found_local = true
 			break
 	
@@ -217,12 +236,13 @@ func update_score_for_name(new_time: float) -> bool:
 			"player_name": player_name,
 			"ip_address": local_ip_address
 		}
-		local_leaderboard_data.append(new_entry)
+		local_data.append(new_entry)
 	
 	# Sort and trim
-	local_leaderboard_data.sort_custom(func(a, b): return a["time"] < b["time"])
-	if local_leaderboard_data.size() > MAX_ENTRIES:
-		local_leaderboard_data = local_leaderboard_data.slice(0, MAX_ENTRIES)
+	local_data.sort_custom(func(a, b): return a["time"] < b["time"])
+	if local_data.size() > MAX_ENTRIES:
+		local_data = local_data.slice(0, MAX_ENTRIES)
+	_set_local_data_for_level(level, local_data)
 	save_local_leaderboard()
 	
 	# Update on Supabase via PATCH
@@ -275,8 +295,10 @@ func _update_score_on_api(new_time: float):
 func get_current_level_index() -> int:
 	"""Determine the current level index from the scene path."""
 	var level_paths = [
-		"res://level.tscn",      # Level 0 (Tutorial)
-		"res://level1.tscn",     # Level 1
+		"res://level.tscn",      # Level 0 - The First Minute (Tutorial)
+		"res://level1.3.tscn",   # Level 1 - Neon Countdown
+		"res://level1.1.tscn",   # Level 2 - Neon Countdown Alternative
+		"res://level1.tscn",     # Level 3
 	]
 	
 	var tree = get_tree()
@@ -652,42 +674,60 @@ func _on_http_request_completed(result: int, response_code: int, headers: Packed
 
 func get_top_scores(count: int = 3, use_global: bool = false) -> Array[Dictionary]:
 	"""Get the top N scores. use_global=true for global leaderboard, false for local."""
-	var source_data = global_leaderboard_data if use_global else local_leaderboard_data
+	var source_data: Array
+	if use_global:
+		source_data = global_leaderboard_data
+	else:
+		var level = get_current_level_index()
+		source_data = _get_local_data_for_level(level)
 	if source_data.is_empty():
 		return []
 	
-	var top_scores = source_data.slice(0, min(count, source_data.size()))
-	return top_scores
+	var result: Array[Dictionary] = []
+	var num = min(count, source_data.size())
+	for i in range(num):
+		result.append(source_data[i])
+	return result
 
 func get_best_score(use_global: bool = false) -> float:
 	"""Get the best (lowest) time. use_global=true for global leaderboard."""
-	var source_data = global_leaderboard_data if use_global else local_leaderboard_data
+	var source_data: Array
+	if use_global:
+		source_data = global_leaderboard_data
+	else:
+		var level = get_current_level_index()
+		source_data = _get_local_data_for_level(level)
 	if source_data.is_empty():
 		return -1.0
 	return source_data[0]["time"]
 
 func get_rank_for_time(time_taken: float, use_global: bool = false) -> int:
 	"""Get the rank (1-based) for a given time."""
-	var source_data = global_leaderboard_data if use_global else local_leaderboard_data
+	var source_data: Array
+	if use_global:
+		source_data = global_leaderboard_data
+	else:
+		var level = get_current_level_index()
+		source_data = _get_local_data_for_level(level)
 	for i in range(source_data.size()):
 		if abs(source_data[i]["time"] - time_taken) < 0.01:  # Float comparison
 			return i + 1
 	return -1
 
 func save_local_leaderboard():
-	"""Save local leaderboard data to file."""
+	"""Save local leaderboard data to file (per-level structure)."""
 	var file = FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file == null:
 		push_error("LeaderboardManager: Failed to save leaderboard to " + SAVE_PATH)
 		return
 	
-	var json_string = JSON.stringify(local_leaderboard_data)
+	var json_string = JSON.stringify(all_local_leaderboard_data)
 	file.store_string(json_string)
 	file.close()
 
 func load_local_leaderboard():
-	"""Load local leaderboard data from file."""
-	local_leaderboard_data.clear()
+	"""Load local leaderboard data from file (per-level structure)."""
+	all_local_leaderboard_data.clear()
 	
 	if not FileAccess.file_exists(SAVE_PATH):
 		print("LeaderboardManager: No existing leaderboard file, starting fresh")
@@ -709,22 +749,36 @@ func load_local_leaderboard():
 		return
 	
 	var parsed_data = json.data
-	if parsed_data is Array:
-		# Convert to Array[Dictionary] by ensuring each element is a Dictionary
-		var new_scores: Array[Dictionary] = []
+	if parsed_data is Dictionary:
+		# New per-level format: {"0": [...], "1": [...], ...}
+		all_local_leaderboard_data = parsed_data
+		# Ensure each level's data is sorted
+		for key in all_local_leaderboard_data:
+			var level_data = all_local_leaderboard_data[key]
+			if level_data is Array:
+				level_data.sort_custom(func(a, b): return a["time"] < b["time"])
+		var total = 0
+		for key in all_local_leaderboard_data:
+			if all_local_leaderboard_data[key] is Array:
+				total += all_local_leaderboard_data[key].size()
+		print("LeaderboardManager: Loaded %d total local scores across all levels" % total)
+	elif parsed_data is Array:
+		# Legacy flat format — migrate to level 0
+		var new_scores: Array = []
 		for item in parsed_data:
 			if item is Dictionary:
 				new_scores.append(item)
-		local_leaderboard_data = new_scores
-		# Ensure data is sorted
-		local_leaderboard_data.sort_custom(func(a, b): return a["time"] < b["time"])
-		print("LeaderboardManager: Loaded %d local scores" % local_leaderboard_data.size())
+		new_scores.sort_custom(func(a, b): return a["time"] < b["time"])
+		all_local_leaderboard_data["0"] = new_scores
+		print("LeaderboardManager: Migrated %d legacy local scores to level 0" % new_scores.size())
+		# Save in new format
+		save_local_leaderboard()
 	else:
-		push_error("LeaderboardManager: Leaderboard data is not an array")
+		push_error("LeaderboardManager: Leaderboard data is not a dictionary or array")
 
 func clear_local_leaderboard():
 	"""Clear all local leaderboard data (for testing/debugging)."""
-	local_leaderboard_data.clear()
+	all_local_leaderboard_data.clear()
 	save_local_leaderboard()
 	print("LeaderboardManager: Local leaderboard cleared")
 

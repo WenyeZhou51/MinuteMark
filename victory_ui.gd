@@ -630,11 +630,11 @@ func unlock_next_level():
 	
 	# Level configuration matching level_select_menu.gd
 	var level_paths = [
-		"res://level.tscn",      # Level 1 (Tutorial)
-		"res://level1.tscn",     # Level 2
-		"res://level.tscn",       # Level 3
-		"res://level1.tscn",      # Level 4
-		"res://level.tscn"        # Level 5
+		"res://level.tscn",      # Level 1 - The First Minute (Tutorial)
+		"res://level1.3.tscn",   # Level 2 - Neon Countdown
+		"res://level1.1.tscn",   # Level 3 - Neon Countdown Alternative
+		"res://level1.tscn",     # Level 4
+		"res://level.tscn"       # Level 5
 	]
 	
 	# Get current scene path

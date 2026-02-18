@@ -95,6 +95,9 @@ func _update_visuals() -> void:
 	# Glass visual (slightly smaller than frame to show frame border)
 	var glass_half = half_size - Vector2(frame_thickness, frame_thickness)
 	if glass_visual:
+		# Reset position/scale so the centered polygon aligns with the Window origin
+		glass_visual.position = Vector2.ZERO
+		glass_visual.scale = Vector2.ONE
 		glass_visual.polygon = PackedVector2Array([
 			Vector2(-glass_half.x, -glass_half.y),
 			Vector2(glass_half.x, -glass_half.y),
@@ -105,6 +108,9 @@ func _update_visuals() -> void:
 	
 	# Frame visual (full size rectangle)
 	if frame_visual:
+		# Reset position/scale so the centered polygon aligns with the Window origin
+		frame_visual.position = Vector2.ZERO
+		frame_visual.scale = Vector2.ONE
 		frame_visual.polygon = PackedVector2Array([
 			Vector2(-half_size.x, -half_size.y),
 			Vector2(half_size.x, -half_size.y),
@@ -115,6 +121,8 @@ func _update_visuals() -> void:
 	
 	# Update collision shape
 	if collision_shape:
+		# Reset position so the collision is centered on the Window origin
+		collision_shape.position = Vector2.ZERO
 		var shape = RectangleShape2D.new()
 		shape.size = window_size
 		collision_shape.shape = shape

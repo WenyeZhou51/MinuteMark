@@ -1,18 +1,28 @@
-[gd_scene load_steps=6 format=3 uid="uid://c8n8qj4w8n8p3"]
+[gd_scene load_steps=8 format=3 uid="uid://c8n8qj4w8n8p3"]
 
 [ext_resource type="Script" path="res://victory_ui.gd" id="1_script"]
 [ext_resource type="Shader" path="res://shaders/victory_stripes.gdshader" id="2_shader"]
 [ext_resource type="FontFile" uid="uid://baaiikv2041fb" path="res://Fonts/Funkrocker.otf" id="3_font"]
 [ext_resource type="PackedScene" uid="uid://ckao8otuk41bs" path="res://ActionLines.tscn" id="4_action_lines"]
 
+[sub_resource type="FastNoiseLite" id="FastNoiseLite_1"]
+noise_type = 3
+frequency = 0.05
+
+[sub_resource type="NoiseTexture2D" id="NoiseTexture2D_1"]
+seamless = true
+noise = SubResource("FastNoiseLite_1")
+
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_1"]
 shader = ExtResource("2_shader")
-shader_parameter/center = Vector2(0.5, 0.5)
-shader_parameter/stripes = 24
-shader_parameter/speed = 0.2
-shader_parameter/direction = 1
-shader_parameter/stripe_colors = null
-shader_parameter/color_count = 3
+shader_parameter/line_color_a = Color(1, 0.9, 0, 1)
+shader_parameter/line_color_b = Color(1, 0.75, 0, 1)
+shader_parameter/back_color = Color(1, 0.84, 0, 1)
+shader_parameter/line_threshold = 0.8
+shader_parameter/speed = 0.03
+shader_parameter/line_length = 1000.0
+shader_parameter/angle = 45.0
+shader_parameter/noise = SubResource("NoiseTexture2D_1")
 
 [node name="VictoryUI" type="CanvasLayer"]
 process_mode = 3

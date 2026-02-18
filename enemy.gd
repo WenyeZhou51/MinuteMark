@@ -543,6 +543,25 @@ func _find_player() -> void:
 	if not players.is_empty():
 		player_ref = players[0]
 
+func _can_see_player() -> bool:
+	"""Check if the enemy has a clear line of sight to the player (no walls/platforms blocking)."""
+	if not player_ref or not is_instance_valid(player_ref):
+		return false
+	
+	var gunpoint_pos = gunpoint.global_position if gunpoint else global_position
+	var player_pos = player_ref.global_position
+	var space_state = get_world_2d().direct_space_state
+	
+	# Cast ray from gunpoint to player, only checking collision layer 1 (walls/platforms/tilemap)
+	var query = PhysicsRayQueryParameters2D.create(gunpoint_pos, player_pos, 1)
+	query.collide_with_areas = false
+	query.collide_with_bodies = true
+	
+	var result = space_state.intersect_ray(query)
+	
+	# If nothing was hit on layer 1, line of sight is clear
+	return result.is_empty()
+
 func _create_warning_indicator() -> void:
 	"""Create the visual warning indicator (exclamation mark)."""
 	warning_indicator = Node2D.new()
@@ -587,6 +606,11 @@ func _update_shooting(delta: float) -> void:
 			if warning_indicator: warning_indicator.visible = false
 			
 			if state_timer >= startup_delay:
+				# Don't start aiming if player is behind a wall
+				if not _can_see_player():
+					state_timer = 0.0  # Reset timer, keep waiting
+					return
+				
 				# Transition to aiming
 				shooting_state = ShootingState.AIMING
 				state_timer = 0.0
@@ -600,6 +624,15 @@ func _update_shooting(delta: float) -> void:
 		
 		ShootingState.AIMING:
 			aim_timer += delta
+			
+			# Cancel aim if player went behind a wall
+			if not _can_see_player():
+				shooting_state = ShootingState.STARTUP_DELAY
+				state_timer = 0.0
+				aim_timer = 0.0
+				if laser_sight: laser_sight.visible = false
+				if warning_indicator: warning_indicator.visible = false
+				return
 			
 			# Calculate direction to player (from gunpoint)
 			var gunpoint_pos = gunpoint.global_position if gunpoint else global_position

@@ -1,8 +1,8 @@
 [gd_scene load_steps=6 format=3 uid="uid://1a46qlbcvkci"]
 
 [ext_resource type="PackedScene" uid="uid://clfclx5p38xkv" path="res://level.tscn" id="1_level"]
-[ext_resource type="Script" uid="uid://c7helgv062jo7" path="res://moving_spotlight_test.gd" id="2_script"]
-[ext_resource type="Shader" uid="uid://bad43wudkjopn" path="res://shaders/bar_lighting.gdshader" id="3_shader"]
+[ext_resource type="Script" path="res://moving_spotlight_test.gd" id="2_script"]
+[ext_resource type="Shader" path="res://shaders/bar_lighting.gdshader" id="3_shader"]
 [ext_resource type="PackedScene" path="res://fire.tscn" id="4_fire"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_spotlight"]
@@ -13,6 +13,10 @@ shader_parameter/dark_color = Color(0.01, 0.01, 0.02, 0.97)
 shader_parameter/soft_edge = 0.02
 shader_parameter/sparkle_amount = 0.0
 shader_parameter/top_brightness = 0.7
+shader_parameter/fire_1_pos = Vector2(-1, -1)
+shader_parameter/fire_1_radius = 0.0
+shader_parameter/fire_2_pos = Vector2(-1, -1)
+shader_parameter/fire_2_radius = 0.0
 
 [node name="MovingSpotlightTest" type="Node2D"]
 

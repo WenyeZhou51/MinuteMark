@@ -22,7 +22,7 @@ extends Area2D
 @export var laser_damage_cooldown: float = 0.2
 
 @export_group("Behavior")
-@export var require_line_of_sight: bool = false
+@export var require_line_of_sight: bool = true
 
 @export_group("Visuals")
 @export var body_size: Vector2 = Vector2(32, 24)
