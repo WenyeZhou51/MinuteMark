@@ -142,6 +142,8 @@ var action_lines_instance: CanvasLayer = null
 @export var ground_slide_scale: float = 0.03
 @export var ground_slide_fps: float = 24.0
 @export var ground_slide_offset: Vector2 = Vector2.ZERO
+
+@export_group("Ground Slide")
 @export var ground_slide_speed: float = 1800.0  ## Speed during ground slide
 @export var ground_slide_duration: float = 0.5  ## Duration of ground slide in seconds
 @export var ground_slide_min_duration: float = 0.1  ## Minimum time player must slide before they can jump cancel
@@ -161,7 +163,7 @@ var action_lines_instance: CanvasLayer = null
 @export var air_dash_vertical_impulse: float = 100.0  ## Vertical impulse force applied at start of air dash
 @export var air_dash_duration: float = 0.2  ## Duration of air dash in seconds
 @export var air_dash_cooldown: float = 0.35  ## Cooldown between air dashes
-@export var air_dash_end_horizontal_velocity: float = 1000.0  ## Horizontal velocity when air dash ends (in dash direction)
+@export var air_dash_end_horizontal_velocity: float = 750.0  ## Horizontal velocity when air dash ends (in dash direction)
 @export var air_dash_end_vertical_velocity: float = 0.0  ## Vertical velocity when air dash ends
 @export var air_dash_afterimage_count: int = 7 ## Number of afterimages to spawn during dash
 @export var air_dash_afterimage_lifetime: float = 0.4 ## How long each afterimage lasts
@@ -302,6 +304,12 @@ var is_on_runnable_wall: bool = false  # Is the current wall runnable (e.g. plat
 var wall_persistence_timer: int = 0  # Frame buffer to prevent flickering on TileMap seams
 var wall_normal: Vector2 = Vector2.ZERO  # Direction pointing away from the wall
 var is_wall_sliding: bool = false  # Is player currently sliding down a wall
+
+# DEBUG: Wall-stuck animation bug investigation
+var _dbg_wall_stuck: bool = true  # Toggle to enable/disable wall-stuck debug logging
+var _dbg_prev_anim: String = ""  # Track previous animation to detect transitions
+var _dbg_wall_stuck_frames: int = 0  # Count consecutive frames player is on_wall + on_floor + has input toward wall
+var _dbg_frame_counter: int = 0  # Global frame counter for debug timestamps
 
 # Wall run state variables
 var is_wall_running: bool = false  # Is player currently wall running
@@ -1495,7 +1503,18 @@ func _physics_process(delta: float) -> void:
 	if is_speed_capped:
 		velocity.x = clamp(velocity.x, -300.0, 300.0)
 	velocity_before_move_and_slide = velocity
+	
+	# DEBUG: Log velocity before/after move_and_slide when touching wall on floor
+	var _dbg_vel_before = velocity
+	var _dbg_pos_before = global_position
 	move_and_slide()
+	if _dbg_wall_stuck and is_on_wall and is_on_floor():
+		var vel_delta_x = velocity.x - _dbg_vel_before.x
+		var pos_delta = global_position - _dbg_pos_before
+		# Only log if there was meaningful velocity going in (player trying to move)
+		if abs(_dbg_vel_before.x) > 5.0 or abs(velocity.x) > 5.0:
+			print("[WALL_DBG] F%d | MOVE_AND_SLIDE: vel_before=(%0.1f, %0.1f) → vel_after=(%0.1f, %0.1f) | vel_delta_x=%0.1f | pos_delta=(%0.2f, %0.2f) | slide_collisions=%d" % [
+				_dbg_frame_counter, _dbg_vel_before.x, _dbg_vel_before.y, velocity.x, velocity.y, vel_delta_x, pos_delta.x, pos_delta.y, get_slide_collision_count()])
 	
 	# 21. QOL: Corner Correction (only when moving up fast)
 	# Use velocity_before_move_and_slide because move_and_slide might zero out velocity.y on ceiling hit
@@ -1796,6 +1815,25 @@ func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceS
 			is_on_runnable_wall = false
 			wall_normal = Vector2.ZERO
 	
+	# DEBUG: Log wall state transitions (on_wall changes)
+	if _dbg_wall_stuck:
+		if is_on_wall != was_on_wall:
+			print("[WALL_DBG] F%d | WALL STATE CHANGED: is_on_wall %s→%s | on_floor=%s | runnable=%s | wall_normal=%s | vel=(%0.1f, %0.1f) | input_dir=%0.1f | persistence=%d | side=%s" % [
+				_dbg_frame_counter, was_on_wall, is_on_wall, is_on_floor(), is_on_runnable_wall, wall_normal, velocity.x, velocity.y, input_direction, wall_persistence_timer, side_str])
+		# Log every frame while on_wall AND on_floor (the stuck scenario)
+		if is_on_wall and is_on_floor() and abs(input_direction) > 0.1:
+			_dbg_wall_stuck_frames += 1
+			# Log first 5 frames, then every 10th frame to avoid spam
+			if _dbg_wall_stuck_frames <= 5 or _dbg_wall_stuck_frames % 10 == 0:
+				var pushing_into = (wall_normal.x > 0 and input_direction < 0) or (wall_normal.x < 0 and input_direction > 0)
+				print("[WALL_DBG] F%d | ON_WALL+FLOOR frame #%d | pushing_into_wall=%s | vel=(%0.1f, %0.1f) | input=%0.1f | wall_norm=%s | runnable=%s" % [
+					_dbg_frame_counter, _dbg_wall_stuck_frames, pushing_into, velocity.x, velocity.y, input_direction, wall_normal, is_on_runnable_wall])
+		else:
+			if _dbg_wall_stuck_frames > 0:
+				print("[WALL_DBG] F%d | Wall-stuck streak ENDED after %d frames | is_on_wall=%s | on_floor=%s | input=%0.1f" % [
+					_dbg_frame_counter, _dbg_wall_stuck_frames, is_on_wall, is_on_floor(), input_direction])
+			_dbg_wall_stuck_frames = 0
+	
 	# Update wall sliding state (only if actually touching and moving down)
 	is_wall_sliding = false
 	# CRITICAL FIX: Only allow wall sliding on RUNNABLE walls (Platforms)
@@ -2087,6 +2125,10 @@ func _check_wall_run_activation() -> void:
 		elif not _is_wall_at_lower_quarter():
 			_end_wall_run()
 		return  # Don't check for activation if already running
+	
+	# If player has any downward velocity, skip wall run and go straight to wall slide
+	if velocity_before_move_and_slide.y > 0:
+		return
 	
 	# Check if wall run should START (hit wall during dash or fast run)
 	# Can activate during dashes, fast running, or while in the air
@@ -5507,6 +5549,9 @@ func _update_animations() -> void:
 	# Skip animation updates during rewind tracing (animation is controlled by rewind state)
 	if is_rewind_tracing:
 		return
+	
+	# DEBUG: Increment frame counter
+	_dbg_frame_counter += 1
 		
 	var is_moving_horizontally = abs(velocity.x) > 10.0
 	
@@ -5516,16 +5561,38 @@ func _update_animations() -> void:
 	# not merely when a wall is detected nearby by raycasts. The old check used is_on_wall
 	# (raycast-based), which could trigger while the player was running freely near a wall,
 	# suppressing the run animation and making the player appear to "slide" without animating.
+	var _dbg_wall_floor_override = false
 	if is_on_wall and is_on_floor():
 		var wall_norm = wall_normal
-		# If pushing into the wall AND actually blocked (velocity is very low after move_and_slide)
-		var pushing_into_wall = (wall_norm.x > 0 and velocity.x < -0.1) or (wall_norm.x < 0 and velocity.x > 0.1)
-		if pushing_into_wall and abs(velocity.x) < 50.0:
+		# FIX: Use velocity_before_move_and_slide to detect push intent, not post-collision velocity.
+		# Post-collision velocity oscillates frame-to-frame due to micro-jitter in move_and_slide(),
+		# causing the old check to fail on alternating frames → rapid idle↔run flicker.
+		# velocity_before_move_and_slide reliably shows the player's INTENT to push into the wall.
+		var vel_before_ms = velocity_before_move_and_slide
+		var pushing_into_wall_before = (wall_norm.x > 0 and vel_before_ms.x < -0.1) or (wall_norm.x < 0 and vel_before_ms.x > 0.1)
+		var pushing_into_wall_after = (wall_norm.x > 0 and velocity.x < -0.1) or (wall_norm.x < 0 and velocity.x > 0.1)
+		# Override to idle if player was pushing into wall BEFORE collision (intent-based),
+		# OR if post-collision velocity is low and pushing (original fallback)
+		if pushing_into_wall_before or (pushing_into_wall_after and abs(velocity.x) < 50.0):
 			is_moving_horizontally = false
+			_dbg_wall_floor_override = true
+			# Also zero out velocity.x to prevent the micro-jitter oscillation
+			# that causes move_and_slide to alternate between blocking and passing through
+			velocity.x = 0.0
+		
+		# DEBUG: Log the wall-on-floor animation decision every frame while stuck
+		if _dbg_wall_stuck and _dbg_wall_stuck_frames > 0:
+			# Only log first 5 frames or every 10th
+			if _dbg_wall_stuck_frames <= 5 or _dbg_wall_stuck_frames % 10 == 0:
+				print("[WALL_DBG] F%d | ANIM DECISION: vel_after_ms=(%0.1f, %0.1f) | vel_before_ms=(%0.1f, %0.1f) | abs(vel.x)=%0.1f | is_moving_horiz=%s | pushing_into(after)=%s | pushing_into(before)=%s | override_to_idle=%s" % [
+					_dbg_frame_counter, velocity.x, velocity.y, vel_before_ms.x, vel_before_ms.y, abs(velocity.x), is_moving_horizontally, pushing_into_wall_after, pushing_into_wall_before, _dbg_wall_floor_override])
 	
 	# Determine which animation to play and its scale/offset
 	var current_scale = run_scale
 	var current_offset = run_offset
+	
+	# DEBUG: Track what animation we're about to choose
+	var _dbg_chosen_anim = ""
 	
 	if is_attacking or (animated_sprite.animation == "kick" and animated_sprite.is_playing()):
 		current_scale = kick_scale
@@ -5533,6 +5600,7 @@ func _update_animations() -> void:
 		if animated_sprite.animation != "kick":
 			animated_sprite.play("kick")
 		animated_sprite.speed_scale = 1.0
+		_dbg_chosen_anim = "kick"
 	elif is_ground_sliding:
 		current_scale = ground_slide_scale
 		current_offset = ground_slide_offset
@@ -5548,6 +5616,7 @@ func _update_animations() -> void:
 			animated_sprite.frame = frame_count - 1
 		
 		animated_sprite.speed_scale = 1.0
+		_dbg_chosen_anim = "slide"
 	elif is_on_floor():
 		if is_moving_horizontally:
 			current_scale = run_scale
@@ -5556,6 +5625,7 @@ func _update_animations() -> void:
 			if animated_sprite.animation != "run" or not animated_sprite.is_playing():
 				animated_sprite.play("run")
 			animated_sprite.speed_scale = max(0.5, abs(velocity.x) / max_speed)
+			_dbg_chosen_anim = "run"
 		else:
 			# If stopped on floor, play idle animation
 			current_scale = idle_scale
@@ -5563,6 +5633,7 @@ func _update_animations() -> void:
 			if animated_sprite.animation != "idle" or not animated_sprite.is_playing():
 				animated_sprite.play("idle")
 			animated_sprite.speed_scale = 1.0
+			_dbg_chosen_anim = "idle"
 	elif is_wall_sliding:
 		# TUTORIAL FIX: When wall sliding, freeze on specific frame
 		current_scale = wall_run_scale
@@ -5572,12 +5643,14 @@ func _update_animations() -> void:
 		animated_sprite.stop()
 		animated_sprite.frame = 7  # Display "Wall run 复制_008.png" (frame index 7)
 		animated_sprite.speed_scale = 1.0
+		_dbg_chosen_anim = "wall_slide"
 	elif is_wall_running:
 		current_scale = wall_run_scale
 		current_offset = wall_run_offset
 		if animated_sprite.animation != "wall_run" or not animated_sprite.is_playing():
 			animated_sprite.play("wall_run")
 		animated_sprite.speed_scale = 1.0
+		_dbg_chosen_anim = "wall_run"
 	else:
 		# In air
 		current_scale = jump_scale
@@ -5596,6 +5669,20 @@ func _update_animations() -> void:
 		# For jump animation, we can tie frame to vertical velocity for a more dynamic look
 		# or just let it play. Since it has 28 frames, let's play it.
 		animated_sprite.speed_scale = 1.0
+		_dbg_chosen_anim = "jump"
+	
+	# DEBUG: Detect animation transitions (the core of the flicker bug)
+	if _dbg_wall_stuck and _dbg_chosen_anim != "" and _dbg_chosen_anim != _dbg_prev_anim:
+		# Always log animation changes while on wall, or transitions involving wall states
+		if is_on_wall or _dbg_prev_anim in ["wall_slide", "wall_run"] or _dbg_chosen_anim in ["wall_slide", "wall_run"]:
+			print("[WALL_DBG] F%d | *** ANIM TRANSITION: '%s' → '%s' *** | on_wall=%s | on_floor=%s | wall_sliding=%s | wall_running=%s | vel=(%0.1f, %0.1f) | is_moving_horiz=%s | wall_override=%s" % [
+				_dbg_frame_counter, _dbg_prev_anim, _dbg_chosen_anim, is_on_wall, is_on_floor(), is_wall_sliding, is_wall_running, velocity.x, velocity.y, is_moving_horizontally, _dbg_wall_floor_override])
+		# Also detect rapid idle↔run flicker (the main symptom)
+		if (_dbg_prev_anim == "idle" and _dbg_chosen_anim == "run") or (_dbg_prev_anim == "run" and _dbg_chosen_anim == "idle"):
+			print("[WALL_DBG] F%d | !!! FLICKER DETECTED: '%s' → '%s' !!! | on_wall=%s | vel=(%0.1f, %0.1f) | vel_before_ms=(%0.1f, %0.1f)" % [
+				_dbg_frame_counter, _dbg_prev_anim, _dbg_chosen_anim, is_on_wall, velocity.x, velocity.y, velocity_before_move_and_slide.x, velocity_before_move_and_slide.y])
+	if _dbg_chosen_anim != "":
+		_dbg_prev_anim = _dbg_chosen_anim
 	
 	# Apply scale
 	animated_sprite.scale = Vector2(current_scale, current_scale)
