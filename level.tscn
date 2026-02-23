@@ -1,6 +1,6 @@
 [gd_scene load_steps=32 format=3 uid="uid://clfclx5p38xkv"]
 
-[ext_resource type="Script" path="res://level_manager.gd" id="1_manager"]
+[ext_resource type="Script" uid="uid://dcd0andxt0hx3" path="res://level_manager.gd" id="1_manager"]
 [ext_resource type="PackedScene" uid="uid://vv3m4nx6g3jo" path="res://player.tscn" id="1_qj3g4"]
 [ext_resource type="PackedScene" uid="uid://b8x7lam2n4p5q" path="res://enemy.tscn" id="2_enemy"]
 [ext_resource type="PackedScene" path="res://ParryTutorialEnemy.tscn" id="2_parry_enemy"]
@@ -10,13 +10,13 @@
 [ext_resource type="PackedScene" uid="uid://c4k3l8m5n2qar" path="res://kickable_object.tscn" id="4_kickable"]
 [ext_resource type="PackedScene" uid="uid://b7q8n5ck2wh0e" path="res://pause_menu.tscn" id="8_b0gwe"]
 [ext_resource type="PackedScene" uid="uid://b756hnxt8gukc" path="res://dialogue/DialogueUI.tscn" id="9_dialogue"]
-[ext_resource type="Script" path="res://tutorial_trigger.gd" id="10_o05kg"]
-[ext_resource type="Script" path="res://dialogue_trigger.gd" id="10_trigger"]
+[ext_resource type="Script" uid="uid://beegyi2jgpwbd" path="res://tutorial_trigger.gd" id="10_o05kg"]
+[ext_resource type="Script" uid="uid://b7qrmm1ub7a5l" path="res://dialogue_trigger.gd" id="10_trigger"]
 [ext_resource type="PackedScene" uid="uid://dyetqoxdfluq0" path="res://window.tscn" id="10_window"]
-[ext_resource type="Script" path="res://pendulum_trigger.gd" id="11_pendulum_trigger"]
+[ext_resource type="Script" uid="uid://g336vr3eb3sn" path="res://pendulum_trigger.gd" id="11_pendulum_trigger"]
 [ext_resource type="FontFile" uid="uid://baaiikv2041fb" path="res://Fonts/Funkrocker.otf" id="12_font"]
-[ext_resource type="Script" path="res://minor_anim_system.gd" id="14_wxjrc"]
-[ext_resource type="Script" path="res://tutorial_block.gd" id="18_4c15r"]
+[ext_resource type="Script" uid="uid://k7nuntbsw4by" path="res://minor_anim_system.gd" id="14_wxjrc"]
+[ext_resource type="Script" uid="uid://b1wge8i3j3rr0" path="res://tutorial_block.gd" id="18_4c15r"]
 [ext_resource type="Texture2D" uid="uid://b5v5ch6lmmej" path="res://Sprites/level_backgrounds/IMG_4518.jpg" id="19_42xju"]
 [ext_resource type="Texture2D" uid="uid://iqnxi42u7eex" path="res://Sprites/level_backgrounds/IMG_4463.JPG" id="19_ait7k"]
 [ext_resource type="PackedScene" uid="uid://6624qfeempan" path="res://LevelFinishTrigger.tscn" id="19_finish"]
@@ -191,7 +191,7 @@ position = Vector2(8740, 3803)
 [node name="KickableObjects" type="Node2D" parent="."]
 
 [node name="KickableObject5" parent="KickableObjects" instance=ExtResource("4_kickable")]
-position = Vector2(3446, 2623)
+position = Vector2(3079, 813)
 fragment_count = 3
 
 [node name="Window1" parent="KickableObjects" instance=ExtResource("10_window")]
@@ -242,7 +242,7 @@ shape = SubResource("RectangleShape2D_dialogue_trigger")
 [node name="Tutorial Trigger" type="Area2D" parent="."]
 position = Vector2(853, 887)
 script = ExtResource("10_o05kg")
-tutorial_message = "Long press K to jump higher"
+tutorial_message = "Long press J to jump higher"
 
 [node name="longK" type="CollisionShape2D" parent="Tutorial Trigger"]
 position = Vector2(5, -3)
@@ -253,7 +253,7 @@ shape = SubResource("RectangleShape2D_tutorial_longK")
 position = Vector2(3865, 789)
 script = ExtResource("10_o05kg")
 tutorial_message = "Oops! Dead end
-See if there is another way out"
+Find another way out"
 
 [node name="deadend" type="CollisionShape2D" parent="Tutorial Trigger5"]
 position = Vector2(-2, 4)
@@ -262,7 +262,7 @@ shape = SubResource("RectangleShape2D_tutorial_deadend")
 [node name="Tutorial Trigger4" type="Area2D" parent="."]
 position = Vector2(7165, 5495)
 script = ExtResource("10_o05kg")
-tutorial_message = "Go towards Wall to Wallrun"
+tutorial_message = "Jump towards Wall to Wallrun"
 
 [node name="wallrun" type="CollisionShape2D" parent="Tutorial Trigger4"]
 position = Vector2(36, -8)
@@ -271,7 +271,7 @@ shape = SubResource("RectangleShape2D_tutorial_wallrun")
 [node name="Tutorial Trigger2" type="Area2D" parent="."]
 position = Vector2(413, 1127)
 script = ExtResource("10_o05kg")
-tutorial_message = "Press K To Jump"
+tutorial_message = "Press J To Jump"
 
 [node name="K2Jump" type="CollisionShape2D" parent="Tutorial Trigger2"]
 position = Vector2(1, -3)
@@ -280,9 +280,9 @@ shape = SubResource("RectangleShape2D_tutorial_k2jump")
 [node name="Tutorial Trigger3" type="Area2D" parent="."]
 position = Vector2(4156, -118)
 script = ExtResource("10_o05kg")
-tutorial_message = "Shift to Slide"
+tutorial_message = "Press L to Slide"
 
-[node name="shiftSlide" type="CollisionShape2D" parent="Tutorial Trigger3"]
+[node name="L2Slide" type="CollisionShape2D" parent="Tutorial Trigger3"]
 position = Vector2(4, 14)
 shape = SubResource("RectangleShape2D_tutorial_shiftslide")
 
@@ -295,27 +295,28 @@ position = Vector2(19, 6)
 shape = SubResource("RectangleShape2D_pendulum")
 
 [node name="KickWindowLabel" type="Label" parent="."]
-offset_left = 5043.0
-offset_top = 32.0
-offset_right = 5717.0
-offset_bottom = 251.0
+offset_left = 4817.0
+offset_top = 37.0
+offset_right = 5715.0
+offset_bottom = 256.0
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 12
 theme_override_fonts/font = ExtResource("12_font")
 theme_override_font_sizes/font_size = 72
-text = "Dash through window "
+text = "Kick or Dash through window "
 horizontal_alignment = 1
 
 [node name="KickLabel" type="Label" parent="."]
-offset_left = 3120.0
-offset_top = 685.0
-offset_right = 3520.0
-offset_bottom = 793.0
+offset_left = 3049.0
+offset_top = 513.0
+offset_right = 3583.0
+offset_bottom = 732.0
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 12
 theme_override_fonts/font = ExtResource("12_font")
 theme_override_font_sizes/font_size = 72
-text = "J to Kick"
+text = "K to Kick a block 
+or an enemy"
 horizontal_alignment = 1
 
 [node name="MoveADLabel" type="Label" parent="."]
@@ -383,7 +384,7 @@ position = Vector2(3876, -72)
 script = ExtResource("18_4c15r")
 block_id = "airdashTutorial"
 instruction_message = "Not far enough!
-Shift in the air to dash further"
+Press L in the air to Dash further"
 allowed_action = "dash"
 
 [node name="AirdashTutor" type="CollisionShape2D" parent="AirdashTutor"]
