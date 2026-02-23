@@ -1447,15 +1447,6 @@ func _physics_process(delta: float) -> void:
 		_post_movement_updates(space_state)
 		return
 	
-	# 13. QOL: Ledge Climb (if enabled and active, skip normal movement)
-	# Don't process ledge climb during rewind tracing (player should follow exact historical path)
-	if is_ledge_climbing and not is_rewind_tracing:
-		_process_ledge_climb(delta)
-		# NOTE: We don't call move_and_slide() here because _process_ledge_climb 
-		# sets global_position directly for a guaranteed result.
-		_post_movement_updates(space_state)
-		return
-	
 	# Skip physics/movement when paused (but still process input for tutorials)
 	if is_paused:
 		# Only process input handlers, skip movement/physics
@@ -2694,95 +2685,21 @@ func _check_ledge_climb(space_state: PhysicsDirectSpaceState2D) -> void:
 
 
 func _start_ledge_climb() -> void:
-	"""Initiate the ledge climb animation."""
-	is_ledge_climbing = true
-	ledge_climb_progress = 0.0
-	ledge_climb_start_pos = global_position
+	"""LEDGE CORRECTION: Instantly teleport player onto the ledge without resetting momentum."""
+	# Instantly move to the target position on top of the ledge
+	global_position = ledge_climb_target_pos
 	
-	# Store horizontal velocity if momentum preservation is enabled
-	if ledge_climb_preserve_momentum:
-		ledge_climb_stored_velocity = velocity.x
-	else:
-		ledge_climb_stored_velocity = 0.0
+	# Set cooldown to prevent immediate re-trigger
+	ledge_climb_cooldown_timer = 0.3
 	
-	# Zero out velocity (will be restored/applied later)
-	velocity = Vector2.ZERO
+	# Preserve full player momentum - don't touch velocity.x at all
+	# Only zero out negative y velocity (upward into wall) so player doesn't
+	# bounce back down; keep positive y (downward) and all horizontal momentum
+	if velocity.y < 0:
+		velocity.y = 0.0
+	
 	is_jumping = false
 	is_wall_sliding = false
-	# Could trigger climb effects here (animation, sound, etc.)
-
-
-func _process_ledge_climb(delta: float) -> void:
-	"""Smoothly animate the player climbing up the ledge using a two-phase movement."""
-	# Advance climb progress
-	ledge_climb_progress += delta / ledge_climb_duration
-	
-	# Clamp progress to 0-1 range
-	ledge_climb_progress = min(ledge_climb_progress, 1.0)
-	
-	# Use ease-out curve for smooth deceleration at the end
-	var ease_progress = _ease_out_cubic(ledge_climb_progress)
-	
-	# TWO-PHASE MOVEMENT: 
-	# 1. Move UP to clear the ledge height (first 60% of the ease_progress)
-	# 2. Move FORWARD onto the ledge (last 40% of the ease_progress)
-	var vertical_cutoff = 0.6
-	var current_target_pos = Vector2.ZERO
-	
-	if ease_progress < vertical_cutoff:
-		# PHASE 1: Vertical clearing
-		var p = ease_progress / vertical_cutoff
-		current_target_pos.y = lerp(ledge_climb_start_pos.y, ledge_climb_target_pos.y, p)
-		current_target_pos.x = ledge_climb_start_pos.x
-	else:
-		# PHASE 2: Horizontal landing
-		var p = (ease_progress - vertical_cutoff) / (1.0 - vertical_cutoff)
-		current_target_pos.y = ledge_climb_target_pos.y
-		current_target_pos.x = lerp(ledge_climb_start_pos.x, ledge_climb_target_pos.x, p)
-	
-	# CRITICAL: For QOL ledge climb, we set global_position directly to ensure 
-	# the player doesn't get stuck on the corner due to move_and_slide's collision logic.
-	# The _check_ledge_climb raycasts already verified this path is clear.
-	var new_pos = current_target_pos
-	if delta > 0:
-		velocity = (new_pos - global_position) / delta
-	global_position = new_pos
-	
-	# Finish climb when progress reaches 1.0
-	if ledge_climb_progress >= 1.0:
-		_finish_ledge_climb()
-
-
-func _finish_ledge_climb() -> void:
-	"""Complete the ledge climb and return to normal movement."""
-	is_ledge_climbing = false
-	ledge_climb_progress = 0.0
-	
-	# Set cooldown to prevent immediate re-trigger (fixes hover bug)
-	ledge_climb_cooldown_timer = 0.3  # 0.3 second cooldown
-	
-	# Restore horizontal velocity with momentum preservation
-	if ledge_climb_preserve_momentum:
-		# Apply retained velocity
-		var restored_velocity = ledge_climb_stored_velocity * ledge_climb_momentum_retention
-		
-		# Ensure minimum exit speed in the direction of movement
-		if abs(restored_velocity) < ledge_climb_min_exit_speed and ledge_climb_stored_velocity != 0.0:
-			restored_velocity = sign(ledge_climb_stored_velocity) * ledge_climb_min_exit_speed
-		
-		velocity.x = restored_velocity
-		velocity.y = 0.0
-		
-		# Activate grace period to protect momentum from immediate deceleration
-		ledge_climb_grace_timer = ledge_climb_momentum_grace_period
-	else:
-		# No momentum preservation - zero velocity
-		velocity = Vector2.ZERO
-	
-	# Clear stored velocity
-	ledge_climb_stored_velocity = 0.0
-	
-	# Could trigger landing effects here (particles, sound, etc.)
 
 
 func _cancel_ledge_climb() -> void:
