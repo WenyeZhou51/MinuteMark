@@ -98,10 +98,10 @@ var action_lines_instance: CanvasLayer = null
 @export_group("Wall Jump")
 @export var wall_jump_enabled: bool = true  ## Enable wall jump mechanics
 @export var wall_check_distance: float = 8.0  ## Distance to check for walls from player edge
-@export var wall_slide_speed: float = 60.0  ## Speed when sliding down a wall (slower fall)
+@export var wall_slide_speed: float = 30.0  ## Speed when sliding down a wall (slower fall)
 @export var wall_jump_horizontal_velocity: float = 400.0  ## Horizontal push away from wall
 @export var wall_jump_vertical_velocity: float = -551.25  ## Vertical jump force from wall (adjusted to maintain jump height with increased gravity)
-@export var wall_jump_dash_prevention_duration: float = 0.2  ## Duration after walljump during which dash is disabled (seconds)
+@export var wall_jump_dash_prevention_duration: float = 1.0  ## Duration after walljump during which backward dash (toward wall) is disabled (seconds)
 @export var wall_jump_proximity_distance: float = 10.0  ## Distance within which player can wall jump even when airborne
 
 # WALL RUN CONFIGURATION
@@ -156,8 +156,8 @@ var action_lines_instance: CanvasLayer = null
 @export var tear_width: float = 150.0  ## Vertical size (width) of the tear line
 @export var tear_v_squish: float = 0.4  ## How much to squish the image vertically (0.0 - 1.0)
 
-@export_subgroup("Air Dash")
-@export var air_dash_horizontal_impulse: float = 500.0  ## Horizontal impulse force applied at start of air dash
+@export_group("Air Dash")
+@export var air_dash_horizontal_impulse: float = 3000.0  ## Horizontal impulse force applied at start of air dash
 @export var air_dash_vertical_impulse: float = 100.0  ## Vertical impulse force applied at start of air dash
 @export var air_dash_duration: float = 0.2  ## Duration of air dash in seconds
 @export var air_dash_cooldown: float = 0.35  ## Cooldown between air dashes
@@ -171,7 +171,7 @@ var action_lines_instance: CanvasLayer = null
 # KICK ATTACK CONFIGURATION
 @export_group("Kick Attack")
 @export var kick_scale: float = 0.03
-@export var kick_fps: float = 24.0
+@export var kick_fps: float = 36.0
 @export var kick_offset: Vector2 = Vector2.ZERO
 @export var attack_enabled: bool = true  ## Enable kick attack mechanics
 @export var attack_detection_range: float = 80.0  ## Range to detect enemies for attack (smaller range)
@@ -560,24 +560,19 @@ func _ready() -> void:
 	var victory_ui = root.get_node_or_null("VictoryUI")
 	var death_ui = root.get_node_or_null("DeathUI")
 	
-	print("Player: _ready - VictoryUI: ", victory_ui != null, " DeathUI: ", death_ui != null)
-	
 	if victory_ui:
-		print("Player: Cleaning up VictoryUI and restarting music immediately")
 		victory_ui.queue_free()
 		# For Victory, we transition immediately, so restart music now
 		if AudioManager:
 			AudioManager.restart_music()
 			
 	elif death_ui:
-		print("Player: Cleaning up DeathUI and restarting music immediately")
 		death_ui.queue_free()
 		# For Death, we restart immediately because we just reloaded
 		if AudioManager:
 			AudioManager.restart_music()
 			
 	else:
-		print("Player: No UI found, checking music status")
 		# Normal load or manual restart (Pause Menu restart falls here)
 		# Since PauseMenu is destroyed on reload, we arrive here "fresh".
 		# We should restart music here to ensure timing is reset for the new run.
@@ -769,7 +764,6 @@ func _check_tutorial_blocks_during_rewind() -> void:
 
 func _check_tutorial_blocks_after_rewind() -> void:
 	"""Check if player is inside any tutorial blocks after rewind ends."""
-	print("Player: Checking tutorial blocks after rewind")
 	# Find all tutorial blocks by searching the scene tree
 	# Start from the root and recursively search
 	_find_tutorial_blocks_recursive(get_tree().root)
@@ -778,7 +772,6 @@ func _find_tutorial_blocks_recursive(node: Node) -> void:
 	"""Recursively find tutorial block nodes and check if player is inside."""
 	if node.has_method("check_player_inside"):
 		# This is a tutorial block - check if player is inside
-		print("Player: Found tutorial block, checking if player is inside")
 		node.check_player_inside()
 	
 	# Recursively check children
@@ -985,6 +978,10 @@ func _physics_process(delta: float) -> void:
 		# Get raw input for dash direction (ignoring overrides like wall jump forced direction)
 		var raw_input_x = Input.get_axis("move_left", "move_right")
 		
+		# Determine intended dash direction to check backward-dash prevention after walljump
+		var intended_dash_dir = sign(raw_input_x) if abs(raw_input_x) > 0.1 else facing_direction
+		var is_backward_walljump_dash = wall_jump_dash_prevention_timer > 0 and wall_jump_source_wall_direction != 0.0 and sign(intended_dash_dir) == sign(wall_jump_source_wall_direction)
+		
 		# Tutorial lock check
 		if is_tutorial_locked:
 			if tutorial_allowed_action == "dash":
@@ -993,7 +990,7 @@ func _physics_process(delta: float) -> void:
 					_start_ground_slide(raw_input_x)
 					if TutorialBlockManager:
 						TutorialBlockManager.check_action_performed("dash")
-				elif not is_on_floor() and air_dash_cooldown_timer <= 0 and wall_jump_dash_prevention_timer <= 0:
+				elif not is_on_floor() and air_dash_cooldown_timer <= 0 and not is_backward_walljump_dash:
 					_start_air_dash(raw_input_x)
 					if TutorialBlockManager:
 						TutorialBlockManager.check_action_performed("dash")
@@ -1003,8 +1000,8 @@ func _physics_process(delta: float) -> void:
 			if is_on_floor() and ground_slide_cooldown_timer <= 0:
 				# Ground slide
 				_start_ground_slide(raw_input_x)
-			elif not is_on_floor() and air_dash_cooldown_timer <= 0 and wall_jump_dash_prevention_timer <= 0:
-				# Air dash (cooldown-based)
+			elif not is_on_floor() and air_dash_cooldown_timer <= 0 and not is_backward_walljump_dash:
+				# Air dash (cooldown-based, blocked only if dashing back toward walljump wall)
 				_start_air_dash(raw_input_x)
 	
 	# Handle rewind input (hold-to-rewind)
@@ -1807,27 +1804,6 @@ func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceS
 		if (wall_normal.x > 0 and input_direction < 0) or (wall_normal.x < 0 and input_direction > 0):
 			is_wall_sliding = true
 	
-	# DEBUG: Log why wall sliding isn't activating on platforms
-	if is_on_wall and is_on_runnable_wall and not is_wall_sliding:
-		# Check if we are near a falling platform
-		var is_near_falling = false
-		for i in range(get_slide_collision_count()):
-			var collision = get_slide_collision(i)
-			var collider = collision.get_collider()
-			if collider and collider.name.to_lower().contains("platform"):
-				is_near_falling = true
-				break
-		
-		if is_near_falling:
-			print("[WALL SLIDE DEBUG] Not sliding on platform:")
-			print("  velocity.y: ", velocity.y)
-			print("  is_ground_sliding: ", is_ground_sliding)
-			print("  is_air_dashing: ", is_air_dashing)
-			print("  input_direction: ", input_direction)
-			print("  wall_normal: ", wall_normal)
-			var pressing_toward = (wall_normal.x > 0 and input_direction < 0) or (wall_normal.x < 0 and input_direction > 0)
-			print("  pressing_toward: ", pressing_toward)
-
 	elif is_on_wall and not is_on_runnable_wall:
 		pass
 
@@ -2339,49 +2315,10 @@ func _handle_jump_input() -> void:
 		# Check if there's a wall nearby (either touching or within proximity distance)
 		var nearby_wall = _check_nearby_wall_for_jump()
 		
-		# DEBUG: Log wall jump conditions when near a wall
-		if nearby_wall.detected:
-			print("[WALL JUMP DEBUG] Jump pressed near wall:")
-			print("  wall_jump_enabled: ", wall_jump_enabled)
-			print("  nearby_wall.detected: ", nearby_wall.detected)
-			print("  nearby_wall.runnable: ", nearby_wall.runnable)
-			print("  nearby_wall.normal: ", nearby_wall.normal)
-			print("  is_wall_running: ", is_wall_running)
-			print("  wall_jump_cooldown: ", wall_jump_cooldown)
-			print("  is_on_floor: ", is_on_floor())
-			print("  velocity: ", velocity)
-			var all_conditions_met = wall_jump_enabled and nearby_wall.detected and nearby_wall.runnable and not is_wall_running and wall_jump_cooldown <= 0 and not is_on_floor()
-			print("  ALL CONDITIONS MET: ", all_conditions_met)
-		
 		# Allow wall jump if we detect a nearby runnable wall (regardless of input direction)
 		if wall_jump_enabled and nearby_wall.detected and nearby_wall.runnable and not is_wall_running and wall_jump_cooldown <= 0 and not is_on_floor():
 			_perform_wall_jump(nearby_wall.normal)
 		else:
-			# DEBUG: Log why wall jump failed if near a falling platform
-			if nearby_wall.detected and nearby_wall.runnable and nearby_wall.normal != Vector2.ZERO:
-				var collider_name = "unknown"
-				# Try to find the collider for debug purposes
-				var space_state = get_world_2d().direct_space_state
-				var collision_shape = $CollisionShape2D
-				if collision_shape and collision_shape.shape:
-					var shape = collision_shape.shape as RectangleShape2D
-					var half_width = shape.size.x / 2.0
-					var ray_origin = global_position + collision_shape.position + Vector2(half_width * -sign(nearby_wall.normal.x), 0)
-					var ray_end = ray_origin + nearby_wall.normal * -20.0
-					var query = PhysicsRayQueryParameters2D.create(ray_origin, ray_end)
-					query.exclude = [self]
-					var hit = space_state.intersect_ray(query)
-					if hit:
-						collider_name = hit.collider.name
-				
-				if collider_name.to_lower().contains("platform"):
-					print("[WALL JUMP DEBUG] Jump failed near platform: ", collider_name)
-					print("  wall_jump_enabled: ", wall_jump_enabled)
-					print("  is_wall_running: ", is_wall_running)
-					print("  wall_jump_cooldown: ", wall_jump_cooldown)
-					print("  is_on_floor: ", is_on_floor())
-					print("  is_ground_sliding: ", is_ground_sliding)
-
 			# Check if we can jump immediately
 			var can_jump: bool = can_normal_jump
 			
@@ -2504,22 +2441,12 @@ func _perform_wall_jump(override_wall_normal: Vector2 = Vector2.ZERO) -> void:
 	# Use override if provided, otherwise use current wall normal
 	var jump_wall_normal = override_wall_normal if override_wall_normal != Vector2.ZERO else wall_normal
 	
-	# DEBUG: Log wall jump execution
-	print("[WALL JUMP DEBUG] *** EXECUTING WALL JUMP ***")
-	print("  Override wall_normal: ", override_wall_normal)
-	print("  Initial wall_normal: ", wall_normal)
-	print("  Using jump_wall_normal: ", jump_wall_normal)
-	print("  velocity before: ", velocity)
-	print("  is_wall_running: ", is_wall_running)
-	
 	# If wall_normal is zero, we might have lost it, try to infer from velocity
 	if jump_wall_normal.length_squared() == 0:
-		print("  WARNING: wall_normal is zero, inferring from velocity")
 		if velocity.x < 0:
 			jump_wall_normal = Vector2.RIGHT  # Was on left wall
 		else:
 			jump_wall_normal = Vector2.LEFT  # Was on right wall
-		print("  Inferred wall_normal: ", jump_wall_normal)
 	
 	
 	# Check if jumping from a wall run (end it)
@@ -2530,8 +2457,6 @@ func _perform_wall_jump(override_wall_normal: Vector2 = Vector2.ZERO) -> void:
 	# All wall jumps use the same velocities
 	velocity.y = wall_jump_vertical_velocity
 	velocity.x = jump_wall_normal.x * wall_jump_horizontal_velocity
-	print("  Wall jump applied: ", velocity)
-	
 	
 	# Set jump state
 	is_jumping = true
@@ -2551,10 +2476,6 @@ func _perform_wall_jump(override_wall_normal: Vector2 = Vector2.ZERO) -> void:
 	# Clear wall state to prevent immediate re-attachment
 	is_on_wall = false
 	is_wall_sliding = false
-	
-	print("  Final velocity: ", velocity)
-	print("  wall_jump_cooldown set to: ", wall_jump_cooldown)
-	print("  wall_jump_forced_direction: ", wall_jump_forced_direction)
 	
 	# Trigger wall jump dust effect
 	# Spawn at side of player touching wall, pointing away from wall
@@ -3270,31 +3191,17 @@ func _on_enemy_destroyed() -> void:
 
 func _on_bullet_hit(bullet: Node2D, shooter: Node2D = null) -> void:
 	"""Called when player is hit by a bullet - starts grace period for parry."""
-	print("[Player DEBUG] _on_bullet_hit called!")
-	print("[Player DEBUG] Bullet ID: ", bullet.get_instance_id() if bullet else "null")
-	print("[Player DEBUG] Bullet name: ", bullet.name if bullet else "null")
-	print("[Player DEBUG] Shooter: ", shooter.name if shooter else "null")
-	print("[Player DEBUG] early_parry_timer: ", early_parry_timer)
-	print("[Player DEBUG] is_attacking: ", is_attacking)
-	print("[Player DEBUG] is_stunned: ", is_stunned)
-	print("[Player DEBUG] is_invulnerable: ", is_invulnerable)
-	print("[Player DEBUG] bullet_grace_period_active: ", bullet_grace_period_active)
-	
 	# If we are already trying to parry (too early press), trigger it immediately!
 	if early_parry_timer > 0 and not kick_has_fired and is_instance_valid(bullet):
-		print("[Player DEBUG] Triggering early parry")
 		_trigger_early_parry(KickTargetType.BULLET, bullet)
 		return
 		
 	# Check for invulnerability from dashes, already stunned, grace periods active, or post-stun invulnerability
 	if not is_attacking and not is_stunned and not is_invulnerable and not grace_period_active and not bullet_grace_period_active and stun_invulnerability_timer <= 0:
-		print("[Player DEBUG] Starting bullet grace period")
 		# Start bullet grace period
 		bullet_grace_period_active = true
 		bullet_grace_period_timer = bullet_hit_grace_period
 		bullet_that_hit = bullet
-	else:
-		print("[Player DEBUG] Bullet hit ignored due to player state")
 
 
 func _apply_bullet_hitstun() -> void:
@@ -5278,13 +5185,9 @@ func _create_bullet_parry_indicator() -> void:
 	add_child(bullet_parry_indicator)
 
 func set_speed_cap(enabled: bool) -> void:
-	print("[Player] set_speed_cap called: ", enabled, " (was: ", is_speed_capped, ")")
 	is_speed_capped = enabled
 	if enabled:
 		velocity.x = clamp(velocity.x, -300.0, 300.0)
-		print("[Player] Speed cap ENABLED, velocity clamped to: ", velocity.x)
-	else:
-		print("[Player] Speed cap DISABLED, player can move at full speed")
 
 func die() -> void:
 	"""Kill the player and restart the level."""

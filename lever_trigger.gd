@@ -54,13 +54,8 @@ func _activate() -> void:
 	if target and target.has_method("start_motion"):
 		target.start_motion()
 		has_triggered = true
-		if debug_logs:
-			print("[LeverTrigger] Activated platform system.")
 		_flip_lever()
 		queue_redraw()
-	else:
-		if debug_logs:
-			print("[LeverTrigger] No valid target at path: ", target_system_path)
 
 
 func _update_pulse() -> void:

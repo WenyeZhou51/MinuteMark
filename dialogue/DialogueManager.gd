@@ -46,7 +46,6 @@ func start(id: String) -> void:
 	var dialogue_stats = get_node_or_null("/root/DialogueStats")
 	if dialogue_stats and dialogue_stats.current_level_path != "" and id != "interrupt":
 		var stats = dialogue_stats.get_current_level_stats()
-		print("DialogueManager: Test message - Level: ", dialogue_stats.current_level_path, ", Total dialogues: ", stats["interrupt_count"] + stats["peaceful_count"], ", Stats: ", stats)
 		var total_dialogues = stats["interrupt_count"] + stats["peaceful_count"]
 		var visit_text = ""
 		if total_dialogues == 0:

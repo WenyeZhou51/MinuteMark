@@ -3,7 +3,7 @@
 [ext_resource type="PackedScene" uid="uid://clfclx5p38xkv" path="res://level.tscn" id="1_level"]
 [ext_resource type="Script" path="res://moving_spotlight_test.gd" id="2_script"]
 [ext_resource type="Shader" path="res://shaders/bar_lighting.gdshader" id="3_shader"]
-[ext_resource type="PackedScene" path="res://fire.tscn" id="4_fire"]
+[ext_resource type="PackedScene" uid="uid://bfqh4v31qreeb" path="res://fire.tscn" id="4_fire"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_spotlight"]
 shader = ExtResource("3_shader")

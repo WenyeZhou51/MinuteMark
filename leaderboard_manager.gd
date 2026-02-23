@@ -56,9 +56,6 @@ func _ready():
 	# Set timeout to 10 seconds
 	http_request.timeout = 10.0
 	
-	print("LeaderboardManager: Initialized with PROCESS_MODE_ALWAYS")
-	print("LeaderboardManager: HTTPRequest configured to work when paused")
-	
 	# Try to fetch global leaderboard on startup if API is enabled
 	if api_enabled:
 		fetch_global_leaderboard()
@@ -71,13 +68,11 @@ func get_local_ip_address():
 		# Filter out localhost and IPv6 link-local addresses
 		if ip != "127.0.0.1" and not ip.begins_with("fe80:"):
 			local_ip_address = ip
-			print("LeaderboardManager: Local IP address: " + local_ip_address)
 			return
 	
 	# Fallback: use a generated identifier if we can't get IP
 	if local_ip_address.is_empty():
 		local_ip_address = "unknown_" + player_id.substr(0, 8)
-		print("LeaderboardManager: Could not determine IP, using fallback: " + local_ip_address)
 
 func load_player_id():
 	"""Load or generate a unique player ID."""
@@ -92,7 +87,6 @@ func load_player_id():
 		player_id = _generate_player_id()
 		save_player_id()
 	
-	print("LeaderboardManager: Player ID: " + player_id)
 
 func save_player_id():
 	"""Save player ID to file."""
@@ -111,7 +105,6 @@ func load_player_name():
 			if player_name.is_empty():
 				player_name = "PLAYER"
 	
-	print("LeaderboardManager: Player name: " + player_name)
 
 func set_player_name(name: String):
 	"""Set and save player name."""
@@ -189,7 +182,7 @@ func add_score(time_taken: float) -> bool:
 		if existing_global.is_empty():
 			submit_score_to_api(new_entry)
 		else:
-			print("LeaderboardManager: Name '%s' already exists globally, skipping INSERT" % player_name)
+			pass  # Name already exists globally, skip INSERT
 	
 	return is_new_best
 
@@ -254,7 +247,6 @@ func update_score_for_name(new_time: float) -> bool:
 func _update_score_on_api(new_time: float):
 	"""Update an existing score on Supabase using HTTP PATCH."""
 	if is_submitting:
-		print("LeaderboardManager: Already submitting, skipping update...")
 		return
 	
 	if not api_enabled:
@@ -277,12 +269,6 @@ func _update_score_on_api(new_time: float):
 		"Authorization: Bearer " + SUPABASE_API_KEY,
 		"Prefer: return=minimal"
 	]
-	
-	print("=== Updating existing entry on Supabase ===")
-	print("URL: %s" % url)
-	print("Payload: %s" % json_payload)
-	print("Player: %s" % player_name)
-	print("============================================")
 	
 	set_meta("is_updating_entry", true)
 	
@@ -312,11 +298,9 @@ func get_current_level_index() -> int:
 func submit_score_to_api(score_data: Dictionary):
 	"""Submit a score to Supabase. First checks if cleanup is needed."""
 	if is_submitting:
-		print("LeaderboardManager: Already submitting a score, skipping...")
 		return
 	
 	if not api_enabled:
-		print("LeaderboardManager: API disabled, skipping submission")
 		return
 	
 	is_submitting = true
@@ -343,10 +327,6 @@ func submit_score_to_api(score_data: Dictionary):
 		"Authorization: Bearer " + SUPABASE_API_KEY
 	]
 	
-	print("=== Checking for cleanup need ===")
-	print("URL: %s" % check_url)
-	print("================================")
-	
 	# Set a flag to indicate this is a cleanup check, not a submission or fetch
 	set_meta("is_checking_cleanup", true)
 	
@@ -366,10 +346,6 @@ func _count_level_entries(level: int):
 		"Authorization: Bearer " + SUPABASE_API_KEY
 	]
 	
-	print("=== Counting entries for level %d ===" % level)
-	print("URL: %s" % count_url)
-	print("====================================")
-	
 	set_meta("is_counting_entries", true)
 	
 	var error = http_request.request(count_url, headers, HTTPClient.METHOD_GET)
@@ -387,10 +363,6 @@ func _delete_worst_entry(entry_id: int):
 		"apikey: " + SUPABASE_API_KEY,
 		"Authorization: Bearer " + SUPABASE_API_KEY
 	]
-	
-	print("=== Deleting worst entry (id: %d) ===" % entry_id)
-	print("URL: %s" % delete_url)
-	print("====================================")
 	
 	set_meta("is_deleting_entry", true)
 	
@@ -419,13 +391,6 @@ func _actually_submit_score():
 		"Prefer: return=minimal"
 	]
 	
-	print("=== Actually Submitting to Supabase ===")
-	print("URL: %s" % url)
-	print("Payload: %s" % json_payload)
-	print("Player: %s" % supabase_payload["player_name"])
-	print("Time: %.2f seconds" % supabase_payload["time_taken"])
-	print("=======================================")
-	
 	set_meta("is_actually_submitting", true)
 	
 	var error = http_request.request(url, headers, HTTPClient.METHOD_POST, json_payload)
@@ -438,11 +403,9 @@ func _actually_submit_score():
 func fetch_global_leaderboard(level: int = -1):
 	"""Fetch the global leaderboard from Supabase. If level is -1, uses last_submitted_level."""
 	if is_fetching:
-		print("LeaderboardManager: Already fetching leaderboard, skipping...")
 		return
 	
 	if not api_enabled:
-		print("LeaderboardManager: API disabled, skipping fetch")
 		return
 	
 	if level == -1:
@@ -457,10 +420,6 @@ func fetch_global_leaderboard(level: int = -1):
 		"Authorization: Bearer " + SUPABASE_API_KEY
 	]
 	
-	print("=== Fetching from Supabase (level %d) ===" % level)
-	print("URL: %s" % url)
-	print("==============================")
-	
 	var error = http_request.request(url, headers, HTTPClient.METHOD_GET)
 	if error != OK:
 		push_error("LeaderboardManager: HTTP request failed to initiate. Error code: %d" % error)
@@ -468,18 +427,7 @@ func fetch_global_leaderboard(level: int = -1):
 
 func _on_http_request_completed(result: int, response_code: int, headers: PackedStringArray, body: PackedByteArray):
 	"""Handle HTTP request completion."""
-	print("🔔 CALLBACK TRIGGERED! HTTP request completed")
-	
 	var response_text = body.get_string_from_utf8()
-	
-	# Debug: Print full response details
-	print("=== HTTP Request Completed ===")
-	print("Result code: %d (0=OK, see HTTPRequest.Result enum)" % result)
-	print("Response code: %d" % response_code)
-	print("Response body: %s" % response_text)
-	print("Is submitting: %s" % is_submitting)
-	print("Is fetching: %s" % is_fetching)
-	print("=============================")
 	
 	# Handle entry update via PATCH
 	if has_meta("is_updating_entry"):
@@ -487,13 +435,9 @@ func _on_http_request_completed(result: int, response_code: int, headers: Packed
 		is_submitting = false
 		
 		if response_code == 200 or response_code == 204:
-			print("LeaderboardManager: ✓ Entry updated successfully on Supabase")
 			var timer = get_tree().create_timer(0.5)
 			timer.timeout.connect(_on_submission_delay_complete)
 		else:
-			print("LeaderboardManager: ✗ Failed to update entry on Supabase")
-			print("  Response code: %d" % response_code)
-			print("  Error: %s" % response_text)
 			push_error("LeaderboardManager: Update failed. Response code: %d" % response_code)
 		return
 	
@@ -505,7 +449,6 @@ func _on_http_request_completed(result: int, response_code: int, headers: Packed
 			var parse_result = json.parse(response_text)
 			if parse_result == OK and json.data is Array:
 				var entries = json.data
-				print("LeaderboardManager: Found %d worst entry candidates" % entries.size())
 				
 				# Now count total entries for this level
 				if has_meta("pending_submission"):
@@ -519,7 +462,6 @@ func _on_http_request_completed(result: int, response_code: int, headers: Packed
 				is_submitting = false
 				remove_meta("pending_submission")
 		else:
-			print("LeaderboardManager: Cleanup check failed, proceeding with submission anyway")
 			_actually_submit_score()
 		return
 	
@@ -531,7 +473,6 @@ func _on_http_request_completed(result: int, response_code: int, headers: Packed
 			var parse_result = json.parse(response_text)
 			if parse_result == OK and json.data is Array:
 				var entry_count = json.data.size()
-				print("LeaderboardManager: Level has %d total entries" % entry_count)
 				
 				if entry_count >= MAX_GLOBAL_PER_LEVEL:
 					# Need to delete the worst entry before inserting
@@ -546,7 +487,6 @@ func _on_http_request_completed(result: int, response_code: int, headers: Packed
 							"Authorization: Bearer " + SUPABASE_API_KEY
 						]
 						
-						print("=== Getting worst entry ID for deletion ===")
 						set_meta("is_getting_worst_id", true)
 						
 						var error = http_request.request(check_url, req_headers, HTTPClient.METHOD_GET)
@@ -556,13 +496,11 @@ func _on_http_request_completed(result: int, response_code: int, headers: Packed
 							remove_meta("pending_submission")
 				else:
 					# Less than MAX_GLOBAL_PER_LEVEL entries, just submit directly
-					print("LeaderboardManager: Less than %d entries, no cleanup needed" % MAX_GLOBAL_PER_LEVEL)
 					_actually_submit_score()
 			else:
 				push_error("LeaderboardManager: Failed to parse entry count response")
 				_actually_submit_score()  # Proceed anyway
 		else:
-			print("LeaderboardManager: Entry counting failed, proceeding with submission anyway")
 			_actually_submit_score()
 		return
 	
@@ -576,28 +514,19 @@ func _on_http_request_completed(result: int, response_code: int, headers: Packed
 				var worst_entry = json.data[0]
 				var worst_id = worst_entry.get("id", -1)
 				if worst_id > 0:
-					print("LeaderboardManager: Worst entry ID: %d (time: %.2f)" % [worst_id, worst_entry.get("time_taken", 0.0)])
 					_delete_worst_entry(worst_id)
 				else:
-					print("LeaderboardManager: No valid ID found, proceeding with submission")
 					_actually_submit_score()
 			else:
-				print("LeaderboardManager: No worst entry found, proceeding with submission")
 				_actually_submit_score()
 		else:
-			print("LeaderboardManager: Failed to get worst entry ID, proceeding anyway")
 			_actually_submit_score()
 		return
 	
 	# Handle entry deletion (step 4: delete worst entry)
 	if has_meta("is_deleting_entry"):
 		remove_meta("is_deleting_entry")
-		if response_code == 200 or response_code == 204:
-			print("LeaderboardManager: ✓ Worst entry deleted successfully")
-			_actually_submit_score()
-		else:
-			print("LeaderboardManager: ⚠ Deletion failed (code: %d), proceeding with submission anyway" % response_code)
-			_actually_submit_score()
+		_actually_submit_score()
 		return
 	
 	# Handle actual score submission (step 5: insert new score)
@@ -607,15 +536,10 @@ func _on_http_request_completed(result: int, response_code: int, headers: Packed
 		is_submitting = false
 		
 		if response_code == 200 or response_code == 201:
-			print("LeaderboardManager: ✓ Score submitted successfully to Supabase")
 			# Wait a moment for Supabase to process, then refresh global leaderboard
 			var timer = get_tree().create_timer(0.5)
 			timer.timeout.connect(_on_submission_delay_complete)
 		else:
-			print("LeaderboardManager: ✗ Failed to submit score")
-			print("  Response code: %d" % response_code)
-			print("  Error message: %s" % response_text)
-			print("  Result enum: %d" % result)
 			push_error("LeaderboardManager: Submission failed. Response code: %d, Error: %s" % [response_code, response_text])
 		return
 	
@@ -623,26 +547,17 @@ func _on_http_request_completed(result: int, response_code: int, headers: Packed
 	if is_fetching:
 		is_fetching = false
 		if response_code == 200:
-			print("LeaderboardManager: ✓ Received response from Supabase")
 			var json = JSON.new()
 			var parse_result = json.parse(response_text)
 			if parse_result == OK:
 				var parsed_data = json.data
-				print("LeaderboardManager: Parsed JSON data type: %s" % typeof(parsed_data))
 				var new_scores: Array[Dictionary] = []
 				
 				if parsed_data is Array:
-					print("LeaderboardManager: Received %d records from Supabase" % parsed_data.size())
 					# Supabase returns an array directly
 					for item in parsed_data:
 						if item is Dictionary:
 							var time_value = item.get("time_taken", 0.0)
-							print("  - Record: player_name=%s, time_taken=%s (%.2f sec), level=%s" % [
-								item.get("player_name", "N/A"),
-								time_value,
-								float(time_value),
-								item.get("level", "N/A")
-							])
 							# Convert Supabase format to internal format
 							var score_entry = {
 								"time": float(time_value),  # Time is already in seconds as a number
@@ -658,18 +573,13 @@ func _on_http_request_completed(result: int, response_code: int, headers: Packed
 					global_leaderboard_data = new_scores
 					# Already sorted by Supabase query, but ensure it
 					global_leaderboard_data.sort_custom(func(a, b): return a["time"] < b["time"])
-					print("LeaderboardManager: ✓ Loaded %d global scores from Supabase" % global_leaderboard_data.size())
 					# Emit signal to notify that global leaderboard was updated
 					global_leaderboard_updated.emit()
 				else:
-					print("LeaderboardManager: ⚠ No scores found in Supabase yet (empty table)")
+					pass
 			else:
 				push_error("LeaderboardManager: Failed to parse Supabase response JSON. Parse error: %d" % parse_result)
 		else:
-			print("LeaderboardManager: ✗ Failed to fetch from Supabase")
-			print("  Response code: %d" % response_code)
-			print("  Error message: %s" % response_text)
-			print("  Result enum: %d" % result)
 			push_error("LeaderboardManager: Fetch failed. Response code: %d, Error: %s" % [response_code, response_text])
 
 func get_top_scores(count: int = 3, use_global: bool = false) -> Array[Dictionary]:
@@ -730,7 +640,6 @@ func load_local_leaderboard():
 	all_local_leaderboard_data.clear()
 	
 	if not FileAccess.file_exists(SAVE_PATH):
-		print("LeaderboardManager: No existing leaderboard file, starting fresh")
 		return
 	
 	var file = FileAccess.open(SAVE_PATH, FileAccess.READ)
@@ -761,7 +670,6 @@ func load_local_leaderboard():
 		for key in all_local_leaderboard_data:
 			if all_local_leaderboard_data[key] is Array:
 				total += all_local_leaderboard_data[key].size()
-		print("LeaderboardManager: Loaded %d total local scores across all levels" % total)
 	elif parsed_data is Array:
 		# Legacy flat format — migrate to level 0
 		var new_scores: Array = []
@@ -770,7 +678,6 @@ func load_local_leaderboard():
 				new_scores.append(item)
 		new_scores.sort_custom(func(a, b): return a["time"] < b["time"])
 		all_local_leaderboard_data["0"] = new_scores
-		print("LeaderboardManager: Migrated %d legacy local scores to level 0" % new_scores.size())
 		# Save in new format
 		save_local_leaderboard()
 	else:
@@ -780,7 +687,6 @@ func clear_local_leaderboard():
 	"""Clear all local leaderboard data (for testing/debugging)."""
 	all_local_leaderboard_data.clear()
 	save_local_leaderboard()
-	print("LeaderboardManager: Local leaderboard cleared")
 
 func _on_submission_delay_complete():
 	"""Called after delay to fetch updated leaderboard."""

@@ -158,7 +158,6 @@ func _on_global_leaderboard_updated():
 		_display_scores(scores)
 
 func _on_back_button_pressed():
-	print("LeaderboardScene: Back button pressed")
 	# Go back to level select menu
 	if ResourceLoader.exists("res://level_select_menu.tscn"):
 		get_tree().change_scene_to_file("res://level_select_menu.tscn")

@@ -53,10 +53,6 @@ func _ready() -> void:
 	
 	_sync_trigger_shape()
 	
-	if debug_logs:
-		print("[FallingPlatform] Ready. Trigger mask=", trigger_area.collision_mask if trigger_area else "null",
-			" monitoring=", trigger_area.monitoring if trigger_area else "null",
-			" layer=", platform_body.collision_layer if platform_body else "null")
 
 
 func _process(delta: float) -> void:
@@ -78,25 +74,6 @@ func _process(delta: float) -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if debug_logs:
-		debug_timer += delta
-		if debug_timer >= 0.5:
-			debug_timer = 0.0
-			var overlap_bodies = trigger_area.get_overlapping_bodies() if trigger_area else []
-			var overlap_names: Array[String] = []
-			for body in overlap_bodies:
-				overlap_names.append("%s(%s)" % [body.name, body.get_class()])
-			var player = get_tree().get_first_node_in_group("player") as CharacterBody2D
-			var player_floor_info = ""
-			if player:
-				player_floor_info = " player_on_floor=%s standing_on_platform=%s" % [
-					player.is_on_floor(),
-					_is_player_standing_on_platform(player)
-				]
-			print("[FallingPlatform] Tick. overlap_bodies=", overlap_bodies.size(),
-				" list=", overlap_names,
-				" triggered=", is_triggered, " falling=", is_falling, player_floor_info)
-	
 	if not is_triggered and trigger_area:
 		var bodies = trigger_area.get_overlapping_bodies()
 		for body in bodies:
@@ -106,8 +83,6 @@ func _physics_process(delta: float) -> void:
 				is_triggered = true
 				fall_timer = 0.0
 				vibration_time = 0.0
-				if debug_logs:
-					print("[FallingPlatform] Triggered by overlap: ", body.name)
 				break
 	
 	if not is_triggered:
@@ -123,12 +98,7 @@ func _physics_process(delta: float) -> void:
 			_fall_with_collision(delta)
 		else:
 			platform_body.position.y += fall_speed * delta
-		if debug_logs and not has_logged_fall_start:
-			has_logged_fall_start = true
-			print("[FallingPlatform] Falling started. speed=", fall_speed)
 		if not stop_on_first_platform and _is_below_viewport():
-			if debug_logs:
-				print("[FallingPlatform] Despawned (left viewport).")
 			queue_free()
 
 
@@ -145,8 +115,6 @@ func _on_body_entered(body: Node) -> void:
 	is_triggered = true
 	fall_timer = 0.0
 	vibration_time = 0.0
-	if debug_logs:
-		print("[FallingPlatform] Triggered by body_entered: ", body.name)
 
 
 func _start_fall() -> void:
@@ -256,8 +224,6 @@ func _try_trigger_from_player_fallback() -> void:
 			is_triggered = true
 			fall_timer = 0.0
 			vibration_time = 0.0
-			if debug_logs:
-				print("[FallingPlatform] Triggered by wall interaction fallback at pos=", player.global_position)
 			return
 		if not _is_player_standing_on_platform(player_body):
 			return
@@ -275,8 +241,6 @@ func _try_trigger_from_player_fallback() -> void:
 		is_triggered = true
 		fall_timer = 0.0
 		vibration_time = 0.0
-		if debug_logs:
-			print("[FallingPlatform] Triggered by fallback check at pos=", player.global_position)
 
 
 func _is_player_standing_on_platform(player_body: CharacterBody2D) -> bool:
@@ -315,8 +279,6 @@ func _fall_with_collision(delta: float) -> void:
 	if _is_ground_collider(collider):
 		_kill_enemies_in_falling_path(hit_pos.y)
 	
-	if debug_logs:
-		print("[FallingPlatform] Landed on ", collider.name if collider else "unknown")
 
 
 func _get_fall_collision(step: float) -> Dictionary:

@@ -52,7 +52,7 @@ size = Vector2(631.5, 384)
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_4c15r"]
 size = Vector2(589.938, 503)
 
-[node name="Level2" type="Node2D"]
+[node name="Level5" type="Node2D"]
 script = ExtResource("1_manager")
 
 [node name="ParallaxBackground" type="ParallaxBackground" parent="."]
@@ -92,8 +92,6 @@ layer_0/tile_data = PackedInt32Array(1048598, 393219, 18, 1048599, 393219, 18, 1
 [node name="Player" parent="." instance=ExtResource("1_qj3g4")]
 position = Vector2(-924, 987)
 max_speed = 1500.0
-ground_acceleration = 2000.0
-ground_deceleration = 5000.0
 air_acceleration = 2000.0
 air_deceleration = 5000.0
 trail_afterimage_interval = 0.04
@@ -112,10 +110,10 @@ ledge_climb_detection_height = 15.0
 ledge_climb_duration = 0.5
 grace_period_duration = 0.05
 wall_check_distance = 4.0
-wall_slide_speed = 400.0
+wall_slide_speed = 200.0
 wall_jump_horizontal_velocity = 1000.0
 wall_jump_vertical_velocity = -2000.0
-wall_jump_proximity_distance = 40.0
+wall_jump_proximity_distance = 80.0
 wall_run_min_velocity = 200.0
 wall_run_min_speed = 200.0
 wall_run_max_speed = 1500.0

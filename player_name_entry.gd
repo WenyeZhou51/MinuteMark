@@ -44,7 +44,6 @@ func _submit_name() -> void:
 	
 	# Save player name to LeaderboardManager (auto-capitalize)
 	LeaderboardManager.set_player_name(player_name)
-	print("Player name set to: ", player_name.to_upper())
 	
 	# Go to level selection menu
 	get_tree().change_scene_to_file("res://level_select_menu.tscn")

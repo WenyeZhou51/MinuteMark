@@ -59,10 +59,8 @@ func _on_bullet_triggered_tutorial() -> void:
 	"""Called when one of our bullets triggers the tutorial - stop shooting."""
 	tutorial_has_been_triggered = true
 	shooting_enabled = false
-	print("[ParryTutorialEnemy] Tutorial triggered, stopping all shooting")
 
 func _on_bullet_parried() -> void:
 	"""Called when one of our bullets is deflected by kicking - stop shooting."""
 	bullet_has_been_parried = true
 	shooting_enabled = false
-	print("[ParryTutorialEnemy] Bullet parried, stopping all shooting")

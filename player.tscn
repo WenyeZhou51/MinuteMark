@@ -12,8 +12,8 @@ size = Vector2(45, 85)
 [node name="Player" type="CharacterBody2D" groups=["player"]]
 script = ExtResource("1_2x4rk")
 max_speed = 500.0
-ground_acceleration = 1400.0
-ground_deceleration = 1000.0
+ground_acceleration = 3000.0
+ground_deceleration = 3000.0
 jump_velocity = -700.0
 jump_early_release_multiplier = 3.0
 max_fall_speed = 1000.0
@@ -24,9 +24,10 @@ corner_correction_distance = 10.0
 ledge_climb_enabled = false
 ledge_climb_detection_height = 10.0
 ledge_climb_duration = 0.2
-wall_slide_speed = 200.0
+wall_slide_speed = 100.0
 wall_jump_horizontal_velocity = 600.0
 wall_jump_vertical_velocity = -800.0
+wall_jump_proximity_distance = 20.0
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(-1.5, -6.5)

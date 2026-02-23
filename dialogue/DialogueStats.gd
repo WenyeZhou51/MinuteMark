@@ -17,12 +17,9 @@ func _ready():
 func set_current_level(level_path: String) -> void:
 	"""Set the current level path. Call this when a level starts."""
 	current_level_path = level_path
-	print("DialogueStats: Setting current level to: ", level_path)
 	
 	# Reload stats from disk to ensure we have the latest data
 	load_stats()
-	
-	print("DialogueStats: Current stats after reload: ", level_stats)
 	
 	# Initialize stats for this level if not exists
 	if not level_stats.has(level_path):
@@ -31,10 +28,6 @@ func set_current_level(level_path: String) -> void:
 			"peaceful_count": 0,
 			"has_peaceful": false
 		}
-		print("DialogueStats: Initialized new stats for level: ", level_path)
-	else:
-		var stats = level_stats[level_path]
-		print("DialogueStats: Found existing stats for level: ", level_path, " - Interrupts: ", stats["interrupt_count"], ", Peaceful: ", stats["peaceful_count"])
 
 func record_interrupt() -> void:
 	"""Record an interruption choice for the current level."""
@@ -46,10 +39,6 @@ func record_interrupt() -> void:
 	
 	level_stats[current_level_path]["interrupt_count"] += 1
 	save_stats()
-	print("DialogueStats: Recorded interrupt for level: %s (total: %d)" % [
-		current_level_path,
-		level_stats[current_level_path]["interrupt_count"]
-	])
 
 func record_peaceful() -> void:
 	"""Record a peaceful choice for the current level."""
@@ -62,10 +51,6 @@ func record_peaceful() -> void:
 	level_stats[current_level_path]["peaceful_count"] += 1
 	level_stats[current_level_path]["has_peaceful"] = true
 	save_stats()
-	print("DialogueStats: Recorded peaceful choice for level: %s (total: %d)" % [
-		current_level_path,
-		level_stats[current_level_path]["peaceful_count"]
-	])
 
 func get_level_stats(level_path: String) -> Dictionary:
 	"""Get statistics for a specific level."""
@@ -80,7 +65,6 @@ func get_level_stats(level_path: String) -> Dictionary:
 func get_current_level_stats() -> Dictionary:
 	"""Get statistics for the current level."""
 	var stats = get_level_stats(current_level_path)
-	print("DialogueStats: get_current_level_stats() called for level: ", current_level_path, " - Stats: ", stats)
 	return stats
 
 func reset_level_stats(level_path: String) -> void:
@@ -113,7 +97,7 @@ func save_stats() -> void:
 	if error != OK:
 		push_error("DialogueStats: Failed to save stats: " + str(error))
 	else:
-		print("DialogueStats: Stats saved")
+		pass
 
 func load_stats() -> void:
 	"""Load dialogue statistics from file."""
@@ -179,7 +163,3 @@ func load_stats() -> void:
 				processed_levels[level_path]["has_peaceful"] = value
 	
 	level_stats = processed_levels
-	print("DialogueStats: Stats loaded for %d levels" % level_stats.size())
-	for level_path in level_stats.keys():
-		var stats = level_stats[level_path]
-		print("DialogueStats: Loaded stats for %s - Interrupts: %d, Peaceful: %d" % [level_path, stats["interrupt_count"], stats["peaceful_count"]])

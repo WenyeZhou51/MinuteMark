@@ -8,6 +8,9 @@ func _enter_tree() -> void:
 	
 	if TutorialManager:
 		TutorialManager.clear_message()
+	
+	# Configure level-specific audio BEFORE player's _ready calls restart_music()
+	_configure_level_audio()
 
 func _ready() -> void:
 	# Set current level path for dialogue stats tracking
@@ -43,3 +46,20 @@ func _on_dialogue_started(_id: String) -> void:
 func _on_dialogue_finished() -> void:
 	# Pause is now handled by DialogueUI to wait for fade out
 	pass
+
+func _configure_level_audio() -> void:
+	"""Configure audio based on which level is loaded."""
+	var scene_path = scene_file_path
+	
+	if scene_path == "res://level2.tscn":
+		# Level 2: Horror ambience + heartbeat + occasional noise
+		if AudioManager:
+			AudioManager.set_level_music("res://audio/Horror ambience.wav")
+			AudioManager.start_heartbeat()
+			AudioManager.start_occasional_noise()
+	else:
+		# All other levels: default music, no heartbeat/noise
+		if AudioManager:
+			AudioManager.reset_to_default_music()
+			AudioManager.stop_heartbeat()
+			AudioManager.stop_occasional_noise()

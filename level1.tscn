@@ -65,7 +65,7 @@ radius = 655.433
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_ait7k"]
 size = Vector2(631.5, 384)
 
-[node name="Level2" type="Node2D"]
+[node name="Level3" type="Node2D"]
 position = Vector2(-1082, -7301)
 script = ExtResource("1_38wbk")
 
@@ -133,8 +133,6 @@ layer_0/tile_data = PackedInt32Array(-2097217, 1245189, 1, -2031681, 1245189, 1,
 [node name="Player" parent="." instance=ExtResource("4_wd3oj")]
 position = Vector2(3083, 16617)
 max_speed = 1500.0
-ground_acceleration = 2000.0
-ground_deceleration = 5000.0
 air_acceleration = 2000.0
 air_deceleration = 5000.0
 trail_afterimage_interval = 0.04
@@ -153,7 +151,7 @@ ledge_climb_detection_height = 15.0
 ledge_climb_duration = 0.5
 grace_period_duration = 0.05
 wall_check_distance = 4.0
-wall_slide_speed = 400.0
+wall_slide_speed = 200.0
 wall_jump_horizontal_velocity = 1000.0
 wall_jump_vertical_velocity = -2000.0
 wall_run_min_velocity = 200.0

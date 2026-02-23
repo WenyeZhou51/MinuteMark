@@ -19,13 +19,9 @@ func _on_body_entered(body):
 			var timer_ui = body.timer_ui_instance
 			if "current_time" in timer_ui:
 				time_taken = timer_ui.current_time
-				print("LevelFinishTrigger: Got time from timer_ui_instance: ", time_taken, " seconds")
 		# Fallback: use player's synced current_game_time
 		elif "current_game_time" in body:
 			time_taken = body.current_game_time
-			print("LevelFinishTrigger: Got time from current_game_time: ", time_taken, " seconds")
-		else:
-			print("LevelFinishTrigger: WARNING - Could not get time! Using 0.0")
 		
 		level_finished.emit(time_taken)
 		

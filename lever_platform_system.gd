@@ -83,9 +83,6 @@ func _rebuild_platforms() -> void:
 	cycle_height = platform_spacing * platform_count
 	center_min_y = -system_size.y / 2.0 + half_platform_height
 	
-	if debug_logs and abs(system_size.y - (cycle_height + platform_size.y)) > 0.1:
-		print("[LeverPlatformSystem] Warning: system_size.y doesn't match cycle height.")
-	
 	for i in range(platform_count):
 		var base_y = center_min_y + (i * platform_spacing)
 		var y = base_y - (start_phase * cycle_height)
@@ -93,8 +90,6 @@ func _rebuild_platforms() -> void:
 		var platform = _spawn_platform_at(y)
 		platforms.append(platform)
 	
-	if debug_logs:
-		print("[LeverPlatformSystem] Spawned platforms=", platforms.size(), " cycle_height=", cycle_height)
 
 
 func _configure_platform(platform: Node2D) -> void:

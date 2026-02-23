@@ -22,9 +22,16 @@ var block_original_scales: Array[Vector2] = []
 var block_original_colors: Array[Color] = []
 
 func _ready():
-	# Stop background music
-	if AudioManager and AudioManager.has_method("stop_music"):
-		AudioManager.stop_music()
+	# Stop background music, heartbeat, and occasional noise
+	if AudioManager:
+		if AudioManager.has_method("stop_music"):
+			AudioManager.stop_music()
+		if AudioManager.has_method("stop_heartbeat"):
+			AudioManager.stop_heartbeat()
+		if AudioManager.has_method("stop_occasional_noise"):
+			AudioManager.stop_occasional_noise()
+		if AudioManager.has_method("reset_to_default_music"):
+			AudioManager.reset_to_default_music()
 	
 	# Load saved progress
 	load_level_progress()
@@ -200,7 +207,7 @@ func save_level_progress():
 	if error != OK:
 		push_error("LevelSelectMenu: Failed to save progress: " + str(error))
 	else:
-		print("LevelSelectMenu: Progress saved")
+		pass
 
 func load_level_progress():
 	"""Load level unlock status from file"""
@@ -220,7 +227,6 @@ func load_level_progress():
 		var unlocked = config.get_value("progress", key, true)  # All levels unlocked by default
 		levels[i]["unlocked"] = unlocked
 	
-	print("LevelSelectMenu: Progress loaded")
 
 # Audio setup
 var menu_transition_player: AudioStreamPlayer

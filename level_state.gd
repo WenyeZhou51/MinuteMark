@@ -72,16 +72,9 @@ func capture_initial_state(level: Node2D) -> void:
 	# Get timer UI reference
 	timer_ui = level.get_tree().get_first_node_in_group("timer_ui")
 	
-	print("LevelState: Captured initial state - Player: %s, Enemies: %d, Kickables: %d, Triggers: %d" % [
-		"found" if player else "missing",
-		enemies.size(),
-		kickables.size(),
-		triggers.size()
-	])
 
 func reset_level() -> void:
 	"""Fast reset - no reload, just reset state"""
-	print("LevelState: Fast reset started")
 	var start_time = Time.get_ticks_msec()
 	
 	# 1. Reset player
@@ -138,8 +131,7 @@ func reset_level() -> void:
 		level_node.get_tree().paused = false
 	Engine.time_scale = 1.0
 	
-	var elapsed = Time.get_ticks_msec() - start_time
-	print("LevelState: Fast reset completed in %d ms" % elapsed)
+	var _elapsed = Time.get_ticks_msec() - start_time
 
 func _clear_transient_nodes() -> void:
 	"""Remove all temporary effects spawned during gameplay"""

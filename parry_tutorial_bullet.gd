@@ -17,9 +17,6 @@ var hover_offset: Vector2 = Vector2.ZERO  ## Store the offset position where we 
 func _ready() -> void:
 	super._ready()
 	
-	print("[ParryTutorialBullet DEBUG] Created bullet ID: ", get_instance_id())
-	print("[ParryTutorialBullet DEBUG] Initial collision_mask: ", collision_mask)
-	
 	# Find player reference
 	await get_tree().process_frame
 	_find_player()
@@ -37,7 +34,6 @@ func _physics_process(delta: float) -> void:
 		
 		# Stop when we get close enough
 		if distance_to_player <= stop_distance:
-			print("[ParryTutorialBullet DEBUG] About to stop - distance: ", distance_to_player)
 			_stop_and_trigger_tutorial()
 	
 	# If bullet is stopped, freeze it in place
@@ -82,16 +78,9 @@ func _stop_and_trigger_tutorial() -> void:
 	hover_offset = hover_offset.normalized() * stop_distance
 	global_position = player_ref.global_position + hover_offset
 	
-	print("[ParryTutorialBullet] Stopped at distance: ", stop_distance, " from player")
-	print("[ParryTutorialBullet DEBUG] Before disabling collision - collision_mask: ", collision_mask)
-	
 	# CRITICAL: Disable collision with player while hovering to prevent accidental hits
 	# Keep collision layer the same, but remove player from collision mask
 	set_collision_mask_value(1, false)  # Layer 1 = player and walls - disable player collision
-	
-	print("[ParryTutorialBullet DEBUG] After disabling collision - collision_mask: ", collision_mask)
-	print("[ParryTutorialBullet DEBUG] Collision monitoring: ", monitoring)
-	print("[ParryTutorialBullet DEBUG] Collision monitorable: ", monitorable)
 	
 	# Emit signal to notify the shooter enemy (enemy will continue shooting)
 	tutorial_triggered.emit()
@@ -110,8 +99,6 @@ func _stop_and_trigger_tutorial() -> void:
 
 func _on_tutorial_ended(_block_id: String) -> void:
 	"""Called when tutorial ends (player performed the parry)."""
-	print("[ParryTutorialBullet] Tutorial ended, parry completed!")
-	
 	# Resume normal bullet behavior - the parry system has already set the new velocity
 	is_stopped = false
 	

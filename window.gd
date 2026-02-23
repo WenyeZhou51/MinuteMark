@@ -83,9 +83,7 @@ func _ready() -> void:
 		shatter_sfx = load("res://audio/glassBroken.mp3")
 		
 	if not shatter_sfx:
-		print("Window: Failed to load brokenWindow/glassBroken sound!")
-	else:
-		print("Window: Loaded shatter sound: ", shatter_sfx.resource_path)
+		pass
 
 
 func _update_visuals() -> void:

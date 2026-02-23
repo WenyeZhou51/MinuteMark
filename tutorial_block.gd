@@ -34,43 +34,33 @@ func _on_tutorial_ended(ended_block_id: String) -> void:
 	# If our block ended and we modified time scale, restore it
 	if ended_block_id == block_id and pre_freeze_slow_mo_time > 0:
 		Engine.time_scale = 1.0
-		print("TutorialBlock: Restored time scale to 1.0 after block ", block_id)
 
 func _on_body_entered(body: Node2D) -> void:
-	print("TutorialBlock: body_entered - ", body.name if body else "null")
-	
 	if not body.is_in_group("player"):
-		print("TutorialBlock: Body is not player, ignoring")
 		return
 	
-	print("TutorialBlock: Player entered block: ", block_id)
 	player_inside = true
 	
 	# Check if this block was already completed
 	if TutorialBlockManager.is_block_completed(block_id):
 		# Already completed, don't trigger again
-		print("TutorialBlock: Block already completed, ignoring")
 		triggered = true
 		return
 	
 	# Check if prerequisite is met
 	if prerequisite_block_id != "":
 		var prereq_completed = TutorialBlockManager.is_block_completed(prerequisite_block_id)
-		print("TutorialBlock: Prerequisite ", prerequisite_block_id, " completed: ", prereq_completed)
 		if not prereq_completed:
 			# Prerequisite not met, ignore this trigger
 			# Don't set triggered = true here, so we can check again later (e.g., after rewind)
-			print("TutorialBlock: Prerequisite not met, ignoring trigger (will check again on rewind end)")
 			return
 	
 	# If already triggered and tutorial is active, don't trigger again
 	if triggered:
-		print("TutorialBlock: Already triggered, ignoring")
 		return
 	
 	# If there's a delay, start a timer
 	if trigger_delay > 0.0:
-		print("TutorialBlock: Starting delay timer of ", trigger_delay, " seconds")
 		# Cancel any existing timer
 		if delay_timer:
 			delay_timer.queue_free()
@@ -89,18 +79,14 @@ func _on_body_exited(body: Node2D) -> void:
 	if not body.is_in_group("player"):
 		return
 	
-	print("TutorialBlock: Player exited block: ", block_id)
 	player_inside = false
 	
 	# Cancel the delay timer if player leaves before delay completes
 	if delay_timer and delay_timer.time_left > 0:
-		print("TutorialBlock: Player left before delay completed, canceling timer")
 		delay_timer.queue_free()
 		delay_timer = null
 
 func _on_delay_timer_timeout() -> void:
-	print("TutorialBlock: Delay timer completed for block: ", block_id)
-	
 	# Only trigger if player is still inside
 	if player_inside and not triggered:
 		_trigger_tutorial()
@@ -108,8 +94,6 @@ func _on_delay_timer_timeout() -> void:
 	delay_timer = null
 
 func _trigger_tutorial() -> void:
-	# Trigger the tutorial
-	print("TutorialBlock: Triggering tutorial for block: ", block_id)
 	triggered = true
 	
 	if pre_freeze_slow_mo_time > 0:
@@ -143,19 +127,15 @@ func _trigger_tutorial() -> void:
 
 func check_player_inside() -> void:
 	"""Check if player is currently inside this block. Used when rewind ends or during rewind."""
-	print("TutorialBlock: check_player_inside called for block: ", block_id)
-	
 	# Find the player
 	var player = get_tree().get_first_node_in_group("player")
 	if not player:
-		print("TutorialBlock: No player found")
 		return
 	
 	# Check if player is inside using manual position check
 	# This works even when position is set directly during rewind
 	var collision_shape = get_node_or_null("CollisionShape2D")
 	if not collision_shape or not collision_shape.shape:
-		print("TutorialBlock: No collision shape found")
 		return
 	
 	# Get the area's bounds in global space
@@ -175,7 +155,6 @@ func check_player_inside() -> void:
 		var overlapping_bodies = get_overlapping_bodies()
 		for body in overlapping_bodies:
 			if body.is_in_group("player"):
-				print("TutorialBlock: Player found inside block: ", block_id)
 				_on_body_entered(body)
 				return
 		return
@@ -195,8 +174,5 @@ func check_player_inside() -> void:
 	)
 	
 	if expanded_rect.has_point(player.global_position):
-		print("TutorialBlock: Player found inside block (manual check): ", block_id)
 		# Player is inside - trigger the tutorial check
 		_on_body_entered(player)
-	else:
-		print("TutorialBlock: Player not inside block (position: ", player.global_position, ", rect: ", expanded_rect, ")")

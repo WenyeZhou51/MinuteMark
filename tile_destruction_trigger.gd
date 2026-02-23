@@ -11,10 +11,8 @@ func _ready() -> void:
 	body_entered.connect(_on_body_entered)
 
 func _on_body_entered(body: Node2D) -> void:
-	print("TileDestructionTrigger: Body entered: ", body.name)
 	# Check if the player entered. Adjust group name if necessary.
 	if body.is_in_group("player") or body.name == "Player" or body.name == "player":
-		print("TileDestructionTrigger: Player detected, starting destruction...")
 		destroy_tiles_in_area()
 
 func destroy_tiles_in_area() -> void:
@@ -30,7 +28,6 @@ func destroy_tiles_in_area() -> void:
 	var rect_shape = shape_node.shape as RectangleShape2D
 	# Get the global rect of the trigger area
 	var area_rect = Rect2(global_position - (rect_shape.size / 2) * global_scale, rect_shape.size * global_scale)
-	print("TileDestructionTrigger: Checking area: ", area_rect)
 
 	var destroyed_count = 0
 	for tilemap in target_tilemaps:
@@ -52,8 +49,6 @@ func destroy_tiles_in_area() -> void:
 		var y_min = min(start_cell.y, end_cell.y)
 		var y_max = max(start_cell.y, end_cell.y)
 		
-		print("TileDestructionTrigger: Checking cells from ", Vector2i(x_min, y_min), " to ", Vector2i(x_max, y_max))
-		
 		for x in range(x_min, x_max + 1):
 			for y in range(y_min, y_max + 1):
 				var cell_coords = Vector2i(x, y)
@@ -67,7 +62,6 @@ func destroy_tiles_in_area() -> void:
 						tilemap.set_cell(0, cell_coords, -1)
 						destroyed_count += 1
 	
-	print("TileDestructionTrigger: Destroyed ", destroyed_count, " tiles.")
 
 func spawn_explosion(pos: Vector2) -> void:
 	if not destruction_effect:

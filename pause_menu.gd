@@ -275,7 +275,6 @@ func open_pause_menu(from_victory: bool = false):
 	if visible and not from_victory:
 		return
 		
-	print("PauseMenu: Opening from victory=", from_victory)
 	opened_from_victory = from_victory
 	
 	# Cancel any active rewind before pausing to ensure time_scale is reset
@@ -287,7 +286,6 @@ func open_pause_menu(from_victory: bool = false):
 	
 	# Explicitly pause music immediately
 	if AudioManager:
-		print("PauseMenu: Pausing music")
 		AudioManager.pause_music()
 	
 	play_menu_transition_sound()
@@ -386,7 +384,6 @@ func _on_restart_pressed():
 	_set_other_ui_visible(true)
 	
 	# 4. Use full scene reload to ensure everything resets correctly (same as Victory UI)
-	print("PauseMenu: Restarting level (full reload)")
 	get_tree().reload_current_scene()
 
 

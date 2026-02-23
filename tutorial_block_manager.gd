@@ -81,12 +81,9 @@ func reset_tutorials() -> void:
 	if ui_canvas_layer:
 		ui_canvas_layer.visible = true
 	
-	print("TutorialBlockManager: All tutorials reset")
 
 func start_tutorial(block_id: String, allowed_action: String, message: String, require_min_hold: bool = false) -> void:
 	"""Start a tutorial block - freeze player position, lock actions, freeze timer, show UI."""
-	print("TutorialBlockManager: start_tutorial called for block: ", block_id)
-	
 	if is_tutorial_active:
 		push_warning("TutorialBlockManager: Attempted to start tutorial while one is already active")
 		return
@@ -97,14 +94,11 @@ func start_tutorial(block_id: String, allowed_action: String, message: String, r
 	
 	# Get player reference
 	var player = get_tree().get_first_node_in_group("player")
-	print("TutorialBlockManager: Player found: ", player != null)
 	
 	# Check if player is in rewind before canceling (to know if we need to fix time scale)
 	var was_in_rewind = false
 	if player and "is_rewind_holding" in player:
 		was_in_rewind = player.is_rewind_holding or player.is_rewind_tracing
-	
-	print("TutorialBlockManager: Was in rewind: ", was_in_rewind)
 	
 	# Cancel rewind FIRST if player is in rewind state
 	# This ensures rewind is fully cleaned up
@@ -118,20 +112,16 @@ func start_tutorial(block_id: String, allowed_action: String, message: String, r
 	# Freeze player position by setting velocity to zero
 	if player and "velocity" in player:
 		player.velocity = Vector2.ZERO
-		print("TutorialBlockManager: Frozen player position")
 	
 	# Show tutorial UI
 	if tutorial_ui_instance:
 		tutorial_ui_instance.show_message(message)
-		print("TutorialBlockManager: Showed tutorial UI")
 	
 	# Notify player to lock actions
 	if player and player.has_method("set_tutorial_lock"):
 		player.set_tutorial_lock(true, allowed_action, require_min_hold)
-		print("TutorialBlockManager: Set tutorial lock on player")
 	
 	tutorial_started.emit(block_id, allowed_action, message)
-	print("TutorialBlockManager: Tutorial started successfully")
 
 func end_tutorial() -> void:
 	"""End the current tutorial - unfreeze player position, unlock actions, unfreeze timer, hide UI."""
@@ -192,7 +182,6 @@ func switch_to_tutorial(target_block_id: String) -> void:
 	if player and player.has_method("set_tutorial_lock"):
 		player.set_tutorial_lock(true, current_allowed_action)
 		
-	print("TutorialBlockManager: Switched to block: ", current_block_id)
 	tutorial_started.emit(current_block_id, current_allowed_action, target_block.instruction_message)
 
 func _process(_delta: float) -> void:
@@ -250,8 +239,6 @@ func check_action_performed(action: String) -> bool:
 	
 	# If this is the expected action
 	if action == current_allowed_action or (current_allowed_action == "move" and action in ["move_left", "move_right", "move_up", "move_down"]):
-		print("TutorialBlockManager: Action performed: ", action)
-		
 		# Check if current block has a next block
 		var current_block = registered_blocks.get(current_block_id)
 		if current_block and "next_tutorial_block_id" in current_block and current_block.next_tutorial_block_id != "":

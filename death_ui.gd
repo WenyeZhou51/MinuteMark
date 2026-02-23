@@ -109,7 +109,6 @@ func _trigger_background_reload():
 	get_tree().paused = false
 	
 	# Use full scene reload to ensure everything resets correctly
-	print("DeathUI: Restarting level (full reload)")
 	get_tree().reload_current_scene()
 
 func _input(event):

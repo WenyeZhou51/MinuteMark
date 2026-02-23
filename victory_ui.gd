@@ -141,7 +141,7 @@ func _ready():
 		score_climbing_sfx = load("res://audio/scoreClimbing.mp3")
 		
 	if not score_climbing_sfx:
-		print("VictoryUI: Failed to load scoreClimbing sound! Check res://audio/")
+		pass
 		
 	if ResourceLoader.exists("res://audio/scorePeak.wav"):
 		score_peak_sfx = load("res://audio/scorePeak.wav")
@@ -149,7 +149,7 @@ func _ready():
 		score_peak_sfx = load("res://audio/scorePeak.mp3")
 		
 	if not score_peak_sfx:
-		print("VictoryUI: Failed to load scorePeak sound! Check res://audio/")
+		pass
 
 func _process(delta):
 	# Ensure mouse is visible (sometimes it gets hidden by other scripts)
@@ -233,14 +233,10 @@ func setup(time_taken: float):
 		made_leaderboard = LeaderboardManager.would_make_leaderboard(time_taken)
 		
 		if made_leaderboard:
-			print("VictoryUI: Time %.2f qualifies for leaderboard! Showing name entry." % time_taken)
-			# DON'T submit yet — wait for the player to enter their name
+			pass  # DON'T submit yet — wait for the player to enter their name
 		else:
-			print("VictoryUI: Time %.2f does not qualify for leaderboard. Submitting immediately." % time_taken)
 			# Submit immediately with existing player name
-			var is_new_best = LeaderboardManager.add_score(time_taken)
-			if is_new_best:
-				print("VictoryUI: New best score! Time: %.2f" % time_taken)
+			LeaderboardManager.add_score(time_taken)
 		
 		# Connect to leaderboard update signal to refresh display when data arrives
 		if not LeaderboardManager.global_leaderboard_updated.is_connected(_on_global_leaderboard_updated):
@@ -448,7 +444,6 @@ func _refresh_leaderboard_display():
 			
 			entries[i].text = display_text
 			entries[i].modulate.a = 1.0
-			print("VictoryUI: Displaying rank #%d: %s" % [i + 1, display_text])
 
 func _on_global_leaderboard_updated():
 	"""Called when the global leaderboard is updated from the API."""
@@ -464,7 +459,6 @@ func _on_name_cancel_pressed():
 	if name_submitted:
 		return
 	name_submitted = true
-	print("VictoryUI: Player declined to submit name; run will not be recorded.")
 	# Transition to leaderboard display without adding score
 	_animate_post_submission()
 
@@ -495,7 +489,6 @@ func _submit_player_name():
 		entered_name = entered_name.substr(0, 10)
 	
 	name_submitted = true
-	print("VictoryUI: Player entered name: '%s'" % entered_name)
 	
 	# Check if name already exists on global leaderboard
 	if LeaderboardManager:
@@ -506,25 +499,19 @@ func _submit_player_name():
 			
 			if pending_time_taken < existing_time:
 				# Current time is BETTER — update the existing entry
-				print("VictoryUI: Updating existing entry for '%s' (%.2f -> %.2f)" % [entered_name, existing_time, pending_time_taken])
 				LeaderboardManager.set_player_name(entered_name)
-				var is_new_best = LeaderboardManager.update_score_for_name(pending_time_taken)
-				if is_new_best:
-					print("VictoryUI: New best score! Time: %.2f" % pending_time_taken)
+				LeaderboardManager.update_score_for_name(pending_time_taken)
 				_animate_post_submission()
 				return
 			else:
 				# Existing time is BETTER or EQUAL — show rejection message
-				print("VictoryUI: Name '%s' already exists with better time (%.2f vs %.2f)" % [entered_name, existing_time, pending_time_taken])
 				_show_name_exists_message()
 				return
 	
 	# Name doesn't exist — normal submission flow
 	if LeaderboardManager:
 		LeaderboardManager.set_player_name(entered_name)
-		var is_new_best = LeaderboardManager.add_score(pending_time_taken)
-		if is_new_best:
-			print("VictoryUI: New best score! Time: %.2f" % pending_time_taken)
+		LeaderboardManager.add_score(pending_time_taken)
 	
 	_animate_post_submission()
 
@@ -569,7 +556,6 @@ func _show_name_exists_message():
 	tween.tween_callback(_animate_post_submission)
 
 func _on_restart_button_pressed():
-	print("VictoryUI: Restart button pressed")
 	_perform_restart()
 
 func _perform_restart():
@@ -585,7 +571,6 @@ func _perform_restart():
 	# This covers the ugly reload frame/freeze.
 
 func _on_leaderboard_button_pressed():
-	print("VictoryUI: Leaderboard button pressed")
 	# 1. Block input
 	$Control.mouse_filter = Control.MOUSE_FILTER_STOP
 	
@@ -605,7 +590,6 @@ func _on_leaderboard_button_pressed():
 	queue_free()
 
 func _on_menu_button_pressed():
-	print("VictoryUI: Menu button pressed")
 	# 1. Block input
 	$Control.mouse_filter = Control.MOUSE_FILTER_STOP
 	
@@ -648,13 +632,11 @@ func unlock_next_level():
 			break
 	
 	if current_level_index == -1:
-		print("VictoryUI: Could not determine current level from scene path: ", current_scene_path)
 		return
 	
 	# Calculate next level index
 	var next_level_index = current_level_index + 1
 	if next_level_index >= level_paths.size():
-		print("VictoryUI: All levels completed!")
 		return
 	
 	# Load existing progress
@@ -673,4 +655,4 @@ func unlock_next_level():
 	if error != OK:
 		push_error("VictoryUI: Failed to save level progress: " + str(error))
 	else:
-		print("VictoryUI: Unlocked level %d" % (next_level_index + 1))
+		pass

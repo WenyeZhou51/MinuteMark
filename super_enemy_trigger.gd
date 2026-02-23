@@ -17,7 +17,6 @@ func _on_body_entered(body: Node2D) -> void:
 	
 	if body.is_in_group("player") or body.name == "Player":
 		has_triggered = true
-		print("[SuperEnemyTrigger] PLAYER DETECTED! Triggering super enemy sequence")
 		
 		# Set speed cap immediately
 		if body.has_method("set_speed_cap"):
@@ -80,7 +79,6 @@ func _on_rocket_created(rocket: Node2D) -> void:
 		rocket.exploded.connect(_on_rocket_exploded)
 
 func _on_rocket_exploded() -> void:
-	print("[SuperEnemyTrigger] Rocket exploded, restoring normal time")
 	# Restore normal speed and camera after a short delay
 	get_tree().create_timer(1.0, true, false, true).timeout.connect(func():
 		Engine.time_scale = 1.0

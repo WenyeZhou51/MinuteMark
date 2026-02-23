@@ -33,13 +33,10 @@ func fire_at_target() -> void:
 
 func show_grunt() -> void:
 	"""Public method to show grunt effect without firing."""
-	print("[SuperEnemy] Showing grunt at position: ", global_position)
 	_show_grunt_effect()
 
 func fire_rockets() -> void:
 	"""Public method to fire rockets without showing grunt."""
-	print("[SuperEnemy] fire_rockets() called at position: ", global_position)
-	
 	if not rocket_scene:
 		push_error("[SuperEnemy] ERROR: No rocket scene assigned!")
 		return
@@ -47,22 +44,17 @@ func fire_rockets() -> void:
 	# Find all rocket targets - can be nodes in the "rocket_target" group
 	# or the specifically assigned target_spot
 	var targets = get_tree().get_nodes_in_group("rocket_target")
-	print("[SuperEnemy] Found ", targets.size(), " targets in 'rocket_target' group")
 	
 	# Add the specifically assigned target if it's not already in the group
 	if target_spot and not target_spot in targets:
 		targets.append(target_spot)
-		print("[SuperEnemy] Added target_spot to targets: ", target_spot.name, " at ", target_spot.global_position)
 		
 	if targets.is_empty():
 		push_error("[SuperEnemy] ERROR: No rocket targets found!")
 		return
 	
-	print("[SuperEnemy] Firing ", targets.size(), " rockets from position: ", global_position)
-	
 	for i in range(targets.size()):
 		var target = targets[i]
-		print("[SuperEnemy] Creating rocket #", i, " targeting: ", target.name, " at ", target.global_position)
 		
 		var rocket = rocket_scene.instantiate()
 		
@@ -82,10 +74,6 @@ func fire_rockets() -> void:
 		rocket.initialize(target.global_position, self)
 		
 		emit_signal("rocket_created", rocket)
-		
-		print("[SuperEnemy] Rocket #", i, " spawned at: ", rocket.global_position, 
-			  " targeting: ", target.global_position,
-			  " distance: ", spawn_pos.distance_to(target.global_position))
 
 func _show_grunt_effect() -> void:
 	"""Show the grunt effect above the super enemy when firing."""

@@ -42,8 +42,6 @@ func _ready() -> void:
 	
 	_update_visual_from_shape()
 	
-	if debug_logs:
-		print("[MovingPlatform] Ready. path_length=", path_length, " mode=", motion_mode)
 
 
 func _physics_process(delta: float) -> void:

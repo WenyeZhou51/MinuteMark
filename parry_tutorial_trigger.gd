@@ -36,13 +36,11 @@ func _on_body_entered(body: Node2D) -> void:
 	"""Start monitoring when player enters the trigger area."""
 	if body.is_in_group("player"):
 		is_monitoring = true
-		print("[ParryTutorialTrigger] Player entered, starting to monitor bullets")
 
 func _on_body_exited(body: Node2D) -> void:
 	"""Stop monitoring when player exits the trigger area."""
 	if body.is_in_group("player"):
 		is_monitoring = false
-		print("[ParryTutorialTrigger] Player exited, stopping monitoring")
 
 func _physics_process(_delta: float) -> void:
 	# Only monitor when active and not yet triggered
@@ -87,7 +85,6 @@ func _trigger_tutorial(bullet: Node2D) -> void:
 	
 	has_triggered = true
 	active_bullet = bullet
-	print("[ParryTutorialTrigger] Triggering parry tutorial!")
 	
 	# Use TutorialBlockManager to start tutorial with kick action allowed
 	if TutorialBlockManager:
@@ -103,8 +100,6 @@ func _trigger_tutorial(bullet: Node2D) -> void:
 
 func _on_tutorial_ended(_block_id: String) -> void:
 	"""Called when tutorial ends (player performed the parry)."""
-	print("[ParryTutorialTrigger] Tutorial ended, parry completed!")
-	
 	# Disconnect from signal
 	if TutorialBlockManager and TutorialBlockManager.tutorial_ended.is_connected(_on_tutorial_ended):
 		TutorialBlockManager.tutorial_ended.disconnect(_on_tutorial_ended)
