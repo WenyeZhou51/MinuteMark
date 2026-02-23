@@ -1,4 +1,4 @@
-[gd_scene load_steps=48 format=3 uid="uid://ejhvk28req7v"]
+[gd_scene load_steps=44 format=3 uid="uid://doa575fdvcgc4"]
 
 [ext_resource type="Script" uid="uid://dcd0andxt0hx3" path="res://level_manager.gd" id="1_2llpy"]
 [ext_resource type="Script" uid="uid://65m107g1b7di" path="res://parallax_background.gd" id="2_w4mlw"]
@@ -15,11 +15,9 @@
 [ext_resource type="PackedScene" uid="uid://dyetqoxdfluq0" path="res://window.tscn" id="13_8a3br"]
 [ext_resource type="FontFile" uid="uid://baaiikv2041fb" path="res://Fonts/Funkrocker.otf" id="14_usg62"]
 [ext_resource type="PackedScene" uid="uid://b7q8n5ck2wh0e" path="res://pause_menu.tscn" id="15_042dk"]
-[ext_resource type="PackedScene" uid="uid://b756hnxt8gukc" path="res://dialogue/DialogueUI.tscn" id="16_rgvt6"]
-[ext_resource type="Script" uid="uid://b7qrmm1ub7a5l" path="res://dialogue_trigger.gd" id="17_k327x"]
-[ext_resource type="Script" uid="uid://beegyi2jgpwbd" path="res://tutorial_trigger.gd" id="18_j4mxx"]
-[ext_resource type="Script" uid="uid://g336vr3eb3sn" path="res://pendulum_trigger.gd" id="19_x1c0i"]
-[ext_resource type="Script" uid="uid://k7nuntbsw4by" path="res://minor_anim_system.gd" id="20_bjy6f"]
+[ext_resource type="Script" path="res://tutorial_trigger.gd" id="18_j4mxx"]
+[ext_resource type="Script" path="res://pendulum_trigger.gd" id="19_x1c0i"]
+[ext_resource type="Script" path="res://minor_anim_system.gd" id="20_bjy6f"]
 [ext_resource type="PackedScene" uid="uid://6624qfeempan" path="res://LevelFinishTrigger.tscn" id="21_3lpcy"]
 [ext_resource type="PackedScene" uid="uid://c85yqfkymilcl" path="res://elevator.tscn" id="22_tr4yi"]
 [ext_resource type="Script" uid="uid://b1wge8i3j3rr0" path="res://tutorial_block.gd" id="23_106cs"]
@@ -38,9 +36,6 @@
 [ext_resource type="Texture2D" uid="uid://c4hxw8t82k607" path="res://Sprites/balcony.png" id="35_w4mlw"]
 [ext_resource type="PackedScene" uid="uid://c2p1gqjfeqf38" path="res://LeverPlatformSystem.tscn" id="36_78ov0"]
 [ext_resource type="PackedScene" uid="uid://b6ocum6m8b8o1" path="res://LeverTrigger.tscn" id="37_g3ffx"]
-
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_dialogue_trigger"]
-size = Vector2(692, 332)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_tutorial_longK"]
 size = Vector2(407.625, 218.25)
@@ -146,7 +141,6 @@ max_fall_speed = 4000.0
 jump_peak_threshold = 20.0
 turnaround_multiplier = 5.0
 corner_correction_distance = 30.0
-ledge_climb_enabled = true
 ledge_climb_detection_height = 15.0
 ledge_climb_duration = 0.5
 grace_period_duration = 0.05
@@ -414,23 +408,6 @@ position = Vector2(383, 107.354)
 
 [node name="PauseMenu" parent="." instance=ExtResource("15_042dk")]
 visible = false
-
-[node name="CanvasLayer" type="CanvasLayer" parent="."]
-
-[node name="DialogueUI" parent="CanvasLayer" instance=ExtResource("16_rgvt6")]
-visible = false
-offset_left = 2.0
-offset_top = 3.0
-offset_right = 2.0
-offset_bottom = 3.0
-
-[node name="DialogueTrigger" type="Area2D" parent="."]
-position = Vector2(6648, 790)
-script = ExtResource("17_k327x")
-
-[node name="dialogue" type="CollisionShape2D" parent="DialogueTrigger"]
-position = Vector2(-64, -52)
-shape = SubResource("RectangleShape2D_dialogue_trigger")
 
 [node name="Tutorial Trigger" type="Area2D" parent="."]
 position = Vector2(853, 887)

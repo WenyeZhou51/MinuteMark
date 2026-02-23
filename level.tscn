@@ -1,6 +1,6 @@
-[gd_scene load_steps=32 format=3 uid="uid://clfclx5p38xkv"]
+[gd_scene load_steps=29 format=3 uid="uid://clfclx5p38xkv"]
 
-[ext_resource type="Script" uid="uid://dcd0andxt0hx3" path="res://level_manager.gd" id="1_manager"]
+[ext_resource type="Script" path="res://level_manager.gd" id="1_manager"]
 [ext_resource type="PackedScene" uid="uid://vv3m4nx6g3jo" path="res://player.tscn" id="1_qj3g4"]
 [ext_resource type="PackedScene" uid="uid://b8x7lam2n4p5q" path="res://enemy.tscn" id="2_enemy"]
 [ext_resource type="PackedScene" path="res://ParryTutorialEnemy.tscn" id="2_parry_enemy"]
@@ -9,21 +9,16 @@
 [ext_resource type="TileSet" uid="uid://cu555li7p074q" path="res://Sprites/tileset.tres" id="4_4gcmt"]
 [ext_resource type="PackedScene" uid="uid://c4k3l8m5n2qar" path="res://kickable_object.tscn" id="4_kickable"]
 [ext_resource type="PackedScene" uid="uid://b7q8n5ck2wh0e" path="res://pause_menu.tscn" id="8_b0gwe"]
-[ext_resource type="PackedScene" uid="uid://b756hnxt8gukc" path="res://dialogue/DialogueUI.tscn" id="9_dialogue"]
-[ext_resource type="Script" uid="uid://beegyi2jgpwbd" path="res://tutorial_trigger.gd" id="10_o05kg"]
-[ext_resource type="Script" uid="uid://b7qrmm1ub7a5l" path="res://dialogue_trigger.gd" id="10_trigger"]
+[ext_resource type="Script" path="res://tutorial_trigger.gd" id="10_o05kg"]
 [ext_resource type="PackedScene" uid="uid://dyetqoxdfluq0" path="res://window.tscn" id="10_window"]
-[ext_resource type="Script" uid="uid://g336vr3eb3sn" path="res://pendulum_trigger.gd" id="11_pendulum_trigger"]
+[ext_resource type="Script" path="res://pendulum_trigger.gd" id="11_pendulum_trigger"]
 [ext_resource type="FontFile" uid="uid://baaiikv2041fb" path="res://Fonts/Funkrocker.otf" id="12_font"]
-[ext_resource type="Script" uid="uid://k7nuntbsw4by" path="res://minor_anim_system.gd" id="14_wxjrc"]
-[ext_resource type="Script" uid="uid://b1wge8i3j3rr0" path="res://tutorial_block.gd" id="18_4c15r"]
+[ext_resource type="Script" path="res://minor_anim_system.gd" id="14_wxjrc"]
+[ext_resource type="Script" path="res://tutorial_block.gd" id="18_4c15r"]
 [ext_resource type="Texture2D" uid="uid://b5v5ch6lmmej" path="res://Sprites/level_backgrounds/IMG_4518.jpg" id="19_42xju"]
 [ext_resource type="Texture2D" uid="uid://iqnxi42u7eex" path="res://Sprites/level_backgrounds/IMG_4463.JPG" id="19_ait7k"]
 [ext_resource type="PackedScene" uid="uid://6624qfeempan" path="res://LevelFinishTrigger.tscn" id="19_finish"]
 [ext_resource type="PackedScene" uid="uid://c85yqfkymilcl" path="res://elevator.tscn" id="20_elevator"]
-
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_dialogue_trigger"]
-size = Vector2(692, 332)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_tutorial_longK"]
 size = Vector2(407.625, 218.25)
@@ -102,10 +97,10 @@ coyote_time = 0.25
 empowered_jump_velocity_multiplier = 1.2
 gravity = 4000.0
 max_fall_speed = 4000.0
+jump_peak_hangtime_multiplier = 0.45
 jump_peak_threshold = 20.0
 turnaround_multiplier = 5.0
 corner_correction_distance = 30.0
-ledge_climb_enabled = true
 ledge_climb_detection_height = 15.0
 ledge_climb_duration = 0.5
 grace_period_duration = 0.05
@@ -139,10 +134,11 @@ ground_slide_slowdown_rate = 900.0
 ground_slide_empowered_jump_multiplier = 1.2
 tear_offset = Vector2(0, 50)
 tear_v_squish = 0.7
-air_dash_horizontal_impulse = 2100.0
+air_dash_horizontal_impulse = 2000.0
 air_dash_vertical_impulse = 0.0
 air_dash_duration = 0.15
 air_dash_cooldown = 0.5
+air_dash_end_horizontal_velocity = 1000.0
 kick_scale = 0.075
 kick_fps = 20.0
 kick_offset = Vector2(10, -30)
@@ -221,23 +217,6 @@ position = Vector2(1, 171.156)
 
 [node name="PauseMenu" parent="." instance=ExtResource("8_b0gwe")]
 visible = false
-
-[node name="CanvasLayer" type="CanvasLayer" parent="."]
-
-[node name="DialogueUI" parent="CanvasLayer" instance=ExtResource("9_dialogue")]
-visible = false
-offset_left = 2.0
-offset_top = 3.0
-offset_right = 2.0
-offset_bottom = 3.0
-
-[node name="DialogueTrigger" type="Area2D" parent="."]
-position = Vector2(6648, 790)
-script = ExtResource("10_trigger")
-
-[node name="dialogue" type="CollisionShape2D" parent="DialogueTrigger"]
-position = Vector2(-64, -52)
-shape = SubResource("RectangleShape2D_dialogue_trigger")
 
 [node name="Tutorial Trigger" type="Area2D" parent="."]
 position = Vector2(853, 887)

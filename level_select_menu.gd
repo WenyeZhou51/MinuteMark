@@ -17,9 +17,15 @@ var hovered_block_index: int = -1
 var detected_hover_index: int = -1  # What we detect this frame
 var stable_hover_index: int = -1   # What we've detected consistently
 var hover_stability_time: float = 0.0
+var outside_stability_time: float = 0.0  # Time cursor has been outside any block (avoids boundary flicker)
 const HOVER_STABILITY_DELAY: float = 0.03  # Time before hover is considered stable (reduced for better responsiveness)
+const OUTSIDE_TO_KEYBOARD_DELAY: float = 0.25  # Time outside before we show keyboard focus (avoids level 1 flicker at boundary)
+var last_hovered_before_clear: int = -1  # When we clear stable due to "outside", keep showing this until truly left or new block
 var block_original_scales: Array[Vector2] = []
 var block_original_colors: Array[Color] = []
+# Keyboard navigation: which level is focused (used when mouse is not over any block)
+var keyboard_focus_index: int = 0
+var last_effective_highlight: int = -1
 
 func _ready():
 	# Stop background music, heartbeat, and occasional noise
@@ -38,6 +44,8 @@ func _ready():
 	
 	# Setup level blocks
 	setup_level_blocks()
+	if level_blocks.size() > 0:
+		keyboard_focus_index = clampi(keyboard_focus_index, 0, level_blocks.size() - 1)
 	
 	# Setup audio
 	setup_audio_players()
@@ -121,6 +129,15 @@ func _input(event):
 		if event.keycode == KEY_ESCAPE:
 			get_tree().quit()
 			return
+		# Keyboard navigation: A/Left = previous, D/Right = next (wraps: last→first, first→last)
+		if not event.echo and level_blocks.size() > 0:
+			var n = level_blocks.size()
+			if event.keycode in [KEY_LEFT, KEY_A]:
+				keyboard_focus_index = (keyboard_focus_index - 1 + n) % n
+			elif event.keycode in [KEY_RIGHT, KEY_D]:
+				keyboard_focus_index = (keyboard_focus_index + 1) % n
+			elif event.keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE]:
+				_on_level_block_clicked(keyboard_focus_index)
 	
 	# Handle mouse clicks on level blocks
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
@@ -256,7 +273,7 @@ func setup_audio_players():
 		menu_select_player.stream = load("res://audio/menu_select.wav")
 
 func _process(_delta):
-	"""Check for mouse hover on level blocks"""
+	"""Check for mouse hover on level blocks and unify with keyboard focus"""
 	var mouse_pos = get_viewport().get_mouse_position()
 	
 	# Detect what block we're hovering over this frame
@@ -269,41 +286,68 @@ func _process(_delta):
 	
 	# Check if the detected hover has changed
 	if current_hovered != detected_hover_index:
-		# Detection changed - exit previous stable hover immediately if switching blocks
-		if detected_hover_index != -1 and detected_hover_index != current_hovered:
-			if stable_hover_index == detected_hover_index and stable_hover_index < level_blocks.size():
-				_apply_hover_effect(stable_hover_index, false)
-				stable_hover_index = -1
-		
+		# Detection changed - only reset timers; do NOT clear stable hover when switching between blocks.
+		# Stable hover only changes after we've been on the new block (or outside) for the full delay,
+		# so boundary flicker between two blocks (e.g. level 2 ↔ level 3) won't cause oscillation.
 		detected_hover_index = current_hovered
 		
-		# If moving off (no hover), exit immediately
 		if current_hovered == -1:
-			if stable_hover_index != -1 and stable_hover_index < level_blocks.size():
-				_apply_hover_effect(stable_hover_index, false)
-				stable_hover_index = -1
+			# Left block(s) - don't clear immediately; wait for exit stability to avoid boundary flicker
 			hover_stability_time = 0.0
 		else:
-			# Moving to a new block - reset timer but keep checking
+			# Entered a block - reset both timers
 			hover_stability_time = 0.0
+			outside_stability_time = 0.0
 	else:
 		# Same detection, accumulate stability time
 		hover_stability_time += _delta
-		
-		# Apply hover effects when stable
-		if current_hovered != -1 and hover_stability_time >= HOVER_STABILITY_DELAY:
-			# Stable hover - apply effects if state changed
-			if stable_hover_index != current_hovered:
-				# Exit previous hover
-				if stable_hover_index != -1 and stable_hover_index < level_blocks.size():
-					_apply_hover_effect(stable_hover_index, false)
-				
-				# Enter new hover
-				_apply_hover_effect(current_hovered, true)
-				play_menu_select_sound()
-				stable_hover_index = current_hovered
+		if current_hovered == -1:
+			outside_stability_time += _delta
+			# Only clear stable after cursor has been outside for the delay (stops boundary oscillation).
+			# Do NOT remove the hover effect here: we keep showing that block via last_hovered_before_clear,
+			# so removing the effect would make level 3 itself oscillate (on/off) at the boundary.
+			if outside_stability_time >= HOVER_STABILITY_DELAY and stable_hover_index >= 0 and stable_hover_index < level_blocks.size():
+				last_hovered_before_clear = stable_hover_index
+				stable_hover_index = -1
+		else:
+			outside_stability_time = 0.0
+			# Apply hover effects when stable (mouse)
+			if hover_stability_time >= HOVER_STABILITY_DELAY:
+				if stable_hover_index != current_hovered:
+					if stable_hover_index >= 0 and stable_hover_index < level_blocks.size():
+						_apply_hover_effect(stable_hover_index, false)
+					_apply_hover_effect(current_hovered, true)
+					play_menu_select_sound()
+					stable_hover_index = current_hovered
+					last_hovered_before_clear = -1  # New block confirmed; no longer "pending" old block
 	
-	hovered_block_index = stable_hover_index
+	# Effective highlight: stable mouse hover > currently detected block > last hovered (boundary flicker) > keyboard
+	var effective_highlight: int
+	if stable_hover_index >= 0:
+		effective_highlight = stable_hover_index
+	elif detected_hover_index >= 0:
+		effective_highlight = detected_hover_index
+	elif last_hovered_before_clear >= 0 and outside_stability_time < OUTSIDE_TO_KEYBOARD_DELAY:
+		# Boundary flicker: keep showing the block we had until user has been outside long enough
+		effective_highlight = last_hovered_before_clear
+	else:
+		effective_highlight = keyboard_focus_index
+		if outside_stability_time >= OUTSIDE_TO_KEYBOARD_DELAY:
+			last_hovered_before_clear = -1  # Done with boundary; allow keyboard to show
+	if effective_highlight >= level_blocks.size():
+		effective_highlight = 0
+	# Apply/remove hover so exactly one block is highlighted
+	if effective_highlight != last_effective_highlight:
+		if last_effective_highlight >= 0 and last_effective_highlight < level_blocks.size():
+			_apply_hover_effect(last_effective_highlight, false)
+		if effective_highlight >= 0 and effective_highlight < level_blocks.size():
+			_apply_hover_effect(effective_highlight, true)
+			# Play sound when highlight changes from keyboard (not on initial focus)
+			if stable_hover_index < 0 and last_effective_highlight >= 0:
+				play_menu_select_sound()
+		last_effective_highlight = effective_highlight
+	
+	hovered_block_index = effective_highlight
 
 func _apply_hover_effect(block_index: int, is_hovering: bool):
 	"""Apply hover effect to a level block"""

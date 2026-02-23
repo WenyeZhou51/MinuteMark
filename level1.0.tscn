@@ -10,8 +10,6 @@
 [ext_resource type="PackedScene" uid="uid://dyetqoxdfluq0" path="res://window.tscn" id="8_b6vk1"]
 [ext_resource type="FontFile" uid="uid://baaiikv2041fb" path="res://Fonts/Funkrocker.otf" id="9_e2aup"]
 [ext_resource type="PackedScene" uid="uid://b7q8n5ck2wh0e" path="res://pause_menu.tscn" id="10_4euaf"]
-[ext_resource type="PackedScene" uid="uid://b756hnxt8gukc" path="res://dialogue/DialogueUI.tscn" id="11_x7rbi"]
-[ext_resource type="Script" path="res://dialogue_trigger.gd" id="12_5ooox"]
 [ext_resource type="Script" path="res://tutorial_trigger.gd" id="13_3auyc"]
 [ext_resource type="Script" path="res://pendulum_trigger.gd" id="14_sig5a"]
 [ext_resource type="Script" path="res://minor_anim_system.gd" id="15_klwg2"]
@@ -23,9 +21,6 @@
 [ext_resource type="PackedScene" uid="uid://c2vxm8lal3p4n" path="res://laser_hazard.tscn" id="22_laser"]
 [ext_resource type="PackedScene" uid="uid://b4k7n2p8q5sam" path="res://spike_trap.tscn" id="23_spike"]
 [ext_resource type="PackedScene" uid="uid://d8bd1w1cu2gs" path="res://crusher.tscn" id="24_crusher"]
-
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_dialogue_trigger"]
-size = Vector2(692, 332)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_tutorial_longK"]
 size = Vector2(407.625, 218.25)
@@ -219,23 +214,6 @@ position = Vector2(1, 171.156)
 
 [node name="PauseMenu" parent="." instance=ExtResource("10_4euaf")]
 visible = false
-
-[node name="CanvasLayer" type="CanvasLayer" parent="."]
-
-[node name="DialogueUI" parent="CanvasLayer" instance=ExtResource("11_x7rbi")]
-visible = false
-offset_left = 2.0
-offset_top = 3.0
-offset_right = 2.0
-offset_bottom = 3.0
-
-[node name="DialogueTrigger" type="Area2D" parent="."]
-position = Vector2(6648, 790)
-script = ExtResource("12_5ooox")
-
-[node name="dialogue" type="CollisionShape2D" parent="DialogueTrigger"]
-position = Vector2(-64, -52)
-shape = SubResource("RectangleShape2D_dialogue_trigger")
 
 [node name="Tutorial Trigger" type="Area2D" parent="."]
 position = Vector2(853, 887)

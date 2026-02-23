@@ -1,0 +1,15 @@
+[gd_scene load_steps=3 format=3 uid="uid://bilu0crtk5bu6"]
+
+[ext_resource type="Script" uid="uid://exe4kjuga63i" path="res://parallax/parallax_background.gd" id="1_parallax_script"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_bounds"]
+size = Vector2(2382, 1437)
+
+[node name="ParallaxBackground" type="ParallaxBackground"]
+script = ExtResource("1_parallax_script")
+
+[node name="Bounds" type="Node2D" parent="."]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Bounds"]
+position = Vector2(-1, -5)
+shape = SubResource("RectangleShape2D_bounds")
