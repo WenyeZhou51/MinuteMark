@@ -1,4 +1,4 @@
-[gd_scene load_steps=47 format=3 uid="uid://bhdosovo55mmg"]
+[gd_scene load_steps=44 format=3 uid="uid://bhdosovo55mmg"]
 
 [ext_resource type="Script" path="res://level_manager.gd" id="1_3lyi1"]
 [ext_resource type="Script" path="res://parallax_background.gd" id="2_si5fd"]
@@ -15,8 +15,6 @@
 [ext_resource type="PackedScene" uid="uid://dyetqoxdfluq0" path="res://window.tscn" id="13_mgq4a"]
 [ext_resource type="FontFile" uid="uid://baaiikv2041fb" path="res://Fonts/Funkrocker.otf" id="14_alegi"]
 [ext_resource type="PackedScene" uid="uid://b7q8n5ck2wh0e" path="res://pause_menu.tscn" id="15_ig5f6"]
-[ext_resource type="PackedScene" uid="uid://b756hnxt8gukc" path="res://dialogue/DialogueUI.tscn" id="16_7k4mf"]
-[ext_resource type="Script" path="res://dialogue_trigger.gd" id="17_888h6"]
 [ext_resource type="Script" path="res://tutorial_trigger.gd" id="18_vkj4p"]
 [ext_resource type="Script" path="res://pendulum_trigger.gd" id="19_yqaaw"]
 [ext_resource type="Script" path="res://minor_anim_system.gd" id="20_kjvb6"]
@@ -37,9 +35,6 @@
 [ext_resource type="PackedScene" uid="uid://be4ysm5xnwocm" path="res://door.tscn" id="35_gko4t"]
 [ext_resource type="PackedScene" uid="uid://c2p1gqjfeqf38" path="res://LeverPlatformSystem.tscn" id="36_3xx2f"]
 [ext_resource type="PackedScene" uid="uid://b6ocum6m8b8o1" path="res://LeverTrigger.tscn" id="37_8l6ld"]
-
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_dialogue_trigger"]
-size = Vector2(692, 332)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_tutorial_longK"]
 size = Vector2(407.625, 218.25)
@@ -65,7 +60,7 @@ radius = 655.433
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_ait7k"]
 size = Vector2(631.5, 384)
 
-[node name="Level5" type="Node2D"]
+[node name="Level6" type="Node2D"]
 position = Vector2(-1082, -7301)
 script = ExtResource("1_3lyi1")
 
@@ -145,7 +140,6 @@ max_fall_speed = 4000.0
 jump_peak_threshold = 20.0
 turnaround_multiplier = 5.0
 corner_correction_distance = 30.0
-ledge_climb_enabled = true
 ledge_climb_detection_height = 15.0
 ledge_climb_duration = 0.5
 grace_period_duration = 0.05
@@ -337,23 +331,6 @@ position = Vector2(1, 171.156)
 
 [node name="PauseMenu" parent="." instance=ExtResource("15_ig5f6")]
 visible = false
-
-[node name="CanvasLayer" type="CanvasLayer" parent="."]
-
-[node name="DialogueUI" parent="CanvasLayer" instance=ExtResource("16_7k4mf")]
-visible = false
-offset_left = 2.0
-offset_top = 3.0
-offset_right = 2.0
-offset_bottom = 3.0
-
-[node name="DialogueTrigger" type="Area2D" parent="."]
-position = Vector2(6648, 790)
-script = ExtResource("17_888h6")
-
-[node name="dialogue" type="CollisionShape2D" parent="DialogueTrigger"]
-position = Vector2(-64, -52)
-shape = SubResource("RectangleShape2D_dialogue_trigger")
 
 [node name="Tutorial Trigger" type="Area2D" parent="."]
 position = Vector2(853, 887)

@@ -21,7 +21,6 @@ jump_peak_hangtime_multiplier = 0.5
 jump_peak_threshold = 10.0
 turnaround_multiplier = 3.5
 corner_correction_distance = 10.0
-ledge_climb_enabled = false
 ledge_climb_detection_height = 10.0
 ledge_climb_duration = 0.2
 wall_slide_speed = 100.0
