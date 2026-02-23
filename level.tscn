@@ -97,6 +97,7 @@ coyote_time = 0.25
 empowered_jump_velocity_multiplier = 1.2
 gravity = 4000.0
 max_fall_speed = 4000.0
+jump_peak_hangtime_multiplier = 0.45
 jump_peak_threshold = 20.0
 turnaround_multiplier = 5.0
 corner_correction_distance = 30.0

@@ -3795,16 +3795,21 @@ func _update_kickable_object_detection() -> void:
 				effective_range += rect_shape.size.x / 2.0
 			
 			if distance <= effective_range:
-				# Check if object is in front of player (not behind)
-				var direction_to_obj = (obj_pos - global_position).normalized()
-				var dot_product = facing_vec.dot(direction_to_obj)
-				
-				# Check cone angle - dot product > cos(angle/2) means within cone
-				var half_cone_angle = deg_to_rad(kick_object_cone_angle / 2.0)
-				var cone_threshold = cos(half_cone_angle)
-				
-				if dot_product > cone_threshold:
+				# When player is very close/overlapping the object, skip the cone check
+				# (direction_to_obj becomes zero vector when distance ≈ 0, breaking the dot product)
+				if distance < 1.0:
 					nearby_kickable_objects.append(obj)
+				else:
+					# Check if object is in front of player (not behind)
+					var direction_to_obj = (obj_pos - global_position).normalized()
+					var dot_product = facing_vec.dot(direction_to_obj)
+					
+					# Check cone angle - dot product > cos(angle/2) means within cone
+					var half_cone_angle = deg_to_rad(kick_object_cone_angle / 2.0)
+					var cone_threshold = cos(half_cone_angle)
+					
+					if dot_product > cone_threshold:
+						nearby_kickable_objects.append(obj)
 
 
 func _update_kick_object_indicator() -> void:
@@ -5516,7 +5521,7 @@ func _update_animations() -> void:
 		current_offset = kick_offset
 		if animated_sprite.animation != "kick":
 			animated_sprite.play("kick")
-		animated_sprite.speed_scale = 1.0
+		animated_sprite.speed_scale = 1.5
 		_dbg_chosen_anim = "kick"
 	elif is_ground_sliding:
 		current_scale = ground_slide_scale
