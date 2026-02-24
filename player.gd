@@ -452,6 +452,9 @@ var can_restart_after_death: bool = false
 var rewind_warning_vibration_time: float = 0.0  # Accumulated time for warning vibration effect
 var rewind_buffer_initialized: bool = false  # Track if rewind buffer has been pre-filled
 
+# Keybind toggle state
+var alt_keybinds_active: bool = false  # Is alternate keybind layout active (T to toggle)
+
 # Tutorial state variables
 var is_tutorial_locked: bool = false  # Is player locked in tutorial mode
 var tutorial_allowed_action: String = ""  # The only action allowed during tutorial (empty = none)
@@ -5230,6 +5233,11 @@ func die() -> void:
 	set_process(false)
 
 func _input(event: InputEvent) -> void:
+	# Toggle keybind layout with T key
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_T:
+		_toggle_keybinds()
+		return
+	
 	if can_restart_after_death and (event is InputEventKey or event is InputEventMouseButton) and event.pressed:
 		# Manual restart (usually debug or fallback)
 		
@@ -5237,6 +5245,36 @@ func _input(event: InputEvent) -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 			
 		get_tree().reload_current_scene()
+
+func _toggle_keybinds() -> void:
+	"""Toggle between default and alternate keybind layouts."""
+	alt_keybinds_active = !alt_keybinds_active
+	
+	if alt_keybinds_active:
+		# Switch to alternate: K=jump, J=attack, Shift=dash
+		_swap_key_event("jump", KEY_J, KEY_K)
+		_swap_key_event("melee_attack", KEY_K, KEY_J)
+		_swap_key_event("run", KEY_L, KEY_SHIFT)
+	else:
+		# Switch back to default: J=jump, K=attack, L=dash
+		_swap_key_event("jump", KEY_K, KEY_J)
+		_swap_key_event("melee_attack", KEY_J, KEY_K)
+		_swap_key_event("run", KEY_SHIFT, KEY_L)
+	
+	print("[Keybinds] Switched to ", "ALTERNATE (Shift=dash, K=jump, J=attack)" if alt_keybinds_active else "DEFAULT (L=dash, J=jump, K=attack)")
+
+func _swap_key_event(action: String, old_key: int, new_key: int) -> void:
+	"""Swap a specific key event in an action's input map."""
+	var events = InputMap.action_get_events(action)
+	for event in events:
+		if event is InputEventKey:
+			var phys = event.physical_keycode if event.physical_keycode != 0 else event.keycode
+			if phys == old_key:
+				InputMap.action_erase_event(action, event)
+				var new_event = InputEventKey.new()
+				new_event.physical_keycode = new_key
+				InputMap.action_add_event(action, new_event)
+				return
 
 func _update_bullet_detection() -> void:
 	"""Detect bullets near the player that can be parried."""

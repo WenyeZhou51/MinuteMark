@@ -7,3 +7,6 @@
 *.gd.uid
 *.gdshader.uid
 *.tscn.uid
+
+# Godot import files
+*.import

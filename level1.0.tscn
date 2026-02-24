@@ -1,4 +1,4 @@
-[gd_scene load_steps=34 format=3 uid="uid://315757g0trrp"]
+[gd_scene load_steps=31 format=3 uid="uid://315757g0trrp"]
 
 [ext_resource type="Script" path="res://level_manager.gd" id="1_38wbk"]
 [ext_resource type="Texture2D" uid="uid://d2g7jojkre5ug" path="res://Sprites/Bd.png" id="2_kqecp"]
@@ -100,7 +100,6 @@ max_fall_speed = 4000.0
 jump_peak_threshold = 20.0
 turnaround_multiplier = 5.0
 corner_correction_distance = 30.0
-ledge_climb_enabled = true
 ledge_climb_detection_height = 15.0
 ledge_climb_duration = 0.5
 grace_period_duration = 0.05
