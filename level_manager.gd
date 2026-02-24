@@ -51,15 +51,22 @@ func _configure_level_audio() -> void:
 	"""Configure audio based on which level is loaded."""
 	var scene_path = scene_file_path
 	
-	if scene_path == "res://level2.tscn":
+	# Stop heartbeat/noise by default; only specific levels re-enable them
+	if AudioManager:
+		AudioManager.stop_heartbeat()
+		AudioManager.stop_occasional_noise()
+	
+	if scene_path in ["res://level1.tscn", "res://level1.1.tscn"]:
+		# Level 1 & 1.1: Rush Hour
+		if AudioManager:
+			AudioManager.set_level_music("res://audio/Rush Hour.wav")
+	elif scene_path == "res://level2.tscn":
 		# Level 2: Horror ambience + heartbeat + occasional noise
 		if AudioManager:
 			AudioManager.set_level_music("res://audio/Horror ambience.wav")
 			AudioManager.start_heartbeat()
 			AudioManager.start_occasional_noise()
 	else:
-		# All other levels: default music, no heartbeat/noise
+		# All other levels: default music (Second Chance)
 		if AudioManager:
 			AudioManager.reset_to_default_music()
-			AudioManager.stop_heartbeat()
-			AudioManager.stop_occasional_noise()
