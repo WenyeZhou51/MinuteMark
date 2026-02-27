@@ -31,6 +31,9 @@ extends StaticBody2D
 @export var text_shake_intensity: float = 8.0  ## How much the text shakes (in pixels)
 @export var text_shake_speed: float = 30.0  ## How fast the text shakes (higher = faster)
 
+@export_group("Behavior")
+@export var auto_update_visuals: bool = true  ## If true, window visuals/collision are regenerated in _ready()
+
 # Internal state
 var is_shattered: bool = false
 var player_direction: Vector2 = Vector2.ZERO  # Store player direction when broken
@@ -61,8 +64,9 @@ func _ready() -> void:
 	# Add to group for detection (same group as kickable objects)
 	add_to_group("kickable_objects")
 	
-	# Update visuals
-	_update_visuals()
+	# Update visuals (can be disabled per-instance to preserve manual edits in scenes)
+	if auto_update_visuals:
+		_update_visuals()
 	
 	# Setup audio
 	sfx_player = AudioStreamPlayer.new()
