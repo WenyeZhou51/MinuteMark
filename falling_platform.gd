@@ -7,6 +7,9 @@ extends Node2D
 @export var vibration_amplitude: float = 6.0  ## Visual shake amount (pixels)
 @export var vibration_frequency: float = 22.0  ## Visual shake speed (Hz)
 @export var debug_logs: bool = false  ## Print debug info while testing
+
+@export_group("Behavior")
+@export var auto_update_from_shape: bool = true  ## If true, Visual/Trigger shapes are auto-synced from CollisionShape in _ready()
 const DESPAWN_PADDING: float = 200.0
 const LANDING_MARGIN: float = 6.0
 const PLAYER_FALLBACK_MARGIN: float = 10.0
@@ -49,9 +52,11 @@ func _ready() -> void:
 	
 	if visual:
 		base_visual_pos = visual.position
-		_update_visual_from_shape()
+		if auto_update_from_shape:
+			_update_visual_from_shape()
 	
-	_sync_trigger_shape()
+	if auto_update_from_shape:
+		_sync_trigger_shape()
 	
 
 
