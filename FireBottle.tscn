@@ -1,0 +1,14 @@
+[gd_scene load_steps=3 format=3 uid="uid://c8k3m5n7p9qr2"]
+
+[ext_resource type="Script" path="res://fire_bottle.gd" id="1_firebottle"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_bottle"]
+size = Vector2(20, 32)
+
+[node name="FireBottle" type="Area2D" groups=["kickable_objects"]]
+script = ExtResource("1_firebottle")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_bottle")
+
+[node name="Visual" type="Node2D" parent="."]

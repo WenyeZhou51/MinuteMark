@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://v2lfhu5ocdg3"]
+
+[ext_resource type="Script" path="res://pixel_fire_simulation.gd" id="1_fire_sim"]
+
+[node name="PixelFireSimulation" type="Node2D"]
+script = ExtResource("1_fire_sim")
