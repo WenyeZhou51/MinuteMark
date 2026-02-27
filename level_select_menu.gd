@@ -1,16 +1,20 @@
 extends CanvasLayer
 
-# Level data structure
+# Level data is built from level block node metadata in the scene.
 @export_group("Level Configuration")
-@export var levels: Array[Dictionary] = [
-	{"name": "Tutorial", "scene_path": "res://level.tscn", "unlocked": true},
-	{"name": "Neon Countdown", "scene_path": "res://level1.3.tscn", "unlocked": true},
-	{"name": "Neon Countdown Alternative", "scene_path": "res://level1.1.tscn", "unlocked": true},
-	{"name": "Level 4", "scene_path": "res://level1.tscn", "unlocked": true},
-	{"name": "Level 5", "scene_path": "res://level.tscn", "unlocked": true}
-]
+@export var levels: Array[Dictionary] = []
 
 const SAVE_FILE_PATH = "user://level_progress.cfg"
+
+@export_group("Lock Overlay")
+@export var locked_overlay_node_name: NodePath = NodePath("LockedOverlay")  # Child of each level block; only visible when locked (add in scene or leave name to auto-create)
+@export var sync_overlay_shape_from_paper: bool = false  # False by default so LockOverlay can be edited manually in the scene.
+@export var lock_overlay_color: Color = Color(0.72, 0.72, 0.76, 0.36)
+@export var lock_overlay_z_index: int = 4
+@export var lock_icon_z_index: int = 5
+@export var lock_icon_font_size: int = 48
+@export var lock_icon_half_size: float = 28.0  # Half of icon rect (center ± this = 56×56)
+@export var lock_overlay_outset: float = 4.0  # Expand overlay slightly outside paper shape.
 
 var level_blocks: Array[Control] = []
 var hovered_block_index: int = -1
@@ -39,49 +43,183 @@ func _ready():
 		if AudioManager.has_method("reset_to_default_music"):
 			AudioManager.reset_to_default_music()
 	
-	# Load saved progress
-	load_level_progress()
-	
-	# Setup level blocks
+	# Build level blocks + defaults from scene nodes
 	setup_level_blocks()
+	# Load saved progress over node defaults
+	load_level_progress()
+	# Apply loaded/default state to visuals
+	_apply_level_states_to_blocks()
+	_cache_block_original_colors()
 	if level_blocks.size() > 0:
 		keyboard_focus_index = clampi(keyboard_focus_index, 0, level_blocks.size() - 1)
+	# After layout, ensure overlay/icon fill each block and locked state is applied (fixes Level 5 and position mismatch)
+	call_deferred("_refresh_lock_overlays")
 	
 	# Setup audio
 	setup_audio_players()
 	
-	# Ensure mouse is visible
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	# Hide mouse cursor in level select; keyboard only
+	Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
 
 func setup_level_blocks():
-	"""Find and setup all level blocks from the scene"""
+	"""Find level blocks from scene nodes and build level data from node metadata."""
 	level_blocks.clear()
 	block_original_scales.clear()
 	block_original_colors.clear()
-	
-	# Find all level blocks (Level1Block, Level2Block, etc.)
-	for i in range(levels.size()):
-		var block_name = "Level%dBlock" % (i + 1)
-		var block = get_node_or_null("MenuContainer/LevelsContainer/" + block_name)
-		if block:
-			level_blocks.append(block)
-			# Make it process input
-			block.mouse_filter = Control.MOUSE_FILTER_STOP
-			
-			# Store original scale for hover effects
-			block_original_scales.append(block.scale)
-			
-			# Update block state based on unlock status (this sets the color)
-			update_level_block(block, i)
-			
-			# Store original color AFTER it's been set by update_level_block
-			var polygon = block.get_node_or_null("PaperScrap")
-			if polygon:
-				block_original_colors.append(polygon.color)
-			else:
-				block_original_colors.append(Color.WHITE)
+	var container = get_node_or_null("MenuContainer/LevelsContainer")
+	if not container:
+		push_error("LevelSelectMenu: Could not find LevelsContainer")
+		return
+
+	var indexed_blocks: Array[Dictionary] = []
+	for child in container.get_children():
+		if child is Control:
+			var child_name := str(child.name)
+			if child_name.begins_with("Level") and child_name.ends_with("Block"):
+				var level_num := _parse_level_number_from_block_name(child_name)
+				indexed_blocks.append({"num": level_num, "block": child})
+
+	indexed_blocks.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return int(a.get("num", 0)) < int(b.get("num", 0))
+	)
+
+	for item in indexed_blocks:
+		var block: Control = item.get("block")
+		level_blocks.append(block)
+		block.mouse_filter = Control.MOUSE_FILTER_STOP
+		block_original_scales.append(block.scale)
+		_add_lock_overlay_and_icon(block)
+
+	levels = _build_level_data_from_blocks()
+
+func _parse_level_number_from_block_name(block_name: String) -> int:
+	var middle := block_name.trim_prefix("Level").trim_suffix("Block")
+	if middle.is_valid_int():
+		return int(middle)
+	return 9999
+
+func _build_level_data_from_blocks() -> Array[Dictionary]:
+	var built_levels: Array[Dictionary] = []
+	for i in range(level_blocks.size()):
+		var block: Control = level_blocks[i]
+		var label = block.get_node_or_null("LevelLabel")
+		var level_name := "Level %d" % (i + 1)
+		if label is Label and not (label as Label).text.strip_edges().is_empty():
+			level_name = (label as Label).text.strip_edges()
+		var scene_path := str(block.get_meta("scene_path", ""))
+		var unlocked_default := bool(block.get_meta("default_unlocked", false))
+		built_levels.append({
+			"name": level_name,
+			"scene_path": scene_path,
+			"unlocked": unlocked_default
+		})
+	return built_levels
+
+func _apply_level_states_to_blocks():
+	for i in range(min(level_blocks.size(), levels.size())):
+		update_level_block(level_blocks[i], i)
+
+func _cache_block_original_colors():
+	block_original_colors.clear()
+	for i in range(level_blocks.size()):
+		var polygon = level_blocks[i].get_node_or_null("PaperScrap")
+		if polygon:
+			block_original_colors.append(polygon.color)
 		else:
-			push_warning("LevelSelectMenu: Could not find block: " + block_name)
+			block_original_colors.append(Color.WHITE)
+
+func _add_lock_overlay_and_icon(block: Control):
+	"""Use or create the 'locked overlay' container under the block (visible only when locked). If empty, add default overlay + icon; else use whatever you put in the scene."""
+	var container = block.get_node_or_null(locked_overlay_node_name)
+	if container == null:
+		container = Node2D.new()
+		container.name = str(locked_overlay_node_name)
+		block.add_child(container)
+	container.visible = false
+
+	var paper = block.get_node_or_null("PaperScrap")
+	if paper == null or not (paper is Polygon2D):
+		return
+	var poly: Polygon2D = paper as Polygon2D
+	# Add overlay shape only when container has no Polygon2D child (so you can edit shape in scene)
+	if container.get_node_or_null("LockOverlay") == null:
+		var overlay = Polygon2D.new()
+		overlay.name = "LockOverlay"
+		overlay.z_as_relative = false
+		overlay.z_index = lock_overlay_z_index
+		overlay.polygon = _safe_overlay_polygon(poly.polygon)
+		overlay.position = poly.position
+		overlay.scale = poly.scale
+		overlay.color = lock_overlay_color
+		container.add_child(overlay)
+	# Add lock icon when missing (so scene can have shape-only and we add icon at runtime)
+	if container.get_node_or_null("LockIcon") == null:
+		var icon = Label.new()
+		icon.name = "LockIcon"
+		icon.z_as_relative = false
+		icon.z_index = lock_icon_z_index
+		icon.text = "🔒"
+		icon.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		icon.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		icon.add_theme_font_size_override("font_size", lock_icon_font_size)
+		icon.set_anchors_preset(Control.PRESET_TOP_LEFT)
+		var hs: float = lock_icon_half_size
+		icon.offset_left = 0
+		icon.offset_top = 0
+		icon.offset_right = hs * 2.0
+		icon.offset_bottom = hs * 2.0
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		container.add_child(icon)
+
+func _get_paper_centroid_in_block(block: Control) -> Vector2:
+	"""Center of the PaperScrap polygon in block local space (for lock icon)."""
+	var paper = block.get_node_or_null("PaperScrap")
+	if not paper is Polygon2D:
+		return Vector2(block.offset_right - block.offset_left, block.offset_bottom - block.offset_top) * 0.5
+	var poly: Polygon2D = paper as Polygon2D
+	var pts = poly.polygon
+	if pts.size() == 0:
+		return poly.position
+	var sum := Vector2.ZERO
+	for p in pts:
+		sum += p
+	var local_center: Vector2 = sum / float(pts.size())
+	return poly.position + local_center * poly.scale
+
+func _refresh_lock_overlays():
+	"""Called deferred: keep overlay same shape as PaperScrap, position lock icon at paper center."""
+	for i in range(level_blocks.size()):
+		if i >= levels.size():
+			break
+		var block = level_blocks[i]
+		var container = block.get_node_or_null(locked_overlay_node_name)
+		if container == null:
+			update_level_block(block, i)
+			continue
+		var paper = block.get_node_or_null("PaperScrap")
+		var overlay = container.get_node_or_null("LockOverlay")
+		var lock_icon = container.get_node_or_null("LockIcon")
+		if paper is Polygon2D and overlay is Polygon2D:
+			var poly: Polygon2D = paper as Polygon2D
+			var over: Polygon2D = overlay as Polygon2D
+			if sync_overlay_shape_from_paper:
+				over.polygon = _safe_overlay_polygon(poly.polygon)
+				over.position = poly.position
+				over.scale = poly.scale
+			over.z_as_relative = false
+			over.color = lock_overlay_color
+			over.z_index = lock_overlay_z_index
+		var center := _get_paper_centroid_in_block(block)
+		if lock_icon:
+			lock_icon.z_as_relative = false
+			lock_icon.z_index = lock_icon_z_index
+			lock_icon.add_theme_font_size_override("font_size", lock_icon_font_size)
+			var hs: float = lock_icon_half_size
+			lock_icon.offset_left = center.x - hs
+			lock_icon.offset_top = center.y - hs
+			lock_icon.offset_right = center.x + hs
+			lock_icon.offset_bottom = center.y + hs
+		update_level_block(block, i)
 
 func update_level_block(block: Control, level_index: int):
 	"""Update block appearance based on unlock status"""
@@ -90,6 +228,31 @@ func update_level_block(block: Control, level_index: int):
 		
 	var level_data = levels[level_index]
 	var is_unlocked = level_data.get("unlocked", false)
+	
+	# Show or hide the locked overlay container (only visible when locked)
+	var container = block.get_node_or_null(locked_overlay_node_name)
+	if container:
+		# Keep container alive and explicitly toggle children so state cannot drift.
+		container.visible = true
+		var lock_overlay = container.get_node_or_null("LockOverlay")
+		var lock_icon = container.get_node_or_null("LockIcon")
+		if lock_overlay:
+			lock_overlay.visible = not is_unlocked
+			if lock_overlay is Polygon2D:
+				var over: Polygon2D = lock_overlay as Polygon2D
+				var paper = block.get_node_or_null("PaperScrap")
+				if sync_overlay_shape_from_paper and paper is Polygon2D:
+					var poly: Polygon2D = paper as Polygon2D
+					over.polygon = _safe_overlay_polygon(poly.polygon)
+					over.position = poly.position
+					over.scale = poly.scale
+				over.z_as_relative = false
+				over.z_index = lock_overlay_z_index
+				over.color = lock_overlay_color
+		if lock_icon:
+			lock_icon.visible = not is_unlocked
+			lock_icon.z_as_relative = false
+			lock_icon.z_index = lock_icon_z_index
 	
 	# Label text is taken from the scene (.tscn); we only update colors for locked/unlocked
 	var label = block.get_node_or_null("LevelLabel")
@@ -122,6 +285,34 @@ func update_level_block(block: Control, level_index: int):
 				label.add_theme_color_override("font_outline_color", Color(0.95, 0.95, 0.95, 1))
 				label.modulate = Color(1, 1, 1, 1)
 
+func _safe_overlay_polygon(points: PackedVector2Array) -> PackedVector2Array:
+	"""Return a polygon guaranteed to render; fallback to convex hull for problematic shapes."""
+	if points.size() < 3:
+		return points
+	var hull := Geometry2D.convex_hull(points)
+	var base := points
+	if hull.size() >= 3:
+		base = hull
+	return _expand_polygon_from_centroid(base, lock_overlay_outset)
+
+func _expand_polygon_from_centroid(points: PackedVector2Array, amount: float) -> PackedVector2Array:
+	if amount <= 0.0 or points.size() < 3:
+		return points
+	var center := Vector2.ZERO
+	for p in points:
+		center += p
+	center /= float(points.size())
+
+	var expanded := PackedVector2Array()
+	for p in points:
+		var dir := p - center
+		var len := dir.length()
+		if len > 0.0001:
+			expanded.append(p + (dir / len) * amount)
+		else:
+			expanded.append(p)
+	return expanded
+
 func _input(event):
 	"""Handle input for level blocks"""
 	# Handle ESC key to quit game
@@ -138,17 +329,10 @@ func _input(event):
 				keyboard_focus_index = (keyboard_focus_index + 1) % n
 			elif event.keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE]:
 				_on_level_block_clicked(keyboard_focus_index)
-	
-	# Handle mouse clicks on level blocks
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		var mouse_pos = get_viewport().get_mouse_position()
-		
-		# Check each level block
-		for i in range(level_blocks.size()):
-			var block = level_blocks[i]
-			if block.visible and _is_point_in_block(mouse_pos, block):
-				_on_level_block_clicked(i)
-				break
+
+	# Ignore all mouse button input in this scene (keyboard only)
+	if event is InputEventMouseButton:
+		return
 
 func _is_point_in_block(point: Vector2, block: Control) -> bool:
 	"""Check if a point is inside the paper scrap polygon"""
@@ -179,13 +363,13 @@ func _is_point_in_block(point: Vector2, block: Control) -> bool:
 	return inside
 
 func _on_level_block_clicked(level_index: int):
-	"""Handle level block click"""
+	"""Handle level block click / Enter key. Locked levels can be focused but not entered."""
 	if level_index >= levels.size():
 		return
 		
 	var level_data = levels[level_index]
 	
-	# Check if unlocked
+	# Locked: allow hover/focus with keyboard but do not open level on Enter
 	if not level_data.get("unlocked", false):
 		play_menu_select_sound()
 		return
@@ -232,17 +416,14 @@ func load_level_progress():
 	var error = config.load(SAVE_FILE_PATH)
 	
 	if error != OK:
-		# File doesn't exist or error loading - use defaults
-		# All levels are unlocked by default
-		for i in range(levels.size()):
-			levels[i]["unlocked"] = true
+		# No save file: keep scene node defaults.
 		return
 	
-	# Load saved progress
+	# Load saved progress only for keys that exist.
 	for i in range(levels.size()):
 		var key = "level_%d_unlocked" % (i + 1)
-		var unlocked = config.get_value("progress", key, true)  # All levels unlocked by default
-		levels[i]["unlocked"] = unlocked
+		if config.has_section_key("progress", key):
+			levels[i]["unlocked"] = config.get_value("progress", key, false)
 	
 
 # Audio setup
@@ -273,77 +454,20 @@ func setup_audio_players():
 		menu_select_player.stream = load("res://audio/menu_select.wav")
 
 func _process(_delta):
-	"""Check for mouse hover on level blocks and unify with keyboard focus"""
-	var mouse_pos = get_viewport().get_mouse_position()
-	
-	# Detect what block we're hovering over this frame
-	var current_hovered = -1
-	for i in range(level_blocks.size()):
-		var block = level_blocks[i]
-		if block.visible and _is_point_in_block(mouse_pos, block):
-			current_hovered = i
-			break
-	
-	# Check if the detected hover has changed
-	if current_hovered != detected_hover_index:
-		# Detection changed - only reset timers; do NOT clear stable hover when switching between blocks.
-		# Stable hover only changes after we've been on the new block (or outside) for the full delay,
-		# so boundary flicker between two blocks (e.g. level 2 ↔ level 3) won't cause oscillation.
-		detected_hover_index = current_hovered
-		
-		if current_hovered == -1:
-			# Left block(s) - don't clear immediately; wait for exit stability to avoid boundary flicker
-			hover_stability_time = 0.0
-		else:
-			# Entered a block - reset both timers
-			hover_stability_time = 0.0
-			outside_stability_time = 0.0
-	else:
-		# Same detection, accumulate stability time
-		hover_stability_time += _delta
-		if current_hovered == -1:
-			outside_stability_time += _delta
-			# Only clear stable after cursor has been outside for the delay (stops boundary oscillation).
-			# Do NOT remove the hover effect here: we keep showing that block via last_hovered_before_clear,
-			# so removing the effect would make level 3 itself oscillate (on/off) at the boundary.
-			if outside_stability_time >= HOVER_STABILITY_DELAY and stable_hover_index >= 0 and stable_hover_index < level_blocks.size():
-				last_hovered_before_clear = stable_hover_index
-				stable_hover_index = -1
-		else:
-			outside_stability_time = 0.0
-			# Apply hover effects when stable (mouse)
-			if hover_stability_time >= HOVER_STABILITY_DELAY:
-				if stable_hover_index != current_hovered:
-					if stable_hover_index >= 0 and stable_hover_index < level_blocks.size():
-						_apply_hover_effect(stable_hover_index, false)
-					_apply_hover_effect(current_hovered, true)
-					play_menu_select_sound()
-					stable_hover_index = current_hovered
-					last_hovered_before_clear = -1  # New block confirmed; no longer "pending" old block
-	
-	# Effective highlight: stable mouse hover > currently detected block > last hovered (boundary flicker) > keyboard
-	var effective_highlight: int
-	if stable_hover_index >= 0:
-		effective_highlight = stable_hover_index
-	elif detected_hover_index >= 0:
-		effective_highlight = detected_hover_index
-	elif last_hovered_before_clear >= 0 and outside_stability_time < OUTSIDE_TO_KEYBOARD_DELAY:
-		# Boundary flicker: keep showing the block we had until user has been outside long enough
-		effective_highlight = last_hovered_before_clear
-	else:
-		effective_highlight = keyboard_focus_index
-		if outside_stability_time >= OUTSIDE_TO_KEYBOARD_DELAY:
-			last_hovered_before_clear = -1  # Done with boundary; allow keyboard to show
+	"""Highlight level blocks using keyboard focus only (no mouse input)."""
+	# Always use keyboard_focus_index as the effective highlight
+	var effective_highlight: int = keyboard_focus_index
 	if effective_highlight >= level_blocks.size():
 		effective_highlight = 0
+	
 	# Apply/remove hover so exactly one block is highlighted
 	if effective_highlight != last_effective_highlight:
 		if last_effective_highlight >= 0 and last_effective_highlight < level_blocks.size():
 			_apply_hover_effect(last_effective_highlight, false)
 		if effective_highlight >= 0 and effective_highlight < level_blocks.size():
 			_apply_hover_effect(effective_highlight, true)
-			# Play sound when highlight changes from keyboard (not on initial focus)
-			if stable_hover_index < 0 and last_effective_highlight >= 0:
+			# Play sound when highlight changes (not on initial focus)
+			if last_effective_highlight >= 0:
 				play_menu_select_sound()
 		last_effective_highlight = effective_highlight
 	
