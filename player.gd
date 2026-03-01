@@ -1012,8 +1012,15 @@ func _physics_process(delta: float) -> void:
 				# Ground slide
 				_start_ground_slide(raw_input_x)
 			elif not is_on_floor() and air_dash_cooldown_timer <= 0 and not is_backward_walljump_dash:
-				# Air dash (cooldown-based, blocked only if dashing back toward walljump wall)
-				_start_air_dash(raw_input_x)
+				# Check if dashing into the wall while already on it
+				# wall_normal points AWAY from the wall.
+				# If wall is on right, normal.x is negative. Dash right (positive) is into wall.
+				# If wall is on left, normal.x is positive. Dash left (negative) is into wall.
+				var is_dashing_into_wall = is_on_wall and wall_normal.x != 0 and sign(intended_dash_dir) == -sign(wall_normal.x)
+				
+				if not is_dashing_into_wall:
+					# Air dash (cooldown-based, blocked only if dashing back toward walljump wall)
+					_start_air_dash(raw_input_x)
 	
 	# Handle rewind input (hold-to-rewind)
 	if rewind_enabled and rewind_cooldown_timer <= 0:

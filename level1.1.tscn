@@ -128,10 +128,12 @@ layer_0/tile_data = PackedInt32Array(-2097217, 1245189, 1, -2031681, 1245189, 1,
 
 [node name="Player" parent="." instance=ExtResource("9_na35n")]
 position = Vector2(3063, 16789)
-max_speed = 1500.0
-ground_acceleration = 1500.0
-air_acceleration = 2000.0
-air_deceleration = 5000.0
+max_speed = 1200.0
+ground_acceleration = 5000.0
+ground_deceleration = 10000.0
+air_acceleration = 4000.0
+air_deceleration = 8000.0
+sprint_speed_threshold = 400.0
 trail_afterimage_interval = 0.04
 trail_afterimage_lifetime_multiplier = 1.0
 trail_max_speed_threshold = 1200.0
