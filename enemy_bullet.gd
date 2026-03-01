@@ -2,16 +2,16 @@ extends Area2D
 
 # Movement properties
 @export_group("Bullet Movement")
-@export var speed: float = 2000.0  ## Default speed of the bullet (pixels per second)
+@export var speed: float = 1400.0  ## Reduced speed (was 2000.0)
 @export var lifetime: float = 5.0  ## Auto-destroy after this many seconds
 
 @export_group("Visuals")
-@export var bullet_scale: Vector2 = Vector2(1.5, 1.5) ## Scale of the bullet visual
-@export var collision_scale: Vector2 = Vector2(1.2, 1.2) ## Scale of collision shape
-@export var particle_amount: int = 20 ## Number of particles in trail
-@export var particle_lifetime: float = 0.3 ## Lifetime of particles
-@export var particle_scale_min: float = 4.0 ## Min scale of particles
-@export var particle_scale_max: float = 8.0 ## Max scale of particles
+@export var bullet_scale: Vector2 = Vector2(3.0, 3.0) ## Much larger scale (was 1.5)
+@export var collision_scale: Vector2 = Vector2(2.5, 2.5) ## Larger collision (was 1.2)
+@export var particle_amount: int = 30 ## More particles for larger bullet
+@export var particle_lifetime: float = 0.4 ## Longer trail
+@export var particle_scale_min: float = 6.0 ## larger particles
+@export var particle_scale_max: float = 12.0 ## larger particles
 
 # Signals
 signal bullet_parried  ## Emitted when this bullet is parried by the player
@@ -43,7 +43,12 @@ func _ready() -> void:
 		var visual = get_node("Visual")
 		visual.scale = bullet_scale
 		if visual is Polygon2D:
-			visual.color = Color(1.0, 0.2, 0.0, 1.0)  # Brighter red-orange
+			visual.color = Color(1.0, 0.0, 0.0, 1.0)  # Pure red
+			
+			# Flashing tween
+			var tween = create_tween().set_loops()
+			tween.tween_property(visual, "color", Color(1.0, 0.5, 0.5, 1.0), 0.1) # Flash to lighter red
+			tween.tween_property(visual, "color", Color(1.0, 0.0, 0.0, 1.0), 0.1) # Back to pure red
 	
 	# Scale collision shape to match
 	if has_node("CollisionShape2D"):
@@ -195,11 +200,11 @@ func _create_particle_trail() -> void:
 	scale_curve.add_point(Vector2(1.0, 0.3))
 	particle_trail.scale_amount_curve = scale_curve
 	
-	# Color gradient - orange to transparent
+	# Color gradient - red to transparent
 	var gradient = Gradient.new()
-	gradient.add_point(0.0, Color(1.0, 0.6, 0.0, 1.0))  # Bright orange
-	gradient.add_point(0.4, Color(1.0, 0.4, 0.0, 0.7))  # Orange
-	gradient.add_point(1.0, Color(0.8, 0.2, 0.0, 0.0))  # Dark orange fade
+	gradient.add_point(0.0, Color(1.0, 0.0, 0.0, 1.0))  # Bright red
+	gradient.add_point(0.4, Color(1.0, 0.2, 0.2, 0.7))  # Light red
+	gradient.add_point(1.0, Color(0.5, 0.0, 0.0, 0.0))  # Dark red fade
 	particle_trail.color_ramp = gradient
 	
 	# Damping (slow down over time)

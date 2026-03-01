@@ -556,6 +556,8 @@ func _can_see_player() -> bool:
 	var query = PhysicsRayQueryParameters2D.create(gunpoint_pos, player_pos, 1)
 	query.collide_with_areas = false
 	query.collide_with_bodies = true
+	# Exclude player from the raycast so we don't hit them and think it's a wall
+	query.exclude = [player_ref]
 	
 	var result = space_state.intersect_ray(query)
 	

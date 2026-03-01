@@ -130,6 +130,8 @@ func _find_player() -> void:
 	var players = get_tree().get_nodes_in_group("player")
 	if not players.is_empty():
 		player_ref = players[0]
+		if laser_raycast:
+			laser_raycast.add_exception(player_ref)
 
 func _update_sweep(delta: float) -> void:
 	var half_sweep = max(0.0, sweep_angle_degrees * 0.5)

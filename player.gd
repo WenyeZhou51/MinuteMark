@@ -36,10 +36,10 @@ var action_lines_instance: CanvasLayer = null
 # MOVEMENT CONFIGURATION
 @export_group("Horizontal Movement")
 @export var max_speed: float = 300.0  ## Maximum horizontal movement speed
-@export var ground_acceleration: float = 1500.0  ## Acceleration when on ground
-@export var ground_deceleration: float = 2000.0  ## Deceleration when on ground (no input)
-@export var air_acceleration: float = 800.0  ## Acceleration when airborne (reduced control)
-@export var air_deceleration: float = 400.0  ## Deceleration when airborne (reduced control)
+@export var ground_acceleration: float = 4000.0  ## Acceleration when on ground
+@export var ground_deceleration: float = 8000.0  ## Deceleration when on ground (no input)
+@export var air_acceleration: float = 4000.0  ## Acceleration when airborne (reduced control)
+@export var air_deceleration: float = 8000.0  ## Deceleration when airborne (reduced control)
 @export var sprint_speed_threshold: float = 1000.0  ## Speed required to enter sprint state
 @export var run_speed_multiplier: float = 1.75  ## Speed multiplier when in sprint state
 @export var run_acceleration_multiplier: float = 1.3  ## Acceleration multiplier when in sprint state
@@ -144,13 +144,13 @@ var action_lines_instance: CanvasLayer = null
 @export var ground_slide_offset: Vector2 = Vector2.ZERO
 
 @export_group("Ground Slide")
-@export var ground_slide_speed: float = 1800.0  ## Speed during ground slide
+@export var ground_slide_speed: float = 2500.0  ## Speed during ground slide
 @export var ground_slide_duration: float = 0.5  ## Duration of ground slide in seconds
 @export var ground_slide_min_duration: float = 0.1  ## Minimum time player must slide before they can jump cancel
 @export var ground_slide_height_reduction: float = 0.5  ## Height reduction during slide (0.5 = 50% height)
 @export var ground_slide_cooldown: float = 1.0  ## Cooldown between ground slides
 @export var ground_slide_end_speed: float = 1200.0  ## Speed after slide ends
-@export var ground_slide_slowdown_rate: float = 700.0 ## Slowdown per second during slide (70 per 0.1s)
+@export var ground_slide_slowdown_rate: float = 1200.0 ## Slowdown per second during slide (70 per 0.1s)
 @export var ground_slide_empowered_jump_multiplier: float = 1.5  ## Jump height multiplier when jumping out of slide
 
 @export_group("Paper Tear Effect")
@@ -159,7 +159,7 @@ var action_lines_instance: CanvasLayer = null
 @export var tear_v_squish: float = 0.4  ## How much to squish the image vertically (0.0 - 1.0)
 
 @export_group("Air Dash")
-@export var air_dash_horizontal_impulse: float = 3000.0  ## Horizontal impulse force applied at start of air dash
+@export var air_dash_horizontal_impulse: float = 2500.0  ## Horizontal impulse force applied at start of air dash
 @export var air_dash_vertical_impulse: float = 100.0  ## Vertical impulse force applied at start of air dash
 @export var air_dash_duration: float = 0.2  ## Duration of air dash in seconds
 @export var air_dash_cooldown: float = 0.35  ## Cooldown between air dashes
@@ -190,12 +190,12 @@ var action_lines_instance: CanvasLayer = null
 @export var attack_safety_timeout: float = 1.0 ## Auto-end attack if stuck
 @export var attack_indicator_length: float = 0.2  ## Controls visual arrow length only
 @export var attack_momentum_retention: float = 0.5  ## How much momentum is kept after attack ends (0.0-1.0)
-@export var attack_cooldown: float = 0.2  ## Cooldown between attacks
+@export var attack_cooldown: float = 0.3  ## Cooldown between attacks
 @export var attack_enemy_knockback_force: float = 2500.0  ## Force applied to enemy when kicked
 
 @export_group("Kick Visuals")
 @export var kick_indicator_width: float = 3.0 ## Width of the object kick indicator line
-@export var kick_indicator_color: Color = Color(0.2, 1.0, 0.2, 0.8) ## Color of the object kick indicator (Green)
+@export var kick_indicator_color: Color = Color(1.0, 0.2, 0.2, 0.4) ## Color of the object kick indicator (Red)
 @export var parry_indicator_width: float = 4.0 ## Width of the bullet parry indicator line
 @export var parry_indicator_color: Color = Color(0.2, 1.0, 1.0, 0.9) ## Color of the bullet parry indicator (Cyan)
 @export var slam_indicator_color: Color = Color(1.0, 0.2, 0.2, 0.4) ## Color of the ground slam range circle (Red)
@@ -354,7 +354,7 @@ var last_targeted_enemy: Node2D = null  # Previously targeted enemy for outline 
 # Kick object state variables
 var nearby_kickable_objects: Array[Node2D] = []  # Array of kickable objects within range
 var closest_kickable_object: Node2D = null  # Closest kickable object in front of player
-var object_kick_indicator: Line2D = null  # Visual indicator for kick object direction
+var object_kick_indicator: Polygon2D = null  # Visual indicator for kick object direction
 
 # Bullet parry state variables
 var nearby_bullets: Array[Node2D] = []  # Array of bullets within parry range
@@ -854,10 +854,28 @@ func _update_slam_attack_visual() -> void:
 
 func _create_kick_object_indicator() -> void:
 	"""Create the visual indicator for kick object direction."""
-	object_kick_indicator = Line2D.new()
+	object_kick_indicator = Polygon2D.new()
 	object_kick_indicator.name = "ObjectKickIndicator"
-	object_kick_indicator.width = kick_indicator_width
-	object_kick_indicator.default_color = kick_indicator_color
+	
+	# Create a cone/arrow shape pointing RIGHT (0 degrees)
+	# This will be rotated to point in the recoil direction
+	var cone_length = 240.0
+	var cone_width = 60.0
+	
+	object_kick_indicator.polygon = PackedVector2Array([
+		Vector2(0, 0),
+		Vector2(cone_length, -cone_width / 2),
+		Vector2(cone_length, cone_width / 2)
+	])
+	
+	# Faint red glow using vertex colors
+	# Origin is more opaque, tips fade out
+	object_kick_indicator.vertex_colors = PackedColorArray([
+		Color(1.0, 0.2, 0.2, 0.4), # Origin (red, semi-transparent)
+		Color(1.0, 0.2, 0.2, 0.0), # Tip 1 (transparent)
+		Color(1.0, 0.2, 0.2, 0.0)  # Tip 2 (transparent)
+	])
+	
 	object_kick_indicator.visible = false
 	add_child(object_kick_indicator)
 
@@ -3762,64 +3780,78 @@ func _post_movement_updates(space_state: PhysicsDirectSpaceState2D) -> void:
 # ====================================
 
 func _update_kickable_object_detection() -> void:
-	"""Detect kickable objects in front of player within cone angle."""
+	"""Detect kickable objects and enemies in front of player within cone angle."""
 	nearby_kickable_objects.clear()
 	closest_kickable_object = null
 	
-	# Get all kickable objects
+	# Get all kickable objects and enemies
 	var objects = get_tree().get_nodes_in_group("kickable_objects")
+	var enemies = get_tree().get_nodes_in_group("enemies") + get_tree().get_nodes_in_group("enemy")
+	var all_targets = objects + enemies
 	
 	# Calculate facing direction vector
 	var facing_vec = Vector2(facing_direction, 0)
 	
-	for obj in objects:
-		if obj and is_instance_valid(obj) and obj.has_method("can_be_kicked") and obj.can_be_kicked():
-			# Calculate distance to object - use closest point on object for large objects like windows
-			var obj_pos = obj.global_position
-			var distance = global_position.distance_to(obj_pos)
+	for obj in all_targets:
+		if not obj or not is_instance_valid(obj):
+			continue
 			
-			# For objects with collision shapes, check distance to closest point on the shape
-			var collision_shape = obj.get_node_or_null("CollisionShape2D")
-			if collision_shape and collision_shape.shape:
-				if collision_shape.shape is RectangleShape2D:
-					var rect_shape = collision_shape.shape as RectangleShape2D
-					var shape_size = rect_shape.size
-					var shape_pos = collision_shape.global_position
-					var shape_half = shape_size / 2.0
-					var shape_min = shape_pos - shape_half
-					var shape_max = shape_pos + shape_half
-					
-					# Find closest point on rectangle to player
-					var closest_point = Vector2(
-						clamp(global_position.x, shape_min.x, shape_max.x),
-						clamp(global_position.y, shape_min.y, shape_max.y)
-					)
-					distance = global_position.distance_to(closest_point)
-					obj_pos = closest_point
+		# Check if object can be kicked
+		var can_kick = false
+		if obj.has_method("can_be_kicked"):
+			can_kick = obj.can_be_kicked()
+		elif obj.get("is_destroyed") != null: # Enemy
+			can_kick = not obj.is_destroyed and not obj.get("is_kicked")
 			
-			# Use extended range for large objects (like windows)
-			var effective_range = kick_object_detection_range
-			if collision_shape and collision_shape.shape is RectangleShape2D:
+		if not can_kick:
+			continue
+
+		# Calculate distance to object - use closest point on object for large objects like windows
+		var obj_pos = obj.global_position
+		var distance = global_position.distance_to(obj_pos)
+		
+		# For objects with collision shapes, check distance to closest point on the shape
+		var collision_shape = obj.get_node_or_null("CollisionShape2D")
+		if collision_shape and collision_shape.shape:
+			if collision_shape.shape is RectangleShape2D:
 				var rect_shape = collision_shape.shape as RectangleShape2D
-				# Extend range by half the object's width for large objects
-				effective_range += rect_shape.size.x / 2.0
-			
-			if distance <= effective_range:
-				# When player is very close/overlapping the object, skip the cone check
-				# (direction_to_obj becomes zero vector when distance ≈ 0, breaking the dot product)
-				if distance < 1.0:
+				var shape_size = rect_shape.size
+				var shape_pos = collision_shape.global_position
+				var shape_half = shape_size / 2.0
+				var shape_min = shape_pos - shape_half
+				var shape_max = shape_pos + shape_half
+				
+				# Find closest point on rectangle to player
+				var closest_point = Vector2(
+					clamp(global_position.x, shape_min.x, shape_max.x),
+					clamp(global_position.y, shape_min.y, shape_max.y)
+				)
+				distance = global_position.distance_to(closest_point)
+				obj_pos = closest_point
+		
+		# Use extended range for large objects (like windows)
+		var effective_range = kick_object_detection_range
+		if collision_shape and collision_shape.shape is RectangleShape2D:
+			var rect_shape = collision_shape.shape as RectangleShape2D
+			# Extend range by half the object's width for large objects
+			effective_range += rect_shape.size.x / 2.0
+		
+		if distance <= effective_range:
+			# When player is very close/overlapping the object, skip the cone check
+			# (direction_to_obj becomes zero vector when distance ≈ 0, breaking the dot product)
+			if distance < 1.0:
+				nearby_kickable_objects.append(obj)
+			else:
+				# Check if object is in front of player (not behind)
+				var direction_to_obj = (obj_pos - global_position).normalized()
+				var dot_product = facing_vec.dot(direction_to_obj)
+				
+				# Check cone angle - dot product > cos(angle/2) means within cone
+				var half_cone_angle = deg_to_rad(kick_object_cone_angle / 2.0)
+				var cone_threshold = cos(half_cone_angle)
+				
+				if dot_product > cone_threshold:
 					nearby_kickable_objects.append(obj)
-				else:
-					# Check if object is in front of player (not behind)
-					var direction_to_obj = (obj_pos - global_position).normalized()
-					var dot_product = facing_vec.dot(direction_to_obj)
-					
-					# Check cone angle - dot product > cos(angle/2) means within cone
-					var half_cone_angle = deg_to_rad(kick_object_cone_angle / 2.0)
-					var cone_threshold = cos(half_cone_angle)
-					
-					if dot_product > cone_threshold:
-						nearby_kickable_objects.append(obj)
 
 
 func _update_kick_object_indicator() -> void:
@@ -3842,11 +3874,17 @@ func _update_kick_object_indicator() -> void:
 	if closest_kickable_object:
 		object_kick_indicator.visible = true
 		
-		# Draw arrow from player to object
-		var start_pos = Vector2.ZERO
-		var end_pos = to_local(closest_kickable_object.global_position)
+		# Position at the object
+		object_kick_indicator.global_position = closest_kickable_object.global_position
 		
-		object_kick_indicator.points = PackedVector2Array([start_pos, end_pos])
+		# Calculate recoil direction (direction player will go)
+		# Player recoil is opposite to facing direction + some vertical
+		# Recoil vector:
+		var recoil_vector = Vector2(-facing_direction * kick_object_knockback_force, kick_object_knockback_vertical)
+		
+		# Point the indicator in the recoil direction
+		object_kick_indicator.global_rotation = recoil_vector.angle()
+		
 	else:
 		object_kick_indicator.visible = false
 
