@@ -59,11 +59,11 @@ func _configure_level_audio() -> void:
 	if scene_path in ["res://level1.tscn", "res://level1.1.tscn"]:
 		# Level 1 & 1.1: Rush Hour
 		if AudioManager:
-			AudioManager.set_level_music("res://audio/Rush Hour.wav")
+			AudioManager.set_level_music("res://audio/Rush Hour.ogg")
 	elif scene_path == "res://level2.tscn":
 		# Level 2: Horror ambience + heartbeat + occasional noise
 		if AudioManager:
-			AudioManager.set_level_music("res://audio/Horror ambience.wav")
+			AudioManager.set_level_music("res://audio/Horror ambience.ogg")
 			AudioManager.start_heartbeat()
 			AudioManager.start_occasional_noise()
 	else:

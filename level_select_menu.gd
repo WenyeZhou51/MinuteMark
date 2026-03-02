@@ -479,15 +479,15 @@ func setup_audio_players():
 	add_child(menu_select_player)
 	
 	# Load audio files
-	if ResourceLoader.exists("res://audio/Menu transition.wav"):
-		menu_transition_player.stream = load("res://audio/Menu transition.wav")
-	elif ResourceLoader.exists("res://audio/menu_transition.wav"):
-		menu_transition_player.stream = load("res://audio/menu_transition.wav")
+	if ResourceLoader.exists("res://audio/Menu transition.ogg"):
+		menu_transition_player.stream = load("res://audio/Menu transition.ogg")
+	elif ResourceLoader.exists("res://audio/menu_transition.ogg"):
+		menu_transition_player.stream = load("res://audio/menu_transition.ogg")
 	
 	if ResourceLoader.exists("res://audio/menu select.ogg"):
 		menu_select_player.stream = load("res://audio/menu select.ogg")
-	elif ResourceLoader.exists("res://audio/menu_select.wav"):
-		menu_select_player.stream = load("res://audio/menu_select.wav")
+	elif ResourceLoader.exists("res://audio/menu_select.ogg"):
+		menu_select_player.stream = load("res://audio/menu_select.ogg")
 
 func _process(_delta):
 	"""Highlight level blocks using keyboard focus only (no mouse input)."""

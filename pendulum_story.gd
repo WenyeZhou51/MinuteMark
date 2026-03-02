@@ -481,7 +481,7 @@ func update_bob_visuals():
 		bob.scale = Vector2(scale_factor, scale_factor)
 	
 	# Load the pendulum sound
-	var sound_stream = load("res://audio/pendulum sound.wav")
+	var sound_stream = load("res://audio/pendulum sound.ogg")
 	if sound_stream:
 		pendulum_sound.stream = sound_stream
 
@@ -540,7 +540,7 @@ func complete_transition():
 	
 	
 	# Play transition sound if available
-	var transition_sound = load("res://audio/menu transition.wav")
+	var transition_sound = load("res://audio/menu transition.ogg")
 	if transition_sound:
 		var audio_player = AudioStreamPlayer.new()
 		audio_player.stream = transition_sound

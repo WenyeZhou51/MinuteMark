@@ -608,36 +608,36 @@ func _ready() -> void:
 	
 	# Try to load default kick sounds if not assigned
 	if not kick_object_sfx:
-		if ResourceLoader.exists("res://audio/new kick sound.wav"):
-			kick_object_sfx = load("res://audio/new kick sound.wav")
+		if ResourceLoader.exists("res://audio/new kick sound.ogg"):
+			kick_object_sfx = load("res://audio/new kick sound.ogg")
 		elif ResourceLoader.exists("res://audio/kickObject.mp3"):
 			kick_object_sfx = load("res://audio/kickObject.mp3")
-		elif ResourceLoader.exists("res://audio/kickObject.wav"):
-			kick_object_sfx = load("res://audio/kickObject.wav")
+		elif ResourceLoader.exists("res://audio/kickObject.ogg"):
+			kick_object_sfx = load("res://audio/kickObject.ogg")
 			
 	if not kick_air_sfx:
-		if ResourceLoader.exists("res://audio/new kick sound.wav"):
-			kick_air_sfx = load("res://audio/new kick sound.wav")
+		if ResourceLoader.exists("res://audio/new kick sound.ogg"):
+			kick_air_sfx = load("res://audio/new kick sound.ogg")
 		elif ResourceLoader.exists("res://audio/kickAir.mp3"):
 			kick_air_sfx = load("res://audio/kickAir.mp3")
-		elif ResourceLoader.exists("res://audio/kickAir.wav"):
-			kick_air_sfx = load("res://audio/kickAir.wav")
+		elif ResourceLoader.exists("res://audio/kickAir.ogg"):
+			kick_air_sfx = load("res://audio/kickAir.ogg")
 
 	# Try to load jump/land sounds if not assigned
-	if not jump_sfx and ResourceLoader.exists("res://audio/jump.wav"):
-		jump_sfx = load("res://audio/jump.wav")
-	if not land_sfx and ResourceLoader.exists("res://audio/land.wav"):
-		land_sfx = load("res://audio/land.wav")
+	if not jump_sfx and ResourceLoader.exists("res://audio/jump.ogg"):
+		jump_sfx = load("res://audio/jump.ogg")
+	if not land_sfx and ResourceLoader.exists("res://audio/land.ogg"):
+		land_sfx = load("res://audio/land.ogg")
 	
 	if not air_dash_sfx:
-		if ResourceLoader.exists("res://audio/airDash.wav"):
-			air_dash_sfx = load("res://audio/airDash.wav")
+		if ResourceLoader.exists("res://audio/airDash.ogg"):
+			air_dash_sfx = load("res://audio/airDash.ogg")
 		elif ResourceLoader.exists("res://audio/airDash.mp3"):
 			air_dash_sfx = load("res://audio/airDash.mp3")
 
 	if not land_dash_sfx:
-		if ResourceLoader.exists("res://audio/landDash.wav"):
-			land_dash_sfx = load("res://audio/landDash.wav")
+		if ResourceLoader.exists("res://audio/landDash.ogg"):
+			land_dash_sfx = load("res://audio/landDash.ogg")
 		elif ResourceLoader.exists("res://audio/landDash.mp3"):
 			land_dash_sfx = load("res://audio/landDash.mp3")
 		elif ResourceLoader.exists("res://audio/landDash.ogg"):

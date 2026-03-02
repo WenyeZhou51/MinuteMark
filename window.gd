@@ -79,10 +79,10 @@ func _ready() -> void:
 	add_child(sfx_player)
 	
 	# Load shatter sound
-	if ResourceLoader.exists("res://audio/brokenWindow.wav"):
-		shatter_sfx = load("res://audio/brokenWindow.wav")
-	elif ResourceLoader.exists("res://audio/glassBroken.wav"):
-		shatter_sfx = load("res://audio/glassBroken.wav")
+	if ResourceLoader.exists("res://audio/brokenWindow.ogg"):
+		shatter_sfx = load("res://audio/brokenWindow.ogg")
+	elif ResourceLoader.exists("res://audio/glassBroken.ogg"):
+		shatter_sfx = load("res://audio/glassBroken.ogg")
 	elif ResourceLoader.exists("res://audio/glassBroken.mp3"):
 		shatter_sfx = load("res://audio/glassBroken.mp3")
 		

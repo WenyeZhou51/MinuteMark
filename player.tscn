@@ -2,9 +2,9 @@
 
 [ext_resource type="Script" path="res://player.gd" id="1_2x4rk"]
 [ext_resource type="Texture2D" uid="uid://cpgk6srfh7eo2" path="res://Sprites/Rewind warning .png" id="2_rewind_warning"]
-[ext_resource type="AudioStream" uid="uid://dc47h1emmt16h" path="res://audio/jump sound.wav" id="3_jump_sound"]
-[ext_resource type="AudioStream" uid="uid://fr756y4hpq2t" path="res://audio/dash sound.wav" id="4_dash_sound"]
-[ext_resource type="AudioStream" uid="uid://d3clksy2fraox" path="res://audio/slide sound.wav" id="5_slide_sound"]
+[ext_resource type="AudioStream" path="res://audio/jump sound.wav" id="3_jump_sound"]
+[ext_resource type="AudioStream" path="res://audio/dash sound.wav" id="4_dash_sound"]
+[ext_resource type="AudioStream" path="res://audio/slide sound.wav" id="5_slide_sound"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_w6f8y"]
 size = Vector2(45, 85)

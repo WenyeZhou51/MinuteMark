@@ -698,10 +698,10 @@ func setup_audio_players():
 	add_child(menu_select_player)
 	
 	# Load audio files (using your existing audio files)
-	if ResourceLoader.exists("res://audio/Menu transition.wav"):
-		menu_transition_player.stream = load("res://audio/Menu transition.wav")
-	elif ResourceLoader.exists("res://audio/menu_transition.wav"):
-		menu_transition_player.stream = load("res://audio/menu_transition.wav")
+	if ResourceLoader.exists("res://audio/Menu transition.ogg"):
+		menu_transition_player.stream = load("res://audio/Menu transition.ogg")
+	elif ResourceLoader.exists("res://audio/menu_transition.ogg"):
+		menu_transition_player.stream = load("res://audio/menu_transition.ogg")
 	elif ResourceLoader.exists("res://audio/Menu transition.mp3"):
 		menu_transition_player.stream = load("res://audio/Menu transition.mp3")
 	elif ResourceLoader.exists("res://audio/menu_transition.ogg"):
@@ -709,8 +709,8 @@ func setup_audio_players():
 	
 	if ResourceLoader.exists("res://audio/menu select.ogg"):
 		menu_select_player.stream = load("res://audio/menu select.ogg")
-	elif ResourceLoader.exists("res://audio/menu_select.wav"):
-		menu_select_player.stream = load("res://audio/menu_select.wav")
+	elif ResourceLoader.exists("res://audio/menu_select.ogg"):
+		menu_select_player.stream = load("res://audio/menu_select.ogg")
 	elif ResourceLoader.exists("res://audio/menu_select.mp3"):
 		menu_select_player.stream = load("res://audio/menu_select.mp3")
 
