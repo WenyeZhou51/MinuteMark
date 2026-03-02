@@ -303,6 +303,7 @@ var is_on_wall: bool = false  # Is player touching a wall
 var is_on_runnable_wall: bool = false  # Is the current wall runnable (e.g. platforms vs objects)
 var wall_persistence_timer: int = 0  # Frame buffer to prevent flickering on TileMap seams
 var wall_normal: Vector2 = Vector2.ZERO  # Direction pointing away from the wall
+var wall_collider: Node = null  # Last detected wall collider for context-specific dash rules
 var is_wall_sliding: bool = false  # Is player currently sliding down a wall
 
 # DEBUG: Wall-stuck animation bug investigation
@@ -1034,7 +1035,8 @@ func _physics_process(delta: float) -> void:
 				# wall_normal points AWAY from the wall.
 				# If wall is on right, normal.x is negative. Dash right (positive) is into wall.
 				# If wall is on left, normal.x is positive. Dash left (negative) is into wall.
-				var is_dashing_into_wall = is_on_wall and wall_normal.x != 0 and sign(intended_dash_dir) == -sign(wall_normal.x)
+				var is_window_wall = _is_window_wall(wall_collider)
+				var is_dashing_into_wall = is_on_wall and wall_normal.x != 0 and sign(intended_dash_dir) == -sign(wall_normal.x) and not is_window_wall
 				
 				if not is_dashing_into_wall:
 					# Air dash (cooldown-based, blocked only if dashing back toward walljump wall)
@@ -1717,6 +1719,24 @@ func _is_runnable_wall(collider: Node) -> bool:
 	return false
 
 
+func _is_window_wall(collider: Node) -> bool:
+	"""Returns true when the wall collider is a window object."""
+	if not collider or not is_instance_valid(collider):
+		return false
+	
+	var node_name_lower = collider.name.to_lower()
+	if node_name_lower.contains("window"):
+		return true
+	
+	var script_ref = collider.get_script()
+	if script_ref and script_ref is Script:
+		var script_path = (script_ref as Script).resource_path.to_lower()
+		if script_path.ends_with("/window.gd"):
+			return true
+	
+	return false
+
+
 func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceState2D) -> void:
 	"""Detect walls and update wall sliding state with TileMap seam robustness."""
 	# Save previous wall state for persistence logic
@@ -1757,8 +1777,10 @@ func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceS
 	
 	var left_hit_any = false
 	var left_hit_runnable = false
+	var left_hit_collider: Node = null
 	var right_hit_any = false
 	var right_hit_runnable = false
+	var right_hit_collider: Node = null
 	
 	# Check for walls at each height
 	for height_offset in check_heights:
@@ -1771,7 +1793,8 @@ func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceS
 		var left_hit = space_state.intersect_ray(query_left)
 		if left_hit:
 			left_hit_any = true
-			if _is_runnable_wall(left_hit.collider):
+			left_hit_collider = left_hit.collider as Node
+			if _is_runnable_wall(left_hit_collider):
 				left_hit_runnable = true
 		
 		# Check for wall on the right
@@ -1783,7 +1806,8 @@ func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceS
 		var right_hit = space_state.intersect_ray(query_right)
 		if right_hit:
 			right_hit_any = true
-			if _is_runnable_wall(right_hit.collider):
+			right_hit_collider = right_hit.collider as Node
+			if _is_runnable_wall(right_hit_collider):
 				right_hit_runnable = true
 	
 	# Determine if player is on a wall this frame
@@ -1792,11 +1816,13 @@ func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceS
 		current_frame_wall_detected = true
 		current_frame_wall_runnable = left_hit_runnable
 		current_frame_wall_normal = Vector2.RIGHT
+		wall_collider = left_hit_collider
 		side_str = "LEFT"
 	elif right_hit_any:
 		current_frame_wall_detected = true
 		current_frame_wall_runnable = right_hit_runnable
 		current_frame_wall_normal = Vector2.LEFT
+		wall_collider = right_hit_collider
 		side_str = "RIGHT"
 	
 	# FALLBACK: If raycasts failed but we have a slide collision (helps with TileMap seams)
@@ -1810,6 +1836,7 @@ func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceS
 				var collider = collision.get_collider()
 				current_frame_wall_runnable = _is_runnable_wall(collider) if collider else false
 				current_frame_wall_normal = Vector2(sign(collision_normal.x), 0)
+				wall_collider = collider as Node
 				side_str = "LEFT (Fallback)" if current_frame_wall_normal.x > 0 else "RIGHT (Fallback)"
 				break
 	
@@ -1833,6 +1860,7 @@ func _update_wall_state(input_direction: float, space_state: PhysicsDirectSpaceS
 			is_on_wall = false
 			is_on_runnable_wall = false
 			wall_normal = Vector2.ZERO
+			wall_collider = null
 	
 	# DEBUG: Log wall state transitions (on_wall changes)
 	if _dbg_wall_stuck:
