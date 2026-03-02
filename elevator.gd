@@ -78,7 +78,7 @@ func _find_and_connect_guard() -> void:
 			if not guard_ref.enemy_destroyed.is_connected(_on_guard_destroyed):
 				guard_ref.enemy_destroyed.connect(_on_guard_destroyed)
 
-func _on_guard_destroyed() -> void:
+func _on_guard_destroyed(_enemy: Node2D = null) -> void:
 	# Guard died - check if player is waiting in the elevator
 	if player_inside:
 		return

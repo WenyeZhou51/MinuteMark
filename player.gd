@@ -3332,9 +3332,11 @@ func _on_enemy_touched(enemy: Node2D = null) -> void:
 	pass
 
 
-func _on_enemy_destroyed() -> void:
-	"""Called when an enemy is destroyed by attack."""
-	pass
+func _on_enemy_destroyed(enemy: Node2D) -> void:
+	"""Called when an enemy is destroyed by any kill source."""
+	if not enemy or not is_instance_valid(enemy):
+		return
+	_spawn_time_bonus(enemy.global_position)
 
 
 func _on_bullet_hit(bullet: Node2D, shooter: Node2D = null) -> void:
@@ -3839,9 +3841,6 @@ func _process_slam(delta: float) -> void:
 
 func _perform_slam_kill(enemy: Node2D) -> void:
 	"""Kill an enemy during ground slam - enemy is in kill radius."""
-	# Spawn time bonus effect
-	_spawn_time_bonus(enemy.global_position)
-	
 	# Kick the enemy downwards (destroy it)
 	if enemy.has_method("kick"):
 		# Kick enemy downwards with slam attack knockback speed
@@ -3875,9 +3874,6 @@ func _perform_slam_landing_aoe() -> void:
 				if offset.y >= -aoe_half_height and offset.y <= aoe_half_height:
 					# Enemy is in landing AOE! Destroy them
 					if enemy.has_method("kick"):
-						# Spawn time bonus effect
-						_spawn_time_bonus(enemy.global_position)
-						
 						# Kick enemy away from player horizontally
 						var knock_direction = Vector2(sign(offset.x) if offset.x != 0 else 1.0, 0.5).normalized()
 						enemy.kick(knock_direction, slam_attack_knockback_speed)
@@ -5682,35 +5678,42 @@ func _load_animation_sequence(sf: SpriteFrames, anim_name: String, folder: Strin
 # ====================================
 
 func _spawn_time_bonus(world_pos: Vector2) -> void:
-	"""Spawn a floating +1 text that moves to the timer and adds time."""
+	"""Spawn a floating time delta text that moves to the timer and applies a reward."""
 	if not timer_ui_instance:
 		return
 		
 	var camera = $Camera2D
 	if not camera:
 		return
-		
-	var screen_pos = get_viewport().get_canvas_transform() * world_pos
 	
-	# Target the timer's position at top middle
+	# Start above the killed enemy's head.
+	var start_world_pos = world_pos + Vector2(0, -120)
+	var screen_pos = get_viewport().get_canvas_transform() * start_world_pos
+	
+	# Target the timer label center (more accurate than fixed top-middle).
 	var viewport_size = get_viewport_rect().size
-	var target_pos = Vector2(viewport_size.x / 2.0, 80.0)
+	var target_pos = Vector2(viewport_size.x / 2.0, 80.0) # fallback
 	
-	# Try to get more accurate timer position if possible
-	var timer_bg = timer_ui_instance.get_node_or_null("Control/TimerBackground")
-	if timer_bg:
-		# Center of the timer background
-		target_pos = timer_bg.global_position + (timer_bg.size * timer_bg.scale / 2.0)
+	# Try to get accurate timer label position if possible
+	var timer_label = timer_ui_instance.get_node_or_null("Control/TimerContainer/TimerLabel")
+	if timer_label and timer_label is Control:
+		var tl := timer_label as Control
+		target_pos = tl.global_position + (tl.size * tl.scale / 2.0)
 	
 	var TimeBonusEffectScript = load("res://time_bonus_effect.gd")
 	var effect = Label.new()
 	effect.set_script(TimeBonusEffectScript)
 	timer_ui_instance.add_child(effect)
-	effect.setup(screen_pos, target_pos, func(): 
+	
+	# Reward: reduce used time by 1 second.
+	var delta_seconds := -1.0
+	effect.setup(screen_pos, target_pos, func():
 		if timer_ui_instance:
-			timer_ui_instance.add_time(1.0)
+			timer_ui_instance.add_time(delta_seconds)
+			if timer_ui_instance.has_method("play_time_delta_feedback"):
+				timer_ui_instance.play_time_delta_feedback(delta_seconds)
 			current_game_time = timer_ui_instance.current_time
-	)
+	, delta_seconds)
 
 func apply_camera_shake(intensity: float, duration: float) -> void:
 	"""Apply a screen shake effect."""

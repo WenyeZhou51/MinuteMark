@@ -1,7 +1,7 @@
 extends Area2D
 
 signal enemy_touched_by_player
-signal enemy_destroyed
+signal enemy_destroyed(enemy: Node2D)
 
 var is_destroyed: bool = false
 var is_kicked: bool = false
@@ -297,7 +297,7 @@ func kick(knockback_direction: Vector2, force: float) -> void:
 		is_destroyed = true
 		is_kicked = true
 		flight_timer = 0.0
-		enemy_destroyed.emit()
+		enemy_destroyed.emit(self)
 		
 		# Hide laser sight and warning
 		if laser_sight: laser_sight.visible = false
@@ -448,7 +448,7 @@ func become_physics_object(direction: Vector2, speed: float) -> void:
 		is_destroyed = true
 		is_kicked = true
 		has_collided = true  # Start as physics object immediately
-		enemy_destroyed.emit()
+		enemy_destroyed.emit(self)
 		
 		# Hide laser sight and warning
 		if laser_sight: laser_sight.visible = false
