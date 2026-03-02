@@ -2195,7 +2195,8 @@ func _check_wall_run_activation() -> void:
 	# Check if wall run should START (hit wall during dash or fast run)
 	# Can activate during dashes, fast running, or while in the air
 	# FIX: Allow wall run activation when running towards a wall on the floor
-	if not is_ground_sliding and not is_air_dashing and not is_running and is_on_floor():
+	# NOTE: We now ALLOW activation during is_ground_sliding and is_air_dashing
+	if not is_running and is_on_floor() and not is_ground_sliding and not is_air_dashing:
 		# If on floor and not dashing/running, check if we have enough speed anyway
 		# (This handles cases where is_running might be false but speed is still above threshold)
 		var horizontal_speed = abs(velocity_before_move_and_slide.x)
@@ -3918,7 +3919,8 @@ func _post_movement_updates(space_state: PhysicsDirectSpaceState2D) -> void:
 	# NEW: End ground slide or air dash if we just hit a wall (e.g. non-runnable objects)
 	# This ensures we don't get stuck "sliding" against a wall for the full duration
 	# both object tiles and platform tiles will now end the slide immediately on impact
-	if (is_ground_sliding or is_air_dashing) and get_slide_collision_count() > 0:
+	# NOTE: Only end if we didn't just start a wall run
+	if not is_wall_running and (is_ground_sliding or is_air_dashing) and get_slide_collision_count() > 0:
 		for i in range(get_slide_collision_count()):
 			var collision = get_slide_collision(i)
 			var collider = collision.get_collider()

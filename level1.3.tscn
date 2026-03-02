@@ -171,6 +171,15 @@ game_timer_duration = 300.0
 [node name="CollisionShape2D" parent="Player" index="0"]
 position = Vector2(0, 0)
 
+[node name="JumpSound" parent="Player" index="7"]
+stream = null
+
+[node name="DashSound" parent="Player" index="8"]
+stream = null
+
+[node name="SlideSound" parent="Player" index="9"]
+stream = null
+
 [node name="Camera2D" parent="Player" index="10"]
 position = Vector2(0, 0)
 zoom = Vector2(1, 1)
