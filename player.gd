@@ -93,6 +93,10 @@ var action_lines_instance: CanvasLayer = null
 @export var grace_period_duration: float = 0.2  ## Grace period to cancel stun with kick (seconds)
 @export var stun_invulnerability_duration: float = 0.5  ## Invulnerability after stun ends (seconds)
 @export var stun_shake_intensity: float = 1.5  ## Intensity of shake effect during stun
+@export var stun_star_count: int = 4  ## Number of stars orbiting above the player while stunned
+@export var stun_star_orbit_radius: float = 18.0  ## Horizontal orbit radius for stun stars
+@export var stun_star_orbit_speed: float = 3.8  ## Orbit speed (radians per second)
+@export var stun_star_height_offset: float = -92.0  ## Vertical offset of the star ring above the player
 
 # WALL JUMP CONFIGURATION
 @export_group("Wall Jump")
@@ -421,6 +425,9 @@ var stun_invulnerability_timer: float = 0.0  # Time remaining for post-stun invu
 var grace_period_timer: float = 0.0  # Time remaining in grace period
 var grace_period_active: bool = false  # Is grace period currently active
 var grace_period_colliding_enemy: Node2D = null  # Enemy that triggered grace period
+var stun_star_container: Node2D = null
+var stun_star_nodes: Array[Polygon2D] = []
+var stun_star_orbit_angle: float = 0.0
 
 # Rewind state variables
 var rewind_cooldown_timer: float = 0.0  # Cooldown timer for rewind ability
@@ -532,6 +539,9 @@ func _ready() -> void:
 	
 	# Create bullet parry visual indicator
 	_create_bullet_parry_indicator()
+	
+	# Create stun stars visual indicator
+	_create_stun_star_visual()
 	
 	# Setup animations
 	_setup_animations()
@@ -3118,6 +3128,69 @@ func _process_stun(delta: float) -> void:
 	var flash_period = 0.2 # 0.1s on, 0.1s off
 	animated_sprite.visible = fmod(stun_timer, flash_period) < 0.1
 	modulate = Color.WHITE
+	_update_stun_star_visual(delta)
+
+
+func _create_stun_star_visual() -> void:
+	"""Create star polygons that orbit above the player during stun."""
+	stun_star_container = Node2D.new()
+	stun_star_container.name = "StunStars"
+	stun_star_container.visible = false
+	stun_star_container.z_index = 30
+	add_child(stun_star_container)
+	
+	var count = maxi(1, stun_star_count)
+	stun_star_nodes.clear()
+	for i in range(count):
+		var star = Polygon2D.new()
+		star.color = Color(1.0, 0.95, 0.25, 0.95)
+		star.polygon = _make_star_polygon(5.0, 2.6, 5)
+		stun_star_container.add_child(star)
+		stun_star_nodes.append(star)
+
+
+func _make_star_polygon(outer_radius: float, inner_radius: float, points: int) -> PackedVector2Array:
+	"""Build a simple star polygon centered at origin."""
+	var poly = PackedVector2Array()
+	var steps = maxi(2, points) * 2
+	for i in range(steps):
+		var is_outer = i % 2 == 0
+		var radius = outer_radius if is_outer else inner_radius
+		var angle = (-PI * 0.5) + (TAU * float(i) / float(steps))
+		poly.append(Vector2(cos(angle), sin(angle)) * radius)
+	return poly
+
+
+func _show_stun_stars() -> void:
+	if not stun_star_container:
+		return
+	stun_star_container.visible = true
+
+
+func _hide_stun_stars() -> void:
+	if not stun_star_container:
+		return
+	stun_star_container.visible = false
+
+
+func _update_stun_star_visual(delta: float) -> void:
+	if not stun_star_container:
+		return
+	if not is_stunned:
+		stun_star_container.visible = false
+		return
+	
+	stun_star_container.visible = true
+	stun_star_orbit_angle = wrapf(stun_star_orbit_angle + stun_star_orbit_speed * delta, -PI, PI)
+	
+	var count = max(1, stun_star_nodes.size())
+	for i in range(count):
+		var phase = stun_star_orbit_angle + TAU * float(i) / float(count)
+		var orbit = Vector2(cos(phase) * stun_star_orbit_radius, sin(phase) * stun_star_orbit_radius * 0.45)
+		var bob = Vector2(0.0, sin(game_time * 8.0 + float(i) * 1.3) * 1.8)
+		var star = stun_star_nodes[i]
+		star.position = Vector2(0.0, stun_star_height_offset) + orbit + bob
+		star.rotation = phase * 0.6
 
 
 func _start_stun(colliding_enemy: Node2D = null) -> void:
@@ -3137,6 +3210,7 @@ func _apply_stun_after_grace_period() -> void:
 	# Now actually stun the player
 	is_stunned = true
 	stun_timer = stun_duration
+	_show_stun_stars()
 	
 	# Stop all movement
 	velocity = Vector2.ZERO
@@ -3188,6 +3262,7 @@ func _end_stun() -> void:
 	
 	# Reset visual feedback
 	modulate = Color.WHITE
+	_hide_stun_stars()
 	
 	# Start invulnerability period
 	stun_invulnerability_timer = stun_invulnerability_duration
@@ -3211,8 +3286,13 @@ func _on_bullet_hit(bullet: Node2D, shooter: Node2D = null) -> void:
 		_trigger_early_parry(KickTargetType.BULLET, bullet)
 		return
 		
-	# Check for invulnerability from dashes, already stunned, grace periods active, or post-stun invulnerability
-	if not is_attacking and not is_stunned and not is_invulnerable and not grace_period_active and not bullet_grace_period_active and stun_invulnerability_timer <= 0:
+	# While already stunned, any additional bullet hit refreshes hitstun immediately.
+	if is_stunned and not is_invulnerable and not grace_period_active and stun_invulnerability_timer <= 0:
+		_apply_direct_hitstun()
+		return
+	
+	# Check for invulnerability from dashes, grace periods active, or post-stun invulnerability
+	if not is_attacking and not is_invulnerable and not grace_period_active and not bullet_grace_period_active and stun_invulnerability_timer <= 0:
 		# Start bullet grace period
 		bullet_grace_period_active = true
 		bullet_grace_period_timer = bullet_hit_grace_period
@@ -3225,8 +3305,33 @@ func _apply_bullet_hitstun() -> void:
 	bullet_grace_period_timer = 0.0
 	bullet_that_hit = null
 	
-	# Apply stun effect (same as enemy touch)
-	_on_enemy_touched(null)
+	# Apply actual stun (allows repeated bullets to stunlock the player).
+	_apply_direct_hitstun()
+
+
+func _apply_direct_hitstun() -> void:
+	"""Apply bullet hitstun immediately (used by grace timeout and stunlock refresh)."""
+	# Clear pending grace period state when forcing hitstun.
+	bullet_grace_period_active = false
+	bullet_grace_period_timer = 0.0
+	bullet_that_hit = null
+	
+	# Enter/refresh stun.
+	is_stunned = true
+	stun_timer = stun_duration
+	_show_stun_stars()
+	
+	# Stop movement and cancel combat/mobility states.
+	velocity = Vector2.ZERO
+	is_attacking = false
+	is_slamming = false
+	_cancel_ledge_climb()
+	if slam_attack_visual:
+		slam_attack_visual.visible = false
+	if is_ground_sliding:
+		_end_ground_slide()
+	if is_air_dashing:
+		_end_air_dash()
 
 
 func _cancel_bullet_grace_period_with_parry() -> void:
