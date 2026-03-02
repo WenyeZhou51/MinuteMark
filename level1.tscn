@@ -115,7 +115,6 @@ wall_jump_horizontal_velocity = 1000.0
 wall_jump_vertical_velocity = -2000.0
 wall_run_min_velocity = 200.0
 wall_run_min_speed = 200.0
-wall_run_max_speed = 1500.0
 wall_run_speed_decay = 2000.0
 wall_run_empowered_jump_horizontal = 1000.0
 wall_run_empowered_jump_vertical = -2000.0
@@ -138,9 +137,6 @@ ground_slide_slowdown_rate = 900.0
 ground_slide_empowered_jump_multiplier = 1.2
 tear_offset = Vector2(0, 50)
 tear_v_squish = 0.7
-air_dash_horizontal_impulse = 2100.0
-air_dash_vertical_impulse = 0.0
-air_dash_duration = 0.15
 air_dash_cooldown = 0.5
 kick_scale = 0.075
 kick_fps = 20.0
@@ -181,6 +177,8 @@ zoom = Vector2(1, 1)
 
 [node name="Enemy2" parent="." instance=ExtResource("10_8652m")]
 position = Vector2(4858, 16290)
+shooting_enabled = true
+require_line_of_sight = false
 aim_duration = 1.3
 tracking_speed_degrees = 150.0
 bullet_speed = 3000.0
@@ -189,6 +187,8 @@ laser_width = 6.0
 
 [node name="Enemy8" parent="." instance=ExtResource("10_8652m")]
 position = Vector2(4198, 16796)
+shooting_enabled = true
+require_line_of_sight = false
 aim_duration = 1.3
 tracking_speed_degrees = 150.0
 bullet_speed = 3000.0
@@ -197,6 +197,8 @@ laser_width = 6.0
 
 [node name="Enemy3" parent="." instance=ExtResource("10_8652m")]
 position = Vector2(5840, 15945)
+shooting_enabled = true
+require_line_of_sight = false
 aim_duration = 1.3
 tracking_speed_degrees = 150.0
 bullet_speed = 3000.0
@@ -205,6 +207,8 @@ laser_width = 6.0
 
 [node name="Enemy4" parent="." instance=ExtResource("10_8652m")]
 position = Vector2(4864, 15459)
+shooting_enabled = true
+require_line_of_sight = false
 aim_duration = 1.3
 tracking_speed_degrees = 150.0
 bullet_speed = 3000.0
@@ -213,6 +217,8 @@ laser_width = 6.0
 
 [node name="Enemy5" parent="." instance=ExtResource("10_8652m")]
 position = Vector2(5752, 16791)
+shooting_enabled = true
+require_line_of_sight = false
 aim_duration = 1.3
 tracking_speed_degrees = 150.0
 bullet_speed = 3000.0
@@ -221,6 +227,8 @@ laser_width = 6.0
 
 [node name="Enemy6" parent="." instance=ExtResource("10_8652m")]
 position = Vector2(15183, 16794)
+shooting_enabled = true
+require_line_of_sight = false
 aim_duration = 1.3
 tracking_speed_degrees = 150.0
 bullet_speed = 3000.0
@@ -229,6 +237,8 @@ laser_width = 6.0
 
 [node name="Enemy9" parent="." instance=ExtResource("10_8652m")]
 position = Vector2(15352, 16793)
+shooting_enabled = true
+require_line_of_sight = false
 aim_duration = 1.3
 tracking_speed_degrees = 150.0
 bullet_speed = 3000.0
@@ -237,6 +247,8 @@ laser_width = 6.0
 
 [node name="Enemy10" parent="." instance=ExtResource("10_8652m")]
 position = Vector2(15513, 16795)
+shooting_enabled = true
+require_line_of_sight = false
 aim_duration = 1.3
 tracking_speed_degrees = 150.0
 bullet_speed = 3000.0
@@ -245,6 +257,8 @@ laser_width = 6.0
 
 [node name="Enemy11" parent="." instance=ExtResource("10_8652m")]
 position = Vector2(15659, 16801)
+shooting_enabled = true
+require_line_of_sight = false
 aim_duration = 1.3
 tracking_speed_degrees = 150.0
 bullet_speed = 3000.0

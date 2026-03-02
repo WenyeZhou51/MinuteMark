@@ -93,6 +93,10 @@ var action_lines_instance: CanvasLayer = null
 @export var grace_period_duration: float = 0.2  ## Grace period to cancel stun with kick (seconds)
 @export var stun_invulnerability_duration: float = 0.5  ## Invulnerability after stun ends (seconds)
 @export var stun_shake_intensity: float = 1.5  ## Intensity of shake effect during stun
+@export var stun_star_count: int = 4  ## Number of stars orbiting above the player while stunned
+@export var stun_star_orbit_radius: float = 18.0  ## Horizontal orbit radius for stun stars
+@export var stun_star_orbit_speed: float = 3.8  ## Orbit speed (radians per second)
+@export var stun_star_height_offset: float = -92.0  ## Vertical offset of the star ring above the player
 
 # WALL JUMP CONFIGURATION
 @export_group("Wall Jump")
@@ -109,9 +113,9 @@ var action_lines_instance: CanvasLayer = null
 @export var wall_run_enabled: bool = true  ## Enable wall run mechanics
 @export var wall_run_min_velocity: float = 250.0  ## Minimum horizontal velocity to start a wall run
 @export var wall_run_min_speed: float = 250.0  ## Minimum wall run upward speed
-@export var wall_run_max_speed: float = 650.0  ## Maximum wall run upward speed
+@export var wall_run_max_speed: float = 1500.0  ## Maximum wall run upward speed
 @export var wall_run_max_duration: float = 2.0  ## Maximum duration of wall run in seconds
-@export var wall_run_speed_decay: float = 300.0  ## Speed decay per second during wall run
+@export var wall_run_speed_decay: float = 1700.0  ## Speed decay per second during wall run
 @export var wall_run_empowered_jump_horizontal: float = 600.0  ## Horizontal velocity for empowered wall jump
 @export var wall_run_empowered_jump_vertical: float = -600.0  ## Vertical velocity for empowered wall jump
 
@@ -159,9 +163,9 @@ var action_lines_instance: CanvasLayer = null
 @export var tear_v_squish: float = 0.4  ## How much to squish the image vertically (0.0 - 1.0)
 
 @export_group("Air Dash")
-@export var air_dash_horizontal_impulse: float = 2500.0  ## Horizontal impulse force applied at start of air dash
+@export var air_dash_horizontal_impulse: float = 3500.0  ## Horizontal impulse force applied at start of air dash
 @export var air_dash_vertical_impulse: float = 100.0  ## Vertical impulse force applied at start of air dash
-@export var air_dash_duration: float = 0.2  ## Duration of air dash in seconds
+@export var air_dash_duration: float = 0.18  ## Duration of air dash in seconds
 @export var air_dash_cooldown: float = 0.35  ## Cooldown between air dashes
 @export var air_dash_end_horizontal_velocity: float = 750.0  ## Horizontal velocity when air dash ends (in dash direction)
 @export var air_dash_end_vertical_velocity: float = 0.0  ## Vertical velocity when air dash ends
@@ -421,6 +425,9 @@ var stun_invulnerability_timer: float = 0.0  # Time remaining for post-stun invu
 var grace_period_timer: float = 0.0  # Time remaining in grace period
 var grace_period_active: bool = false  # Is grace period currently active
 var grace_period_colliding_enemy: Node2D = null  # Enemy that triggered grace period
+var stun_star_container: Node2D = null
+var stun_star_nodes: Array[Polygon2D] = []
+var stun_star_orbit_angle: float = 0.0
 
 # Rewind state variables
 var rewind_cooldown_timer: float = 0.0  # Cooldown timer for rewind ability
@@ -532,6 +539,9 @@ func _ready() -> void:
 	
 	# Create bullet parry visual indicator
 	_create_bullet_parry_indicator()
+	
+	# Create stun stars visual indicator
+	_create_stun_star_visual()
 	
 	# Setup animations
 	_setup_animations()
@@ -2154,6 +2164,7 @@ func _end_wall_run() -> void:
 
 func _check_wall_run_activation() -> void:
 	"""Check for wall run activation/continuation AFTER move_and_slide() using actual collision detection."""
+	var input_vector = _get_input_vector()
 	
 	# Don't activate if in states that should block wall running, or during rewind tracing
 	if is_stunned or is_attacking or is_slamming or is_ledge_climbing or is_rewind_tracing:
@@ -2166,25 +2177,38 @@ func _check_wall_run_activation() -> void:
 		# During wall run, use raycast detection to check if still on wall
 		# NEW: Also end if hit head or lost wall contact at the lower quarter point
 		if not is_on_wall:
+			print("[LEDGE_DBG] F%d | Wall run ENDED: lost wall contact (is_on_wall=false)" % Engine.get_frames_drawn())
 			_end_wall_run()
 		elif is_on_ceiling():
+			print("[LEDGE_DBG] F%d | Wall run ENDED: hit ceiling" % Engine.get_frames_drawn())
 			_end_wall_run()
 		elif not _is_wall_at_lower_quarter():
+			print("[LEDGE_DBG] F%d | Wall run ENDED: lost wall contact at lower quarter" % Engine.get_frames_drawn())
 			_end_wall_run()
 		return  # Don't check for activation if already running
 	
 	# If player has any downward velocity, skip wall run and go straight to wall slide
-	if velocity_before_move_and_slide.y > 0:
+	# FIX: Only skip if NOT on floor. If on floor, we allow starting a wallrun even with 0 or slight positive y velocity
+	if not is_on_floor() and velocity_before_move_and_slide.y > 0:
 		return
 	
 	# Check if wall run should START (hit wall during dash or fast run)
 	# Can activate during dashes, fast running, or while in the air
+	# FIX: Allow wall run activation when running towards a wall on the floor
 	if not is_ground_sliding and not is_air_dashing and not is_running and is_on_floor():
 		# If on floor and not dashing/running, check if we have enough speed anyway
 		# (This handles cases where is_running might be false but speed is still above threshold)
 		var horizontal_speed = abs(velocity_before_move_and_slide.x)
 		if horizontal_speed < wall_run_min_velocity:
-			return
+			# If we are on floor and pressing towards wall, we might still want to wallrun
+			# even if current velocity is low, if we were recently moving fast or just started running
+			if input_vector.x != 0 and is_on_wall:
+				# Check if we are pressing INTO the wall
+				var pressing_into_wall = (input_vector.x > 0 and wall_normal.x < 0) or (input_vector.x < 0 and wall_normal.x > 0)
+				if not pressing_into_wall:
+					return
+			else:
+				return
 	
 	if not wall_run_enabled:
 		return
@@ -2197,7 +2221,17 @@ func _check_wall_run_activation() -> void:
 	var speed_before_collision = abs(velocity_before_move_and_slide.x)
 	
 	# Must have been moving fast enough before collision
-	if speed_before_collision < wall_run_min_velocity:
+	# FIX: If on floor and pressing into wall, allow lower speed to trigger wallrun
+	# This makes it easier to wallrun up by just running into a wall.
+	var min_vel_threshold = wall_run_min_velocity
+	if is_on_floor() and input_vector.x != 0:
+		var pressing_into_wall = (input_vector.x > 0 and wall_normal.x < 0) or (input_vector.x < 0 and wall_normal.x > 0)
+		if pressing_into_wall:
+			# If pressing into wall on floor, we allow activation even at lower speeds
+			# as long as we are actually moving towards it.
+			min_vel_threshold = 50.0 # Much lower threshold for intentional wallruns
+			
+	if speed_before_collision < min_vel_threshold:
 		return
 	
 	# CRITICAL: Detect wall collision by checking if:
@@ -2224,7 +2258,19 @@ func _check_wall_run_activation() -> void:
 	var velocity_reduced = abs(velocity.x) < speed_before_collision * 0.5  # Velocity reduced by 50%+
 	
 	# Wall collision is confirmed if we have EITHER a raycast hit OR a slide collision (on runnable walls)
-	var has_runnable_wall_collision = (raycast_detects_runnable_wall or has_actual_runnable_wall_collision) and (velocity_reduced or has_slide_collision)
+	# FIX: If on floor and pressing into wall, we don't strictly require velocity reduction
+	# because move_and_slide() might have already handled the collision by zeroing x velocity.
+	var has_runnable_wall_collision = false
+	if (raycast_detects_runnable_wall or has_actual_runnable_wall_collision):
+		if is_on_floor():
+			# On floor, we just need to be pressing into the wall
+			var pressing_into_wall = (input_vector.x > 0 and wall_normal.x < 0) or (input_vector.x < 0 and wall_normal.x > 0)
+			if pressing_into_wall:
+				has_runnable_wall_collision = true
+		
+		# Fallback to original logic if floor check didn't pass or for air/dash cases
+		if not has_runnable_wall_collision:
+			has_runnable_wall_collision = (velocity_reduced or has_slide_collision)
 	
 	if not has_runnable_wall_collision:
 		# Narrative check for why activation failed
@@ -2258,8 +2304,9 @@ func _check_wall_run_activation() -> void:
 			# Don't start wallrun - let them wall slide instead
 			return
 	
-	# Start wall run with fixed speed of 1000 for consistent wall run behavior
-	_start_wall_run(1000.0, true)
+	# Start wall run with 1.5x the player's horizontal speed (clamped)
+	var start_speed = speed_before_collision * 1.5
+	_start_wall_run(start_speed, true)
 	
 
 
@@ -2646,17 +2693,21 @@ func _apply_corner_correction(space_state: PhysicsDirectSpaceState2D) -> void:
 
 func _check_ledge_climb(space_state: PhysicsDirectSpaceState2D) -> void:
 	"""QOL FEATURE: Detect if player is near a climbable ledge and initiate climb."""
+	var _dbg_prefix = "[LEDGE_DBG] F%d | " % Engine.get_frames_drawn()
+	
 	# Don't start a new climb if already climbing, in rewind slow-mo, or during rewind tracing
 	if is_ledge_climbing or is_in_rewind_slowmo or is_rewind_tracing:
 		return
 	
 	# Don't allow ledge climb if on cooldown (prevents hover bug)
 	if ledge_climb_cooldown_timer > 0:
+		if is_wall_running: print(_dbg_prefix + "Aborting: Cooldown active (%0.2f)" % ledge_climb_cooldown_timer)
 		return
 	
 	var is_dashing = is_ground_sliding or is_air_dashing or is_wall_running
 	# Require sprint state, dash, or wall run to perform ledge climb
 	if not is_running and not is_dashing:
+		if is_wall_running: print(_dbg_prefix + "Aborting: Not running or dashing")
 		return
 	
 	# Get collision shape for positioning raycasts
@@ -2679,11 +2730,13 @@ func _check_ledge_climb(space_state: PhysicsDirectSpaceState2D) -> void:
 	
 	# Only check when near a wall
 	if not is_on_wall:
+		if is_wall_running: print(_dbg_prefix + "Aborting: Not on wall")
 		return
 
 	# Only climb if moving towards the wall or pressing towards it
 	var input_dir = Input.get_axis("move_left", "move_right")
 	if input_dir != 0 and sign(input_dir) != wall_side:
+		if is_wall_running: print(_dbg_prefix + "Aborting: Input direction (%d) opposite to wall side (%d)" % [sign(input_dir), wall_side])
 		return
 	
 	var check_x_offset = half_width * wall_side
@@ -2695,11 +2748,16 @@ func _check_ledge_climb(space_state: PhysicsDirectSpaceState2D) -> void:
 	var detection_height = ledge_climb_detection_height
 	if is_dashing:
 		detection_height *= 1.5
+	
+	if is_wall_running: print(_dbg_prefix + "Scanning for ledge: wall_side=%d | check_x=%0.1f | detect_h=%0.1f" % [wall_side, check_x_offset, detection_height])
 
 	# Cast multiple rays upward to find where the wall ends
 	# We check from negative offsets (below head) to detection_height (above head)
 	var start_offset = -half_height + 4 # Start just above the center
+	var scan_steps = 0
+	var scan_hits = 0
 	for height_offset in range(int(start_offset), int(detection_height), 2):
+		scan_steps += 1
 		var ray_origin = global_position + Vector2(check_x_offset + (1.0 * wall_side), -half_height - height_offset)
 		var ray_end = ray_origin + Vector2((wall_check_distance + 4) * wall_side, 0)
 		
@@ -2725,16 +2783,25 @@ func _check_ledge_climb(space_state: PhysicsDirectSpaceState2D) -> void:
 				var ground_relative_y = ground_hit.position.y - global_position.y
 				if ground_relative_y > half_height - 2:
 					# This ground is at or below our feet, not a ledge top
+					if is_wall_running: print(_dbg_prefix + "REJECTED: Ground too low (y_rel=%0.1f)" % ground_relative_y)
 					continue
 					
 				ledge_found = true
+				if is_wall_running: print(_dbg_prefix + "SUCCESS: Ledge found at height_offset=%d | ground_y=%0.1f" % [height_offset, ground_hit.position.y])
 				# Calculate target position on top of ledge
 				ledge_climb_target_pos = Vector2(
 					global_position.x + (ledge_climb_forward_offset + half_width + 2) * wall_side,
 					ground_hit.position.y - half_height - 1
 				)
 				break
+			elif is_wall_running:
+				print(_dbg_prefix + "REJECTED: No ground found beyond wall edge (height_offset=%d)" % height_offset)
+		else:
+			scan_hits += 1
 	
+	if not ledge_found and is_wall_running:
+		print(_dbg_prefix + "FAILURE: Scan finished. steps=%d | hits=%d | ledge_found=false" % [scan_steps, scan_hits])
+
 	# Start the ledge climb if a valid ledge was found
 	if ledge_found:
 		_start_ledge_climb()
@@ -3118,6 +3185,69 @@ func _process_stun(delta: float) -> void:
 	var flash_period = 0.2 # 0.1s on, 0.1s off
 	animated_sprite.visible = fmod(stun_timer, flash_period) < 0.1
 	modulate = Color.WHITE
+	_update_stun_star_visual(delta)
+
+
+func _create_stun_star_visual() -> void:
+	"""Create star polygons that orbit above the player during stun."""
+	stun_star_container = Node2D.new()
+	stun_star_container.name = "StunStars"
+	stun_star_container.visible = false
+	stun_star_container.z_index = 30
+	add_child(stun_star_container)
+	
+	var count = maxi(1, stun_star_count)
+	stun_star_nodes.clear()
+	for i in range(count):
+		var star = Polygon2D.new()
+		star.color = Color(1.0, 0.95, 0.25, 0.95)
+		star.polygon = _make_star_polygon(5.0, 2.6, 5)
+		stun_star_container.add_child(star)
+		stun_star_nodes.append(star)
+
+
+func _make_star_polygon(outer_radius: float, inner_radius: float, points: int) -> PackedVector2Array:
+	"""Build a simple star polygon centered at origin."""
+	var poly = PackedVector2Array()
+	var steps = maxi(2, points) * 2
+	for i in range(steps):
+		var is_outer = i % 2 == 0
+		var radius = outer_radius if is_outer else inner_radius
+		var angle = (-PI * 0.5) + (TAU * float(i) / float(steps))
+		poly.append(Vector2(cos(angle), sin(angle)) * radius)
+	return poly
+
+
+func _show_stun_stars() -> void:
+	if not stun_star_container:
+		return
+	stun_star_container.visible = true
+
+
+func _hide_stun_stars() -> void:
+	if not stun_star_container:
+		return
+	stun_star_container.visible = false
+
+
+func _update_stun_star_visual(delta: float) -> void:
+	if not stun_star_container:
+		return
+	if not is_stunned:
+		stun_star_container.visible = false
+		return
+	
+	stun_star_container.visible = true
+	stun_star_orbit_angle = wrapf(stun_star_orbit_angle + stun_star_orbit_speed * delta, -PI, PI)
+	
+	var count = max(1, stun_star_nodes.size())
+	for i in range(count):
+		var phase = stun_star_orbit_angle + TAU * float(i) / float(count)
+		var orbit = Vector2(cos(phase) * stun_star_orbit_radius, sin(phase) * stun_star_orbit_radius * 0.45)
+		var bob = Vector2(0.0, sin(game_time * 8.0 + float(i) * 1.3) * 1.8)
+		var star = stun_star_nodes[i]
+		star.position = Vector2(0.0, stun_star_height_offset) + orbit + bob
+		star.rotation = phase * 0.6
 
 
 func _start_stun(colliding_enemy: Node2D = null) -> void:
@@ -3137,6 +3267,7 @@ func _apply_stun_after_grace_period() -> void:
 	# Now actually stun the player
 	is_stunned = true
 	stun_timer = stun_duration
+	_show_stun_stars()
 	
 	# Stop all movement
 	velocity = Vector2.ZERO
@@ -3188,6 +3319,7 @@ func _end_stun() -> void:
 	
 	# Reset visual feedback
 	modulate = Color.WHITE
+	_hide_stun_stars()
 	
 	# Start invulnerability period
 	stun_invulnerability_timer = stun_invulnerability_duration
@@ -3213,8 +3345,13 @@ func _on_bullet_hit(bullet: Node2D, shooter: Node2D = null) -> void:
 		_trigger_early_parry(KickTargetType.BULLET, bullet)
 		return
 		
-	# Check for invulnerability from dashes, already stunned, grace periods active, or post-stun invulnerability
-	if not is_attacking and not is_stunned and not is_invulnerable and not grace_period_active and not bullet_grace_period_active and stun_invulnerability_timer <= 0:
+	# While already stunned, any additional bullet hit refreshes hitstun immediately.
+	if is_stunned and not is_invulnerable and not grace_period_active and stun_invulnerability_timer <= 0:
+		_apply_direct_hitstun()
+		return
+	
+	# Check for invulnerability from dashes, grace periods active, or post-stun invulnerability
+	if not is_attacking and not is_invulnerable and not grace_period_active and not bullet_grace_period_active and stun_invulnerability_timer <= 0:
 		# Start bullet grace period
 		bullet_grace_period_active = true
 		bullet_grace_period_timer = bullet_hit_grace_period
@@ -3227,8 +3364,33 @@ func _apply_bullet_hitstun() -> void:
 	bullet_grace_period_timer = 0.0
 	bullet_that_hit = null
 	
-	# Apply stun effect (same as enemy touch)
-	_on_enemy_touched(null)
+	# Apply actual stun (allows repeated bullets to stunlock the player).
+	_apply_direct_hitstun()
+
+
+func _apply_direct_hitstun() -> void:
+	"""Apply bullet hitstun immediately (used by grace timeout and stunlock refresh)."""
+	# Clear pending grace period state when forcing hitstun.
+	bullet_grace_period_active = false
+	bullet_grace_period_timer = 0.0
+	bullet_that_hit = null
+	
+	# Enter/refresh stun.
+	is_stunned = true
+	stun_timer = stun_duration
+	_show_stun_stars()
+	
+	# Stop movement and cancel combat/mobility states.
+	velocity = Vector2.ZERO
+	is_attacking = false
+	is_slamming = false
+	_cancel_ledge_climb()
+	if slam_attack_visual:
+		slam_attack_visual.visible = false
+	if is_ground_sliding:
+		_end_ground_slide()
+	if is_air_dashing:
+		_end_air_dash()
 
 
 func _cancel_bullet_grace_period_with_parry() -> void:
@@ -3467,12 +3629,13 @@ func _start_air_dash(input_x: float) -> void:
 		if sign(dash_direction) == sign(wall_jump_source_wall_direction):
 			dashed_back_to_walljump_wall = true
 	
-	# Reset velocity before applying impulse forces for consistent behavior
-	velocity.x = 0.0
+	# Store speed at start of dash
+	pre_air_dash_horizontal_speed = velocity.x
+	
+	# Reset vertical velocity
 	velocity.y = 0.0
 	
-	# Apply impulse forces
-	velocity.x += dash_direction * air_dash_horizontal_impulse
+	# Apply initial vertical impulse if any
 	velocity.y += air_dash_vertical_impulse
 	
 	# Update facing direction
@@ -3504,7 +3667,7 @@ func _start_air_dash(input_x: float) -> void:
 
 
 func _process_air_dash(delta: float) -> void:
-	"""Update air dash state - force-based, allows physics to take over after initial impulse."""
+	"""Update air dash state - handles velocity curve (ramp up, max speed, ramp down)."""
 	# Increment timer
 	air_dash_timer += delta
 	
@@ -3520,8 +3683,29 @@ func _process_air_dash(delta: float) -> void:
 		_end_air_dash()
 		return
 	
-	# Force-based air dash - let physics handle velocity naturally after initial impulse
-	# No need to override velocity here
+	# Calculate current velocity based on the 30/40/30 curve
+	var progress = air_dash_timer / effective_duration
+	var target_speed = 0.0
+	
+	# Get the absolute starting speed in the dash direction
+	var start_speed = pre_air_dash_horizontal_speed * dash_direction
+	
+	if progress < 0.3:
+		# Ramp up from current speed to max dash speed
+		var t = progress / 0.3
+		target_speed = lerp(start_speed, air_dash_horizontal_impulse, t)
+	elif progress < 0.7:
+		# Maintain max dash speed
+		target_speed = air_dash_horizontal_impulse
+	else:
+		# Ramp down from max dash speed to exit speed
+		var t = (progress - 0.7) / 0.3
+		target_speed = lerp(air_dash_horizontal_impulse, air_dash_end_horizontal_velocity, t)
+	
+	velocity.x = dash_direction * target_speed
+	# Vertical velocity is handled by physics after initial impulse if any, 
+	# but for a pure dash we might want to keep it stable. 
+	# Given the previous implementation let physics handle Y.
 
 
 func _end_air_dash() -> void:
@@ -3777,7 +3961,10 @@ func _post_movement_updates(space_state: PhysicsDirectSpaceState2D) -> void:
 	# 2. QOL: Check for Ledge Climb Opportunity
 	# Checked AFTER wall run activation so wall run takes priority during high-speed impact
 	# CRITICAL FIX: Only allow ledge climb on RUNNABLE walls (Platforms)
-	if ledge_climb_enabled and is_on_wall and is_on_runnable_wall and not is_ledge_climbing and not is_wall_running and not is_rewind_tracing:
+	# NEW: Always check for ledge climb during wall run to snap onto platforms
+	if ledge_climb_enabled and is_on_wall and is_on_runnable_wall and not is_ledge_climbing and not is_rewind_tracing:
+		if is_wall_running:
+			print("[LEDGE_DBG] F%d | Checking ledge climb DURING wall run | pos=%s | vel=%s" % [Engine.get_frames_drawn(), global_position, velocity])
 		_check_ledge_climb(space_state)
 	
 	# Handle ceiling collision (stop upward movement)

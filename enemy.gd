@@ -42,6 +42,7 @@ var laser_raycast: RayCast2D  # Separate raycast for laser sight
 @export var tracking_speed_degrees: float = 120.0  ## Tracking speed in degrees per second
 @export var bullet_speed: float = 2000.0  ## Speed of fired bullets (pixels per second)
 @export var detection_range: float = 800.0  ## Range to detect and shoot at player
+@export var require_line_of_sight: bool = true  ## If false, enemy can aim/shoot without clear ray to player
 @export var warning_shake_intensity: float = 3.0  ## Intensity of exclamation mark shake
 @export var laser_color: Color = Color(1.0, 0.0, 0.0, 0.5) ## Default laser color
 @export var laser_flash_color: Color = Color(1.0, 1.0, 0.0, 1.0) ## Flash color (Yellow)
@@ -608,8 +609,8 @@ func _update_shooting(delta: float) -> void:
 			if warning_indicator: warning_indicator.visible = false
 			
 			if state_timer >= startup_delay:
-				# Don't start aiming if player is behind a wall
-				if not _can_see_player():
+				# Don't start aiming if player is behind a wall (unless LOS is disabled).
+				if require_line_of_sight and not _can_see_player():
 					state_timer = 0.0  # Reset timer, keep waiting
 					return
 				
@@ -627,8 +628,8 @@ func _update_shooting(delta: float) -> void:
 		ShootingState.AIMING:
 			aim_timer += delta
 			
-			# Cancel aim if player went behind a wall
-			if not _can_see_player():
+			# Cancel aim if player went behind a wall (unless LOS is disabled).
+			if require_line_of_sight and not _can_see_player():
 				shooting_state = ShootingState.STARTUP_DELAY
 				state_timer = 0.0
 				aim_timer = 0.0

@@ -26,6 +26,9 @@ func _ready() -> void:
 	# Initial state: Game is NOT paused.
 	get_tree().paused = false
 	
+	# Apply any level-specific enemy behavior overrides.
+	_configure_level_enemies()
+	
 	_fix_background_tilemap()
 
 func _fix_background_tilemap() -> void:
@@ -70,3 +73,18 @@ func _configure_level_audio() -> void:
 		# All other levels: default music (Second Chance)
 		if AudioManager:
 			AudioManager.reset_to_default_music()
+
+
+func _configure_level_enemies() -> void:
+	"""Apply level-specific enemy runtime settings."""
+	if scene_file_path != "res://level1.tscn":
+		return
+	
+	for enemy in get_tree().get_nodes_in_group("enemies"):
+		# Only apply to shooter enemies that use enemy.gd behavior.
+		if enemy and enemy.has_method("_update_shooting"):
+			enemy.shooting_enabled = true
+			enemy.require_line_of_sight = false
+			enemy.shooting_state = enemy.ShootingState.STARTUP_DELAY
+			enemy.state_timer = 0.0
+			enemy.aim_timer = 0.0
