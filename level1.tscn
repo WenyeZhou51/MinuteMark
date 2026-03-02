@@ -1,26 +1,26 @@
 [gd_scene load_steps=25 format=3 uid="uid://3ehbo8tce3h4"]
 
-[ext_resource type="Script" path="res://level_manager.gd" id="1_52iny"]
-[ext_resource type="Script" path="res://parallax_background.gd" id="2_nxqqj"]
-[ext_resource type="Texture2D" uid="uid://c4j73s3v0y5pl" path="res://parallax/1.png" id="3_7nyxr"]
-[ext_resource type="Texture2D" uid="uid://b3rmm2ysa5ihm" path="res://parallax/2.png" id="4_43lh3"]
-[ext_resource type="Texture2D" uid="uid://bvhobesnqci3w" path="res://parallax/3.png" id="5_5le63"]
-[ext_resource type="Texture2D" uid="uid://mvvkmdm6h3ub" path="res://parallax/4.png" id="6_pieet"]
+[ext_resource type="Script" uid="uid://daocmjnowrjfr" path="res://level_manager.gd" id="1_52iny"]
+[ext_resource type="Script" uid="uid://c7n7nsu5owyy6" path="res://parallax_background.gd" id="2_nxqqj"]
+[ext_resource type="Texture2D" uid="uid://d0pbvpppq0xjj" path="res://parallax/1.png" id="3_7nyxr"]
+[ext_resource type="Texture2D" uid="uid://faqaw0xj43qk" path="res://parallax/2.png" id="4_43lh3"]
+[ext_resource type="Texture2D" uid="uid://kvm2g8pg5f7b" path="res://parallax/3.png" id="5_5le63"]
+[ext_resource type="Texture2D" uid="uid://4hrn7muk5qq6" path="res://parallax/4.png" id="6_pieet"]
 [ext_resource type="PackedScene" uid="uid://dmp8rksh3a5yl" path="res://TimerUI.tscn" id="7_qiqrj"]
 [ext_resource type="TileSet" uid="uid://cu555li7p074q" path="res://Sprites/tileset.tres" id="8_xm42n"]
 [ext_resource type="PackedScene" uid="uid://vv3m4nx6g3jo" path="res://player.tscn" id="9_6wmxb"]
 [ext_resource type="PackedScene" uid="uid://b8x7lam2n4p5q" path="res://enemy.tscn" id="10_8652m"]
 [ext_resource type="PackedScene" uid="uid://dyetqoxdfluq0" path="res://window.tscn" id="11_jy3fw"]
-[ext_resource type="FontFile" uid="uid://baaiikv2041fb" path="res://Fonts/Funkrocker.otf" id="12_t8chk"]
+[ext_resource type="FontFile" uid="uid://2yvkrcbwikbm" path="res://Fonts/Funkrocker.otf" id="12_t8chk"]
 [ext_resource type="PackedScene" uid="uid://b7q8n5ck2wh0e" path="res://pause_menu.tscn" id="13_xhed0"]
 [ext_resource type="PackedScene" uid="uid://6624qfeempan" path="res://LevelFinishTrigger.tscn" id="14_6tyme"]
 [ext_resource type="PackedScene" uid="uid://cqmsblkjjhgrp" path="res://FallingBlock.tscn" id="15_ktasi"]
 [ext_resource type="PackedScene" uid="uid://demedvhavmbbs" path="res://FallingPlatform.tscn" id="16_hxcog"]
-[ext_resource type="Texture2D" uid="uid://clen32qjmp4uh" path="res://Sprites/S1.png" id="17_bi6q3"]
-[ext_resource type="Texture2D" uid="uid://caqx2nlxyi6vo" path="res://Sprites/S3.png" id="18_lslib"]
-[ext_resource type="Texture2D" uid="uid://dig73xvs6ijsb" path="res://Sprites/S4.png" id="19_d78wo"]
-[ext_resource type="Texture2D" uid="uid://sn7rpwxwp23c" path="res://Sprites/S2.png" id="20_2cjx3"]
-[ext_resource type="Texture2D" uid="uid://c4hxw8t82k607" path="res://Sprites/balcony.png" id="21_qx55u"]
+[ext_resource type="Texture2D" uid="uid://bmd8ingstmcd8" path="res://Sprites/S1.png" id="17_bi6q3"]
+[ext_resource type="Texture2D" uid="uid://ykqviu722dpj" path="res://Sprites/S3.png" id="18_lslib"]
+[ext_resource type="Texture2D" uid="uid://dkn4p7cae0mtc" path="res://Sprites/S4.png" id="19_d78wo"]
+[ext_resource type="Texture2D" uid="uid://i2oeip2r1406" path="res://Sprites/S2.png" id="20_2cjx3"]
+[ext_resource type="Texture2D" uid="uid://dsrg05ag4t58x" path="res://Sprites/balcony.png" id="21_qx55u"]
 [ext_resource type="PackedScene" uid="uid://be4ysm5xnwocm" path="res://door.tscn" id="22_o45kq"]
 [ext_resource type="PackedScene" uid="uid://c2p1gqjfeqf38" path="res://LeverPlatformSystem.tscn" id="23_ycl4i"]
 [ext_resource type="PackedScene" uid="uid://b6ocum6m8b8o1" path="res://LeverTrigger.tscn" id="24_yj3vc"]
@@ -560,9 +560,6 @@ auto_update_from_shape = false
 [node name="CollisionShape2D" parent="FallingPlatform/PlatformBody" index="0"]
 position = Vector2(0, 0)
 
-[node name="CollisionShape2D" parent="FallingPlatform/PlatformBody/TriggerArea" index="0"]
-position = Vector2(0, 0)
-
 [node name="Sprite2D" type="Sprite2D" parent="FallingPlatform/PlatformBody" index="3"]
 position = Vector2(57.1145, 0)
 scale = Vector2(3.9103, 1)
@@ -584,7 +581,6 @@ scale = Vector2(1.05, 1.1)
 visible = false
 
 [node name="CollisionShape2D" parent="FallingPlatform3/PlatformBody/TriggerArea" index="0"]
-position = Vector2(0, 0)
 scale = Vector2(1.05, 1.1)
 
 [node name="Sprite2D" type="Sprite2D" parent="FallingPlatform3/PlatformBody" index="3"]
@@ -632,7 +628,6 @@ scale = Vector2(1.05, 1.1)
 visible = false
 
 [node name="CollisionShape2D" parent="FallingPlatform2/PlatformBody/TriggerArea" index="0"]
-position = Vector2(0, 0)
 scale = Vector2(1.05, 1.1)
 
 [node name="Sprite2D" type="Sprite2D" parent="FallingPlatform2/PlatformBody" index="3"]
