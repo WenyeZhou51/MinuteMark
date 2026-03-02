@@ -28,6 +28,7 @@ const OUTSIDE_TO_KEYBOARD_DELAY: float = 0.25  # Time outside before we show key
 var last_hovered_before_clear: int = -1  # When we clear stable due to "outside", keep showing this until truly left or new block
 var block_original_scales: Array[Vector2] = []
 var block_original_colors: Array[Color] = []
+var level_unlocked_states: Array[bool] = []
 # Keyboard navigation: which level is focused (used when mouse is not over any block)
 var keyboard_focus_index: int = 0
 var last_effective_highlight: int = -1
@@ -48,6 +49,9 @@ func _ready():
 	setup_level_blocks()
 	# Load saved progress over node defaults
 	load_level_progress()
+	# Keep progression consistent: a level cannot be unlocked if the previous one is locked.
+	if _enforce_sequential_unlocks():
+		save_level_progress()
 	# Apply loaded/default state to visuals
 	_apply_level_states_to_blocks()
 	_cache_block_original_colors()
@@ -92,6 +96,12 @@ func setup_level_blocks():
 		_add_lock_overlay_and_icon(block)
 
 	levels = _build_level_data_from_blocks()
+	_initialize_unlock_states_from_levels()
+
+func _initialize_unlock_states_from_levels():
+	level_unlocked_states.clear()
+	for i in range(levels.size()):
+		level_unlocked_states.append(bool(levels[i].get("unlocked", false)))
 
 func _parse_level_number_from_block_name(block_name: String) -> int:
 	var middle := block_name.trim_prefix("Level").trim_suffix("Block")
@@ -128,6 +138,29 @@ func _cache_block_original_colors():
 			block_original_colors.append(polygon.color)
 		else:
 			block_original_colors.append(Color.WHITE)
+
+func _is_level_unlocked(level_index: int) -> bool:
+	if level_index < 0 or level_index >= level_unlocked_states.size():
+		return false
+	return level_unlocked_states[level_index]
+
+func _set_level_unlocked(level_index: int, unlocked: bool):
+	if level_index < 0 or level_index >= level_unlocked_states.size():
+		return
+	level_unlocked_states[level_index] = unlocked
+	if level_index >= 0 and level_index < levels.size():
+		var level_data: Dictionary = levels[level_index]
+		level_data["unlocked"] = unlocked
+		levels[level_index] = level_data
+
+func _enforce_sequential_unlocks() -> bool:
+	"""Normalize unlock state so progression is contiguous from the first locked level onward."""
+	var changed := false
+	for i in range(1, level_unlocked_states.size()):
+		if not level_unlocked_states[i - 1] and level_unlocked_states[i]:
+			_set_level_unlocked(i, false)
+			changed = true
+	return changed
 
 func _add_lock_overlay_and_icon(block: Control):
 	"""Use or create the 'locked overlay' container under the block (visible only when locked). If empty, add default overlay + icon; else use whatever you put in the scene."""
@@ -215,8 +248,7 @@ func update_level_block(block: Control, level_index: int):
 	if level_index >= levels.size():
 		return
 		
-	var level_data = levels[level_index]
-	var is_unlocked = level_data.get("unlocked", false)
+	var is_unlocked = _is_level_unlocked(level_index)
 	
 	# Show or hide the locked overlay container (only visible when locked)
 	var container = block.get_node_or_null(locked_overlay_node_name)
@@ -368,7 +400,7 @@ func _on_level_block_clicked(level_index: int):
 	var level_data = levels[level_index]
 	
 	# Locked: allow hover/focus with keyboard but do not open level on Enter
-	if not level_data.get("unlocked", false):
+	if not _is_level_unlocked(level_index):
 		play_menu_select_sound()
 		return
 	
@@ -387,7 +419,7 @@ func unlock_level(level_index: int):
 	if level_index < 0 or level_index >= levels.size():
 		return
 		
-	levels[level_index]["unlocked"] = true
+	_set_level_unlocked(level_index, true)
 	save_level_progress()
 	
 	# Update block appearance
@@ -400,7 +432,7 @@ func save_level_progress():
 	
 	for i in range(levels.size()):
 		var key = "level_%d_unlocked" % (i + 1)
-		config.set_value("progress", key, levels[i].get("unlocked", false))
+		config.set_value("progress", key, _is_level_unlocked(i))
 	
 	var error = config.save(SAVE_FILE_PATH)
 	if error != OK:
@@ -420,8 +452,10 @@ func load_level_progress():
 	# Load saved progress only for keys that exist.
 	for i in range(levels.size()):
 		var key = "level_%d_unlocked" % (i + 1)
-		if config.has_section_key("progress", key):
-			levels[i]["unlocked"] = config.get_value("progress", key, false)
+		var has_key := config.has_section_key("progress", key)
+		var loaded_value := bool(config.get_value("progress", key, false))
+		if has_key:
+			_set_level_unlocked(i, loaded_value)
 
 	# Temporary design lock: keep levels 3, 4, 5 locked regardless of save file state.
 	for i in range(2, levels.size()):
