@@ -612,13 +612,13 @@ func unlock_next_level():
 	"""Unlock the next level after completing the current one"""
 	const SAVE_FILE_PATH = "user://level_progress.cfg"
 	
-	# Level configuration matching level_select_menu.gd
+	# Keep this in sync with `level_select_menu.tscn` metadata order.
 	var level_paths = [
-		"res://level.tscn",      # Level 1 - The First Minute (Tutorial)
-		"res://level1.3.tscn",   # Level 2 - Neon Countdown
-		"res://level1.1.tscn",   # Level 3 - Neon Countdown Alternative
-		"res://level1.tscn",     # Level 4
-		"res://level.tscn"       # Level 5
+		"res://level.tscn",      # Level 1 - The First Minute
+		"res://level1.tscn",     # Level 2 - Neon Countdown
+		"res://level1.1.tscn",   # Level 3
+		"res://level1.2.tscn",   # Level 4
+		"res://level1.3.tscn"    # Level 5
 	]
 	
 	# Get current scene path
@@ -637,6 +637,10 @@ func unlock_next_level():
 	# Calculate next level index
 	var next_level_index = current_level_index + 1
 	if next_level_index >= level_paths.size():
+		return
+
+	# Temporary design lock: do not unlock levels 3, 4, 5 yet.
+	if next_level_index >= 2:
 		return
 	
 	# Load existing progress

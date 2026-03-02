@@ -12,8 +12,9 @@ const SAVE_FILE_PATH = "user://level_progress.cfg"
 @export var lock_overlay_color: Color = Color(0.72, 0.72, 0.76, 0.36)
 @export var lock_overlay_z_index: int = 4
 @export var lock_icon_z_index: int = 5
-@export var lock_icon_font_size: int = 48
-@export var lock_icon_half_size: float = 28.0  # Half of icon rect (center ± this = 56×56)
+@export var lock_icon_texture: Texture2D = preload("res://Sprites/lock.png")
+@export var lock_icon_half_size: float = 28.0  # Half of icon size (center ± this = 56×56)
+@export var use_scene_lock_icon_transform: bool = true  # If true, LockIcon Sprite2D position/scale from scene are preserved.
 @export var lock_overlay_outset: float = 4.0  # Expand overlay slightly outside paper shape.
 
 var level_blocks: Array[Control] = []
@@ -154,21 +155,14 @@ func _add_lock_overlay_and_icon(block: Control):
 		container.add_child(overlay)
 	# Add lock icon when missing (so scene can have shape-only and we add icon at runtime)
 	if container.get_node_or_null("LockIcon") == null:
-		var icon = Label.new()
+		var icon = Sprite2D.new()
 		icon.name = "LockIcon"
 		icon.z_as_relative = false
 		icon.z_index = lock_icon_z_index
-		icon.text = "🔒"
-		icon.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		icon.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		icon.add_theme_font_size_override("font_size", lock_icon_font_size)
-		icon.set_anchors_preset(Control.PRESET_TOP_LEFT)
-		var hs: float = lock_icon_half_size
-		icon.offset_left = 0
-		icon.offset_top = 0
-		icon.offset_right = hs * 2.0
-		icon.offset_bottom = hs * 2.0
-		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		icon.centered = true
+		icon.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+		icon.texture = lock_icon_texture
+		icon.set_meta("auto_created", true)
 		container.add_child(icon)
 
 func _get_paper_centroid_in_block(block: Control) -> Vector2:
@@ -213,12 +207,7 @@ func _refresh_lock_overlays():
 		if lock_icon:
 			lock_icon.z_as_relative = false
 			lock_icon.z_index = lock_icon_z_index
-			lock_icon.add_theme_font_size_override("font_size", lock_icon_font_size)
-			var hs: float = lock_icon_half_size
-			lock_icon.offset_left = center.x - hs
-			lock_icon.offset_top = center.y - hs
-			lock_icon.offset_right = center.x + hs
-			lock_icon.offset_bottom = center.y + hs
+			_position_and_scale_lock_icon(lock_icon, center)
 		update_level_block(block, i)
 
 func update_level_block(block: Control, level_index: int):
@@ -253,37 +242,22 @@ func update_level_block(block: Control, level_index: int):
 			lock_icon.visible = not is_unlocked
 			lock_icon.z_as_relative = false
 			lock_icon.z_index = lock_icon_z_index
+			_position_and_scale_lock_icon(lock_icon, _get_paper_centroid_in_block(block))
 	
-	# Label text is taken from the scene (.tscn); we only update colors for locked/unlocked
+	# Label text is taken from the scene (.tscn); we only update label colors for locked/unlocked.
 	var label = block.get_node_or_null("LevelLabel")
-	
-	# Update paper scrap color based on unlock status
-	var polygon = block.get_node_or_null("PaperScrap")
-	if polygon:
-		if not is_unlocked:
-			# Darkened paper for locked levels
-			polygon.color = Color(0.5, 0.48, 0.45, 0.9)
-			if label:
-				# High contrast white text on dark paper background
-				label.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9, 1))
-				label.add_theme_color_override("font_outline_color", Color(0.2, 0.2, 0.2, 1))
-				label.modulate = Color(0.7, 0.7, 0.7, 1)
-		else:
-			# Use paper-like colors with slight variations for unlocked levels
-			var colors = [
-				Color(0.98, 0.96, 0.92, 0),   # Tutorial - transparent to show background image
-				Color(0.95, 0.93, 0.88, 1),   # Level 2 - slightly warmer paper
-				Color(0.92, 0.90, 0.85, 1),   # Level 3 - slightly aged paper
-				Color(0.96, 0.94, 0.89, 1),   # Level 4 - cream paper
-				Color(0.94, 0.92, 0.87, 1)    # Level 5 - warm paper
-			]
-			if level_index < colors.size():
-				polygon.color = colors[level_index]
-			if label:
-				# High contrast: black text on light paper backgrounds
-				label.add_theme_color_override("font_color", Color(0.1, 0.1, 0.1, 1))
-				label.add_theme_color_override("font_outline_color", Color(0.95, 0.95, 0.95, 1))
-				label.modulate = Color(1, 1, 1, 1)
+	if not is_unlocked:
+		if label:
+			# High contrast white text on locked blocks.
+			label.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9, 1))
+			label.add_theme_color_override("font_outline_color", Color(0.2, 0.2, 0.2, 1))
+			label.modulate = Color(0.7, 0.7, 0.7, 1)
+	else:
+		if label:
+			# High contrast black text on unlocked blocks.
+			label.add_theme_color_override("font_color", Color(0.1, 0.1, 0.1, 1))
+			label.add_theme_color_override("font_outline_color", Color(0.95, 0.95, 0.95, 1))
+			label.modulate = Color(1, 1, 1, 1)
 
 func _safe_overlay_polygon(points: PackedVector2Array) -> PackedVector2Array:
 	"""Return a polygon guaranteed to render; fallback to convex hull for problematic shapes."""
@@ -312,6 +286,30 @@ func _expand_polygon_from_centroid(points: PackedVector2Array, amount: float) ->
 		else:
 			expanded.append(p)
 	return expanded
+
+func _position_and_scale_lock_icon(lock_icon: Node, center: Vector2):
+	if lock_icon is Sprite2D:
+		var icon: Sprite2D = lock_icon as Sprite2D
+		if icon.texture != lock_icon_texture:
+			icon.texture = lock_icon_texture
+		var auto_created := bool(icon.get_meta("auto_created", false))
+		if use_scene_lock_icon_transform and not auto_created:
+			return
+		icon.position = center
+		var tex_size := icon.texture.get_size() if icon.texture else Vector2.ZERO
+		if tex_size.x > 0.0 and tex_size.y > 0.0 and lock_icon_half_size > 0.0:
+			var target_full := lock_icon_half_size * 2.0
+			icon.scale = Vector2(target_full / tex_size.x, target_full / tex_size.y)
+		else:
+			icon.scale = Vector2.ONE
+	elif lock_icon is Control:
+		# Backward compatibility with old Label-based icons.
+		var c: Control = lock_icon as Control
+		var hs: float = lock_icon_half_size
+		c.offset_left = center.x - hs
+		c.offset_top = center.y - hs
+		c.offset_right = center.x + hs
+		c.offset_bottom = center.y + hs
 
 func _input(event):
 	"""Handle input for level blocks"""
@@ -424,6 +422,10 @@ func load_level_progress():
 		var key = "level_%d_unlocked" % (i + 1)
 		if config.has_section_key("progress", key):
 			levels[i]["unlocked"] = config.get_value("progress", key, false)
+
+	# Temporary design lock: keep levels 3, 4, 5 locked regardless of save file state.
+	for i in range(2, levels.size()):
+		levels[i]["unlocked"] = false
 	
 
 # Audio setup

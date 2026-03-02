@@ -95,18 +95,14 @@ func set_rewind_active(active: bool) -> void:
 	"""Set whether rewind is active (timer moves backwards)."""
 	is_rewinding = active
 
+func _is_ui_overlay_visible(node_name: String) -> bool:
+	var overlay = get_tree().root.find_child(node_name, true, false)
+	return overlay is CanvasItem and (overlay as CanvasItem).visible
+
 func _process(delta: float) -> void:
-	# Stop timer if victory UI is shown (player has won)
-	var victory_ui = get_tree().root.get_node_or_null("VictoryUI")
-	if victory_ui:
-		if is_running:
-			is_running = false
+	# Freeze timer while pause or victory overlays are visible.
+	if _is_ui_overlay_visible("VictoryUI") or _is_ui_overlay_visible("PauseMenu"):
 		return
-	
-	# Ensure timer is running if max_time is set
-	if max_time > 0 and not is_running:
-		is_running = true
-		current_time = 0.0
 	
 	if not is_running:
 		return

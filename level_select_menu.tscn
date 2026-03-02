@@ -1,11 +1,13 @@
-[gd_scene load_steps=9 format=3 uid="uid://clbrllvajciy1"]
+[gd_scene load_steps=11 format=3 uid="uid://clbrllvajciy1"]
 
-[ext_resource type="Script" path="res://level_select_menu.gd" id="1_level_select"]
-[ext_resource type="FontFile" uid="uid://qjp835anti7g" path="res://Fonts/doctor punk.otf" id="2_t4l2a"]
-[ext_resource type="Texture2D" uid="uid://bpr70dxba6rqr" path="res://Sprites/Bg white overlay .png" id="4_placeholder"]
-[ext_resource type="Texture2D" uid="uid://c56kf4b82oup5" path="res://Sprites/level_backgrounds/tutorial_overview.JPG" id="5_tutorial_bg"]
-[ext_resource type="Shader" path="res://shaders/background_desaturate.gdshader" id="6_bg_shader"]
-[ext_resource type="Shader" path="res://shaders/comic_paper.gdshader" id="7_paper_shader"]
+[ext_resource type="Script" uid="uid://dv6gn5aukl7sp" path="res://level_select_menu.gd" id="1_level_select"]
+[ext_resource type="FontFile" uid="uid://bj7ju5cc4i213" path="res://Fonts/doctor punk.otf" id="2_t4l2a"]
+[ext_resource type="Texture2D" uid="uid://bt3c8su24bkkc" path="res://Sprites/Bg white overlay .png" id="4_placeholder"]
+[ext_resource type="Texture2D" uid="uid://d0hyhk7tea6j1" path="res://Sprites/level_backgrounds/tutorial_overview.JPG" id="5_tutorial_bg"]
+[ext_resource type="Shader" uid="uid://6y2yips0giea" path="res://shaders/background_desaturate.gdshader" id="6_bg_shader"]
+[ext_resource type="Texture2D" uid="uid://dawbxec1q85ne" path="res://Sprites/level_backgrounds/level1_overview.jpg" id="6_level2_bg"]
+[ext_resource type="Shader" uid="uid://bn43koovabgy4" path="res://shaders/comic_paper.gdshader" id="7_paper_shader"]
+[ext_resource type="Texture2D" uid="uid://2jaafydtb2ft" path="res://Sprites/lock.png" id="8_lock_icon"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_paper"]
 shader = ExtResource("7_paper_shader")
@@ -133,6 +135,12 @@ scale = Vector2(1.51034, 2.93563)
 color = Color(0.35, 0.35, 0.38, 0.75)
 polygon = PackedVector2Array(-150, -80, 210.548, -82.4353, 210.549, 72.8975, -148.973, 108.665, -150, -80)
 
+[node name="LockIcon" type="Sprite2D" parent="MenuContainer/LevelsContainer/Level1Block/LockedOverlay"]
+z_index = 5
+position = Vector2(345, 127)
+scale = Vector2(0.36461303, 0.3340611)
+texture = ExtResource("8_lock_icon")
+
 [node name="BackgroundImage" type="Polygon2D" parent="MenuContainer/LevelsContainer/Level1Block"]
 material = SubResource("ShaderMaterial_bg")
 position = Vector2(294, 164)
@@ -181,7 +189,7 @@ offset_left = 617.0
 offset_top = -163.0
 offset_right = 917.0
 offset_bottom = 37.0
-metadata/scene_path = "res://level1.3.tscn"
+metadata/scene_path = "res://level1.tscn"
 metadata/default_unlocked = true
 
 [node name="LockedOverlay" type="Node2D" parent="MenuContainer/LevelsContainer/Level2Block"]
@@ -193,26 +201,27 @@ scale = Vector2(1.81695, 2.42336)
 color = Color(0.35, 0.35, 0.38, 0.75)
 polygon = PackedVector2Array(-150, -80, 254.823, -82.1175, 254.823, 58.5964, -154.105, 110.59, -150, -80)
 
+[node name="LockIcon" type="Sprite2D" parent="MenuContainer/LevelsContainer/Level2Block/LockedOverlay"]
+z_index = 5
+position = Vector2(193, 110)
+scale = Vector2(0.35741648, 0.32560423)
+texture = ExtResource("8_lock_icon")
+
 [node name="PaperScrap" type="Polygon2D" parent="MenuContainer/LevelsContainer/Level2Block"]
 z_index = 1
 position = Vector2(111, 119)
 scale = Vector2(1.81695, 2.42336)
-color = Color(0.95, 0.93, 0.88, 1)
+color = Color(0.95, 0.93, 0.88, 0)
 polygon = PackedVector2Array(-150, -80, 254.823, -82.1175, 254.823, 58.5964, -154.105, 110.59, -150, -80)
 
-[node name="BackgroundImage" type="TextureRect" parent="MenuContainer/LevelsContainer/Level2Block/PaperScrap"]
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -154.105
-offset_top = -82.1175
-offset_right = 254.823
-offset_bottom = 110.59
-grow_horizontal = 2
-grow_vertical = 2
-texture = ExtResource("4_placeholder")
-expand_mode = 1
-stretch_mode = 5
+[node name="BackgroundImage" type="Polygon2D" parent="MenuContainer/LevelsContainer/Level2Block"]
+material = SubResource("ShaderMaterial_bg")
+position = Vector2(111, 119)
+scale = Vector2(1.81695, 2.42336)
+texture = ExtResource("6_level2_bg")
+texture_offset = Vector2(150, 100)
+texture_scale = Vector2(8.5, 10)
+polygon = PackedVector2Array(-150, -80, 254.823, -82.1175, 254.823, 58.5964, -154.105, 110.59, -150, -80)
 
 [node name="TornEdge" type="Line2D" parent="MenuContainer/LevelsContainer/Level2Block"]
 z_index = 2
@@ -258,11 +267,18 @@ scale = Vector2(1.68227, 4.46257)
 color = Color(0.35, 0.35, 0.38, 0.75)
 polygon = PackedVector2Array(-399.461, -3.13721, 400.65, -55.7974, 400, 40, -199.857, 40, -296.201, 40, -400, 40, -399.461, -3.3613)
 
+[node name="LockIcon" type="Sprite2D" parent="MenuContainer/LevelsContainer/Level3Block/LockedOverlay"]
+z_index = 5
+position = Vector2(573, 359)
+scale = Vector2(0.37257418, 0.33766145)
+texture = ExtResource("8_lock_icon")
+
 [node name="PaperScrap" type="Polygon2D" parent="MenuContainer/LevelsContainer/Level3Block"]
+visible = false
 z_index = 1
-position = Vector2(522, 362)
+position = Vector2(521, 372)
 scale = Vector2(1.68227, 4.46257)
-color = Color(0.92, 0.9, 0.85, 1)
+color = Color(0.92156863, 0.9019608, 0.8509804, 0)
 polygon = PackedVector2Array(-399.461, -3.13721, 400.65, -55.7974, 400, 40, -199.857, 40, -296.201, 40, -400, 40, -399.461, -3.3613)
 
 [node name="BackgroundImage" type="TextureRect" parent="MenuContainer/LevelsContainer/Level3Block/PaperScrap"]
@@ -300,8 +316,7 @@ theme_override_colors/font_outline_color = Color(1, 1, 1, 1)
 theme_override_constants/outline_size = 12
 theme_override_fonts/font = ExtResource("2_t4l2a")
 theme_override_font_sizes/font_size = 85
-text = "Neon Countdown
-Alternative"
+text = "Level 3"
 horizontal_alignment = 1
 vertical_alignment = 1
 
@@ -311,7 +326,7 @@ offset_left = -203.0
 offset_top = 749.0
 offset_right = 97.0
 offset_bottom = 849.0
-metadata/scene_path = "res://level1.tscn"
+metadata/scene_path = "res://level1.2.tscn"
 metadata/default_unlocked = false
 
 [node name="LockedOverlay" type="Node2D" parent="MenuContainer/LevelsContainer/Level4Block"]
@@ -323,11 +338,17 @@ scale = Vector2(2.74978, 4.46609)
 color = Color(0.35, 0.35, 0.38, 0.75)
 polygon = PackedVector2Array(-118.919, -27.5409, 120.737, -27.317, 59.2775, 59.5599, -120.373, 60.9034, -118.555, -6.04556)
 
+[node name="LockIcon" type="Sprite2D" parent="MenuContainer/LevelsContainer/Level4Block/LockedOverlay"]
+z_index = 5
+position = Vector2(314.99994, 72)
+scale = Vector2(0.398552, 0.37899002)
+texture = ExtResource("8_lock_icon")
+
 [node name="PaperScrap" type="Polygon2D" parent="MenuContainer/LevelsContainer/Level4Block"]
 z_index = 1
 position = Vector2(386, 35)
 scale = Vector2(2.74978, 4.46609)
-color = Color(0.96, 0.94, 0.89, 1)
+color = Color(0.96, 0.94, 0.89, 0)
 polygon = PackedVector2Array(-120.01, -29.556, 123.283, -30.8995, 59.2775, 59.5599, -120.373, 60.9034, -121.101, -32.243)
 
 [node name="BackgroundImage" type="TextureRect" parent="MenuContainer/LevelsContainer/Level4Block/PaperScrap"]
@@ -374,7 +395,7 @@ offset_left = 899.0
 offset_top = 497.0
 offset_right = 1199.0
 offset_bottom = 597.0
-metadata/scene_path = "res://level.tscn"
+metadata/scene_path = "res://level1.3.tscn"
 metadata/default_unlocked = false
 
 [node name="LockedOverlay" type="Node2D" parent="MenuContainer/LevelsContainer/Level5Block"]
@@ -386,11 +407,17 @@ scale = Vector2(2.59097, 6.2924)
 color = Color(0.35, 0.35, 0.38, 0.75)
 polygon = PackedVector2Array(-97.6468, -29.0827, 117.331, -28.9238, 120.211, 32.3994, -168.583, 32.1206, -98.8047, -28.6059)
 
+[node name="LockIcon" type="Sprite2D" parent="MenuContainer/LevelsContainer/Level5Block/LockedOverlay"]
+z_index = 5
+position = Vector2(-31, 328)
+scale = Vector2(0.37747264, 0.3373457)
+texture = ExtResource("8_lock_icon")
+
 [node name="PaperScrap" type="Polygon2D" parent="MenuContainer/LevelsContainer/Level5Block"]
 z_index = 1
 position = Vector2(-22, 351)
 scale = Vector2(2.59097, 6.2924)
-color = Color(0.94, 0.92, 0.87, 1)
+color = Color(0.94, 0.92, 0.87, 0)
 polygon = PackedVector2Array(-122.556, -30.0569, 120, -30, 120.211, 32.3994, -168.583, 32.1206, -120.626, -32.1229)
 
 [node name="BackgroundImage" type="TextureRect" parent="MenuContainer/LevelsContainer/Level5Block/PaperScrap"]

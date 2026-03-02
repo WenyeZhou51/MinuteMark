@@ -140,6 +140,11 @@ func _setup_and_play():
 	if _is_stopped:
 		return
 	
+	# If gameplay already started music (e.g. via restart_music in Player._ready),
+	# don't replay from 0 here.
+	if music_player and (music_player.playing or music_player.stream_paused):
+		return
+	
 	var stream = load(_current_music_path)
 	
 	if stream:
