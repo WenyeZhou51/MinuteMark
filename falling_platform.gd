@@ -206,15 +206,27 @@ func _is_player_beside_platform(player_body: CharacterBody2D) -> bool:
 func _get_platform_half_height() -> float:
 	if collision_shape and collision_shape.shape and collision_shape.shape is RectangleShape2D:
 		var rect_shape := collision_shape.shape as RectangleShape2D
-		return rect_shape.size.y / 2.0
+		var scale_y := _get_collision_shape_world_scale().y
+		return (rect_shape.size.y * scale_y) / 2.0
 	return 0.0
 
 
 func _get_platform_half_width() -> float:
 	if collision_shape and collision_shape.shape and collision_shape.shape is RectangleShape2D:
 		var rect_shape := collision_shape.shape as RectangleShape2D
-		return rect_shape.size.x / 2.0
+		var scale_x := _get_collision_shape_world_scale().x
+		return (rect_shape.size.x * scale_x) / 2.0
 	return 0.0
+
+
+func _get_collision_shape_world_scale() -> Vector2:
+	# RectangleShape2D.size is in the CollisionShape2D's local space.
+	# For scaled FallingPlatform instances (e.g. in a level scene), we need the
+	# effective world-space size to correctly raycast and snap-to-ground.
+	if not collision_shape:
+		return Vector2.ONE
+	var s := collision_shape.global_transform.get_scale()
+	return Vector2(absf(s.x), absf(s.y))
 
 
 func _try_trigger_from_player_fallback() -> void:
