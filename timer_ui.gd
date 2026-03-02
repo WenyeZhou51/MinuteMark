@@ -35,6 +35,7 @@ var pulse_tween: Tween  # Store current pulse tween
 var rank_pulse_tween: Tween  # Store current rank pulse tween
 var last_rank_pulse_second: int = -1  # Track last second for rank pulse
 var base_timer_font_color: Color = Color.WHITE  # Will be captured from initial label color
+var color_restore_tween: Tween  # Separate tween for color restoration to avoid conflicts
 
 func _ready() -> void:
 	# Ensure TimerUI runs even when the game is paused (e.g. during dialogue)
@@ -105,16 +106,27 @@ func play_time_delta_feedback(delta_seconds: float) -> void:
 	if pulse_tween:
 		pulse_tween.kill()
 	
+	# Kill any existing color restore tween
+	if color_restore_tween:
+		color_restore_tween.kill()
+	
 	var flash_color := Color(0.2, 1.0, 0.6) if delta_seconds < 0 else Color(1.0, 1.0, 0.0)
 	timer_label.add_theme_color_override("font_color", flash_color)
 	
+	# Scale pulse tween (can be interrupted by per-second pulse)
 	pulse_tween = create_tween()
 	pulse_tween.set_trans(Tween.TRANS_QUAD)
 	pulse_tween.set_ease(Tween.EASE_OUT)
 	pulse_tween.tween_property(timer_label, "scale", Vector2(1.5, 1.5), 0.08)
 	pulse_tween.tween_property(timer_label, "scale", Vector2(1.0, 1.0), 0.22)
-	pulse_tween.finished.connect(func():
-		timer_label.add_theme_color_override("font_color", base_timer_font_color)
+	
+	# Separate color restore tween (won't be interrupted by pulse_tween.kill())
+	# Restore color after the full animation duration (0.08 + 0.22 = 0.3 seconds)
+	color_restore_tween = create_tween()
+	color_restore_tween.tween_interval(0.2)
+	color_restore_tween.tween_callback(func():
+		if timer_label:
+			timer_label.add_theme_color_override("font_color", base_timer_font_color)
 	)
 
 func set_rewind_active(active: bool) -> void:
