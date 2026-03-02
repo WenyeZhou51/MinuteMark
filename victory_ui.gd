@@ -613,36 +613,43 @@ func unlock_next_level():
 	const SAVE_FILE_PATH = "user://level_progress.cfg"
 	
 	# Keep this in sync with `level_select_menu.tscn` metadata order.
-	var level_paths = [
+	var ordered_levels = [
 		"res://level.tscn",      # Level 1 - The First Minute
 		"res://level1.tscn",     # Level 2 - Neon Countdown
 		"res://level1.1.tscn",   # Level 3
 		"res://level1.2.tscn",   # Level 4
 		"res://level1.3.tscn"    # Level 5
 	]
+	# Accept alternate/legacy scene paths that should map to the same level index.
+	var level_path_alias_to_index := {
+		"res://level.tscn": 0,
+		"res://level1.tscn": 1,
+		"res://level2.tscn": 1,   # Alternate path some runs may still use for Level 2.
+		"res://level1.1.tscn": 2,
+		"res://level1.2.tscn": 3,
+		"res://level1.3.tscn": 4
+	}
 	
 	# Get current scene path
 	var current_scene_path = get_tree().current_scene.scene_file_path
 	
 	# Find current level index
-	var current_level_index = -1
-	for i in range(level_paths.size()):
-		if level_paths[i] == current_scene_path:
-			current_level_index = i
-			break
+	var current_level_index: int = int(level_path_alias_to_index.get(current_scene_path, -1))
+	if current_level_index == -1:
+		for i in range(ordered_levels.size()):
+			if ordered_levels[i] == current_scene_path:
+				current_level_index = i
+				break
 	
 	if current_level_index == -1:
+		push_warning("VictoryUI: unlock_next_level skipped, unknown scene path: " + str(current_scene_path))
 		return
 	
 	# Calculate next level index
 	var next_level_index = current_level_index + 1
-	if next_level_index >= level_paths.size():
+	if next_level_index >= ordered_levels.size():
 		return
 
-	# Temporary design lock: do not unlock levels 3, 4, 5 yet.
-	if next_level_index >= 2:
-		return
-	
 	# Load existing progress
 	var config = ConfigFile.new()
 	var error = config.load(SAVE_FILE_PATH)
