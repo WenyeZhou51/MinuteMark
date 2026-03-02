@@ -9,7 +9,7 @@ var _manual_playback_pos: float = 0.0
 var _is_stopped: bool = false # Flag to track if music was explicitly stopped
 
 # Level-specific music support
-const DEFAULT_MUSIC_PATH: String = "res://audio/Second Chance.wav"
+const DEFAULT_MUSIC_PATH: String = "res://audio/Second Chance.ogg"
 var _current_music_path: String = DEFAULT_MUSIC_PATH
 
 # Heartbeat system (driven by _process instead of Timer for reliability)
@@ -50,7 +50,7 @@ func _ready() -> void:
 	add_child(_heartbeat_player)
 	
 	# Load heartbeat audio
-	var heartbeat_stream = load("res://audio/Heartbeat.wav")
+	var heartbeat_stream = load("res://audio/Heartbeat.ogg")
 	if heartbeat_stream:
 		_heartbeat_player.stream = heartbeat_stream
 	
@@ -62,7 +62,7 @@ func _ready() -> void:
 	add_child(_occasional_noise_player)
 	
 	# Load occasional noise audio
-	var noise_stream = load("res://audio/Occasional noise.wav")
+	var noise_stream = load("res://audio/Occasional noise.ogg")
 	if noise_stream:
 		_occasional_noise_player.stream = noise_stream
 	

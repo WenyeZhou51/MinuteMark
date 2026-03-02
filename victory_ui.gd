@@ -135,16 +135,16 @@ func _ready():
 	add_child(climbing_player)
 	
 	# Load audio files
-	if ResourceLoader.exists("res://audio/scoreClimbing.wav"):
-		score_climbing_sfx = load("res://audio/scoreClimbing.wav")
+	if ResourceLoader.exists("res://audio/scoreClimbing.ogg"):
+		score_climbing_sfx = load("res://audio/scoreClimbing.ogg")
 	elif ResourceLoader.exists("res://audio/scoreClimbing.mp3"):
 		score_climbing_sfx = load("res://audio/scoreClimbing.mp3")
 		
 	if not score_climbing_sfx:
 		pass
 		
-	if ResourceLoader.exists("res://audio/scorePeak.wav"):
-		score_peak_sfx = load("res://audio/scorePeak.wav")
+	if ResourceLoader.exists("res://audio/scorePeak.ogg"):
+		score_peak_sfx = load("res://audio/scorePeak.ogg")
 	elif ResourceLoader.exists("res://audio/scorePeak.mp3"):
 		score_peak_sfx = load("res://audio/scorePeak.mp3")
 		

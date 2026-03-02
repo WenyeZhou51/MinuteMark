@@ -59,14 +59,14 @@ func _ready() -> void:
 	add_child(sfx_player)
 	
 	# Load elevator fall sound
-	if ResourceLoader.exists("res://audio/elevatorFall.wav"):
-		fall_sfx = load("res://audio/elevatorFall.wav")
+	if ResourceLoader.exists("res://audio/elevatorFall.ogg"):
+		fall_sfx = load("res://audio/elevatorFall.ogg")
 	elif ResourceLoader.exists("res://audio/elevatorFall.mp3"):
 		fall_sfx = load("res://audio/elevatorFall.mp3")
 
 	# Load riding sound
-	if ResourceLoader.exists("res://audio/elevatorRiding.wav"):
-		ride_sfx = load("res://audio/elevatorRiding.wav")
+	if ResourceLoader.exists("res://audio/elevatorRiding.ogg"):
+		ride_sfx = load("res://audio/elevatorRiding.ogg")
 	elif ResourceLoader.exists("res://audio/elevatorRiding.mp3"):
 		ride_sfx = load("res://audio/elevatorRiding.mp3")
 
