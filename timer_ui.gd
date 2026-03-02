@@ -34,6 +34,7 @@ var last_pulse_second: int = -1  # Track last second for pulse effect
 var pulse_tween: Tween  # Store current pulse tween
 var rank_pulse_tween: Tween  # Store current rank pulse tween
 var last_rank_pulse_second: int = -1  # Track last second for rank pulse
+var base_timer_font_color: Color = Color.WHITE  # Will be captured from initial label color
 
 func _ready() -> void:
 	# Ensure TimerUI runs even when the game is paused (e.g. during dialogue)
@@ -45,6 +46,10 @@ func _ready() -> void:
 	# Wait for next frame to get proper sizes
 	await get_tree().process_frame
 	_apply_font_settings()
+	
+	# Capture the initial timer font color (e.g. red from .tscn) for later restoration
+	if timer_label:
+		base_timer_font_color = timer_label.get_theme_color("font_color")
 	
 	# Initial display update
 	update_display(current_time)
@@ -90,6 +95,27 @@ func stop_timer() -> void:
 func add_time(amount: float) -> void:
 	current_time += amount
 	update_display(current_time)
+
+func play_time_delta_feedback(delta_seconds: float) -> void:
+	"""Make time changes (like -1s reward) more obvious."""
+	if not timer_label:
+		return
+	
+	# Stronger pulse + color flash, independent of the normal per-second pulse.
+	if pulse_tween:
+		pulse_tween.kill()
+	
+	var flash_color := Color(0.2, 1.0, 0.6) if delta_seconds < 0 else Color(1.0, 1.0, 0.0)
+	timer_label.add_theme_color_override("font_color", flash_color)
+	
+	pulse_tween = create_tween()
+	pulse_tween.set_trans(Tween.TRANS_QUAD)
+	pulse_tween.set_ease(Tween.EASE_OUT)
+	pulse_tween.tween_property(timer_label, "scale", Vector2(1.5, 1.5), 0.08)
+	pulse_tween.tween_property(timer_label, "scale", Vector2(1.0, 1.0), 0.22)
+	pulse_tween.finished.connect(func():
+		timer_label.add_theme_color_override("font_color", base_timer_font_color)
+	)
 
 func set_rewind_active(active: bool) -> void:
 	"""Set whether rewind is active (timer moves backwards)."""

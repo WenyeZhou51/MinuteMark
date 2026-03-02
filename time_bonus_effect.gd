@@ -1,10 +1,17 @@
 extends Label
 
-func setup(start_screen_pos: Vector2, target_screen_pos: Vector2, callback: Callable):
-	text = "+1"
+func setup(start_screen_pos: Vector2, target_screen_pos: Vector2, callback: Callable, delta_seconds: float = -1.0):
+	# Player reward: show "-1" by default (used time decreases by 1s)
+	var sign_text := str(int(delta_seconds))
+	# If delta_seconds is -1.0 -> "-1"
+	# If delta_seconds is +1.0 -> "1" (we'll prepend '+' for clarity)
+	if delta_seconds > 0:
+		sign_text = "+" + sign_text
+	text = sign_text
 	
 	# Apply styling
-	add_theme_color_override("font_color", Color.YELLOW)
+	# Negative delta (reward) -> greenish; positive delta -> yellow
+	add_theme_color_override("font_color", Color(0.2, 1.0, 0.6) if delta_seconds < 0 else Color.YELLOW)
 	add_theme_color_override("font_outline_color", Color.BLACK)
 	add_theme_constant_override("outline_size", 10)
 	
@@ -12,7 +19,8 @@ func setup(start_screen_pos: Vector2, target_screen_pos: Vector2, callback: Call
 	var font = load("res://Fonts/Funkrocker.otf")
 	if font:
 		add_theme_font_override("font", font)
-	add_theme_font_size_override("font_size", 80)
+	# Make the bonus text large and readable
+	add_theme_font_size_override("font_size", 160)
 	
 	# Initial state
 	# We need to wait a frame to get the correct size for centering
@@ -32,13 +40,12 @@ func setup(start_screen_pos: Vector2, target_screen_pos: Vector2, callback: Call
 	# 2. Brief pause/hang
 	tween.tween_interval(0.1)
 	
-	# 3. Move to timer and shrink
+	# 3. Move to timer (keep size, only fade out)
 	var move_tween = create_tween().set_parallel(true)
-	# Target is the center of the timer. As we shrink to 0.1, the offset becomes negligible,
-	# but we'll still try to center it.
-	move_tween.tween_property(self, "global_position", target_screen_pos - (size * 0.1) / 2.0, 0.8)\
+	# Target is the center of the timer; keep the same size while moving.
+	var center_offset = size / 2.0
+	move_tween.tween_property(self, "global_position", target_screen_pos - center_offset, 0.8)\
 		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	move_tween.tween_property(self, "scale", Vector2(0.1, 0.1), 0.8)
 	move_tween.tween_property(self, "modulate:a", 0.0, 0.8)
 	
 	await move_tween.finished
