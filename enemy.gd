@@ -50,6 +50,7 @@ var laser_raycast: RayCast2D  # Separate raycast for laser sight
 @export var laser_flash_width: float = 4.0 ## Flash laser width
 @export var flash_threshold: float = 0.2 ## Time before firing to start flashing
 @export var flash_interval: float = 0.05 ## Speed of flashing
+@export var side_switch_deadzone: float = 24.0  ## Prevent aim reset jitter when player is near centerline
 
 # Bullet scene
 const BulletScene = preload("res://enemy_bullet.tscn")
@@ -622,8 +623,9 @@ func _update_shooting(delta: float) -> void:
 				var gunpoint_pos = gunpoint.global_position if gunpoint else global_position
 				var to_player = player_ref.global_position - gunpoint_pos
 				current_laser_angle = to_player.angle()
-				# Track which side player is on
-				player_was_on_right = to_player.x > 0
+				# Track side using enemy center with deadzone (more stable than gunpoint x sign).
+				var player_dx = player_ref.global_position.x - global_position.x
+				player_was_on_right = player_dx > side_switch_deadzone
 		
 		ShootingState.AIMING:
 			aim_timer += delta
@@ -641,17 +643,21 @@ func _update_shooting(delta: float) -> void:
 			var gunpoint_pos = gunpoint.global_position if gunpoint else global_position
 			var to_player = player_ref.global_position - gunpoint_pos
 			var target_angle = to_player.angle()
-			var player_is_on_right = to_player.x > 0
-			
-			# Check if player crossed sides
-			if player_is_on_right != player_was_on_right:
-				# Player crossed! Reset to startup delay
-				shooting_state = ShootingState.STARTUP_DELAY
-				state_timer = 0.0
-				aim_timer = 0.0
-				if laser_sight: laser_sight.visible = false
-				if warning_indicator: warning_indicator.visible = false
-				return
+			# Check if player crossed sides with a deadzone to avoid flicker resets.
+			var player_dx = player_ref.global_position.x - global_position.x
+			var player_is_clearly_right = player_dx > side_switch_deadzone
+			var player_is_clearly_left = player_dx < -side_switch_deadzone
+			if player_is_clearly_right or player_is_clearly_left:
+				var player_is_on_right = player_is_clearly_right
+				if player_is_on_right != player_was_on_right:
+					# Player crossed sides decisively; restart warning cycle.
+					shooting_state = ShootingState.STARTUP_DELAY
+					state_timer = 0.0
+					aim_timer = 0.0
+					if laser_sight: laser_sight.visible = false
+					if warning_indicator: warning_indicator.visible = false
+					player_was_on_right = player_is_on_right
+					return
 			
 			# Smoothly rotate laser towards player at tracking_speed_degrees per second
 			var tracking_speed_radians = deg_to_rad(tracking_speed_degrees)
@@ -787,13 +793,14 @@ func _shoot_at_player() -> void:
 	
 	# Position bullet at gunpoint location
 	var spawn_pos = gunpoint.global_position if gunpoint else global_position
-	bullet.global_position = spawn_pos
 	
 	# Initialize bullet with direction, speed, and shooter reference
 	bullet.initialize(shoot_direction, bullet_speed, self)
 	
-	# Add bullet to scene (as sibling, not child)
+	# Add first, then set global position. This avoids incorrect spawn offsets
+	# when the parent scene root has a non-zero transform.
 	get_parent().add_child(bullet)
+	bullet.global_position = spawn_pos
 	
 
 func _hit_by_parried_bullet(hit_direction: Vector2, bullet_speed: float) -> void:

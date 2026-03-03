@@ -2973,11 +2973,18 @@ func _start_kick_sequence() -> void:
 	current_kick_target_node = null
 	attack_velocity = Vector2.ZERO
 	kick_boost_available = false # Initialize boost as unavailable
+	var touching_kickable = _get_touching_kickable_object()
 	
-	# Determine target based on priority: Bullet > Object > Enemy
+	# Determine target based on priority:
+	# Bullet > physically touching kickable object > detected kickable object > Enemy
+	# Touching-collider priority fixes cases where the player is pinned to a window/wall
+	# and cone-based detection fails to select it.
 	if parry_enabled and closest_bullet:
 		current_kick_target_type = KickTargetType.BULLET
 		current_kick_target_node = closest_bullet
+	elif touching_kickable:
+		current_kick_target_type = KickTargetType.OBJECT
+		current_kick_target_node = touching_kickable
 	elif kick_object_enabled and closest_kickable_object:
 		current_kick_target_type = KickTargetType.OBJECT
 		current_kick_target_node = closest_kickable_object
@@ -3036,6 +3043,28 @@ func _start_kick_sequence() -> void:
 		_end_ground_slide()
 	if is_air_dashing:
 		_end_air_dash()
+
+
+func _get_touching_kickable_object() -> Node2D:
+	"""Return a kickable object currently in direct contact with the player."""
+	# Check wall collider first (most reliable when pressed against a vertical object like window).
+	if wall_collider and is_instance_valid(wall_collider) and wall_collider is Node2D:
+		if wall_collider.is_in_group("kickable_objects") and wall_collider.has_method("kick"):
+			if not wall_collider.has_method("can_be_kicked") or wall_collider.can_be_kicked():
+				return wall_collider as Node2D
+	
+	# Fallback: inspect current slide collisions for any kickable object.
+	for i in range(get_slide_collision_count()):
+		var collision = get_slide_collision(i)
+		if not collision:
+			continue
+		var collider = collision.get_collider()
+		if collider and is_instance_valid(collider) and collider is Node2D:
+			if collider.is_in_group("kickable_objects") and collider.has_method("kick"):
+				if not collider.has_method("can_be_kicked") or collider.can_be_kicked():
+					return collider as Node2D
+	
+	return null
 
 
 func _execute_enemy_kick(enemy: Node2D) -> void:
@@ -4083,12 +4112,16 @@ func _update_kick_object_indicator() -> void:
 				closest_distance = distance
 				closest_kickable_object = obj
 	
-	# Show indicator if object found
-	if closest_kickable_object:
+	# Show indicator only for enemy targets, even though kicking still supports all kickables.
+	var indicator_target: Node2D = null
+	if closest_kickable_object and (closest_kickable_object.is_in_group("enemies") or closest_kickable_object.is_in_group("enemy")):
+		indicator_target = closest_kickable_object
+	
+	if indicator_target:
 		object_kick_indicator.visible = true
 		
 		# Position at the object
-		object_kick_indicator.global_position = closest_kickable_object.global_position
+		object_kick_indicator.global_position = indicator_target.global_position
 		
 		# Calculate recoil direction (direction player will go)
 		# Player recoil is opposite to facing direction + some vertical

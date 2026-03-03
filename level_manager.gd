@@ -84,7 +84,12 @@ func _configure_level_enemies() -> void:
 		# Only apply to shooter enemies that use enemy.gd behavior.
 		if enemy and enemy.has_method("_update_shooting"):
 			enemy.shooting_enabled = true
-			enemy.require_line_of_sight = false
+			enemy.require_line_of_sight = true
+			# Level 1 has long sightlines; 1000 can be too short for visible engagements.
+			if "detection_range" in enemy:
+				enemy.detection_range = max(enemy.detection_range, 2500.0)
 			enemy.shooting_state = enemy.ShootingState.STARTUP_DELAY
 			enemy.state_timer = 0.0
 			enemy.aim_timer = 0.0
+			if enemy.has_method("_find_player"):
+				enemy._find_player()

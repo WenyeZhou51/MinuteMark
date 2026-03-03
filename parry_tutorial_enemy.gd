@@ -41,7 +41,6 @@ func _shoot_at_player() -> void:
 	
 	# Position bullet at gunpoint location
 	var spawn_pos = gunpoint.global_position if gunpoint else global_position
-	bullet.global_position = spawn_pos
 	
 	# Initialize bullet with direction, speed, and shooter reference
 	bullet.initialize(shoot_direction, bullet_speed, self)
@@ -52,8 +51,9 @@ func _shoot_at_player() -> void:
 	# Connect to bullet's parried signal to stop shooting when deflected
 	bullet.bullet_parried.connect(_on_bullet_parried)
 	
-	# Add bullet to scene (as sibling, not child)
+	# Add first, then set global position so parent transforms don't offset spawn.
 	get_parent().add_child(bullet)
+	bullet.global_position = spawn_pos
 
 func _on_bullet_triggered_tutorial() -> void:
 	"""Called when one of our bullets triggers the tutorial - stop shooting."""

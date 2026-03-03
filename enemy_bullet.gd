@@ -70,7 +70,12 @@ func _physics_process(delta: float) -> void:
 		queue_free()
 		return
 	
-	# Move bullet
+	# Continuous collision check along travel path to avoid tunneling and
+	# reduce false positives from overlap callbacks.
+	if _process_path_collision(delta):
+		return
+	
+	# Move bullet if path is clear
 	global_position += velocity * delta
 	
 	# Rotate to face direction of travel
@@ -86,23 +91,15 @@ func _on_body_entered(body: Node2D) -> void:
 	"""Hit something solid (wall, platform, player, or enemy)."""
 	# Check if it's the player (CharacterBody2D in "player" group)
 	if body.is_in_group("player") and not was_parried:
-		# Trigger player bullet hit (with grace period for parrying)
-		if body.has_method("_on_bullet_hit"):
-			body._on_bullet_hit(self, shooter_enemy)
-		elif body.has_method("_on_enemy_touched"):
-			# Fallback for older version
-			body._on_enemy_touched(shooter_enemy)
-		
-		# Destroy bullet
-		queue_free()
+		_hit_player(body)
 		return
 	
 	# If parried, ignore wall collisions (go through walls)
 	if was_parried:
 		return
 	
-	# Hit a wall or platform - destroy (only for non-parried bullets)
-	queue_free()
+	# Ignore non-player body collisions (platforms/tilemaps/walls).
+	# Swept collision in _physics_process handles authoritative terrain hits.
 
 func _on_area_entered(area: Area2D) -> void:
 	"""Hit an area (including enemies)."""
@@ -163,6 +160,43 @@ func parry(parry_direction: Vector2) -> void:
 	# Update collision mask to hit enemies only (go through walls on return trip)
 	collision_mask = 0  # Clear mask
 	set_collision_mask_value(3, true)  # Layer 3 for enemy areas (collision_layer = 4 = 2^2)
+
+func _process_path_collision(delta: float) -> bool:
+	"""Swept body collision along current frame path."""
+	# Parried bullets intentionally pass through walls and only hit enemy areas.
+	if was_parried:
+		return false
+	
+	var start_pos = global_position
+	var end_pos = global_position + velocity * delta
+	var query = PhysicsRayQueryParameters2D.create(start_pos, end_pos, collision_mask)
+	query.collide_with_bodies = true
+	query.collide_with_areas = false
+	query.exclude = [self]
+	if shooter_enemy and is_instance_valid(shooter_enemy):
+		query.exclude.append(shooter_enemy)
+	
+	var result = get_world_2d().direct_space_state.intersect_ray(query)
+	if result.is_empty():
+		return false
+	
+	# Snap to impact point for consistent visuals.
+	global_position = result.get("position", end_pos)
+	var collider = result.get("collider", null)
+	if collider and collider is Node2D and collider.is_in_group("player"):
+		_hit_player(collider as Node2D)
+	else:
+		queue_free()
+	return true
+
+func _hit_player(body: Node2D) -> void:
+	"""Apply bullet hit behavior to player and destroy bullet."""
+	if body.has_method("_on_bullet_hit"):
+		body._on_bullet_hit(self, shooter_enemy)
+	elif body.has_method("_on_enemy_touched"):
+		# Fallback for older version
+		body._on_enemy_touched(shooter_enemy)
+	queue_free()
 	
 
 func _create_particle_trail() -> void:
