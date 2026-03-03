@@ -5822,21 +5822,18 @@ func _update_animations() -> void:
 	var _dbg_wall_floor_override = false
 	if is_on_wall and is_on_floor():
 		var wall_norm = wall_normal
-		# FIX: Use velocity_before_move_and_slide to detect push intent, not post-collision velocity.
-		# Post-collision velocity oscillates frame-to-frame due to micro-jitter in move_and_slide(),
-		# causing the old check to fail on alternating frames → rapid idle↔run flicker.
-		# velocity_before_move_and_slide reliably shows the player's INTENT to push into the wall.
+		# Only suppress run animation when the player is ACTUALLY blocked:
+		# pressing into the wall via input AND horizontal speed is near zero.
+		# This avoids false idle states while moving on platforms.
+		var input_x: float = Input.get_axis("move_left", "move_right")
+		var pressing_into_wall_input: bool = (wall_norm.x > 0.0 and input_x < -0.1) or (wall_norm.x < 0.0 and input_x > 0.1)
+		var moving_too_slow_to_run: bool = absf(velocity.x) < 20.0
 		var vel_before_ms = velocity_before_move_and_slide
 		var pushing_into_wall_before = (wall_norm.x > 0 and vel_before_ms.x < -0.1) or (wall_norm.x < 0 and vel_before_ms.x > 0.1)
 		var pushing_into_wall_after = (wall_norm.x > 0 and velocity.x < -0.1) or (wall_norm.x < 0 and velocity.x > 0.1)
-		# Override to idle if player was pushing into wall BEFORE collision (intent-based),
-		# OR if post-collision velocity is low and pushing (original fallback)
-		if pushing_into_wall_before or (pushing_into_wall_after and abs(velocity.x) < 50.0):
+		if pressing_into_wall_input and moving_too_slow_to_run:
 			is_moving_horizontally = false
 			_dbg_wall_floor_override = true
-			# Also zero out velocity.x to prevent the micro-jitter oscillation
-			# that causes move_and_slide to alternate between blocking and passing through
-			velocity.x = 0.0
 		
 		# DEBUG: Log the wall-on-floor animation decision every frame while stuck
 		if _dbg_wall_stuck and _dbg_wall_stuck_frames > 0:
