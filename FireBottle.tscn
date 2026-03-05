@@ -3,7 +3,7 @@
 [ext_resource type="Script" path="res://fire_bottle.gd" id="1_firebottle"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_bottle"]
-size = Vector2(20, 32)
+size = Vector2(40, 64)
 
 [node name="FireBottle" type="Area2D" groups=["kickable_objects"]]
 script = ExtResource("1_firebottle")

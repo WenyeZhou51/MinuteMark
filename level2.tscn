@@ -1,4 +1,4 @@
-[gd_scene load_steps=31 format=3 uid="uid://co3ys7ojrgbkb"]
+[gd_scene load_steps=32 format=3 uid="uid://co3ys7ojrgbkb"]
 
 [ext_resource type="Script" path="res://level_manager.gd" id="1_qfdq4"]
 [ext_resource type="Texture2D" uid="uid://d2g7jojkre5ug" path="res://Sprites/Bd.png" id="2_h0v3f"]
@@ -19,6 +19,7 @@
 [ext_resource type="Script" path="res://tutorial_block.gd" id="19_4amks"]
 [ext_resource type="Texture2D" uid="uid://iqnxi42u7eex" path="res://Sprites/level_backgrounds/IMG_4463.JPG" id="20_20kcu"]
 [ext_resource type="Texture2D" uid="uid://b5v5ch6lmmej" path="res://Sprites/level_backgrounds/IMG_4518.jpg" id="21_e5e3i"]
+[ext_resource type="PackedScene" path="res://Lamp.tscn" id="22_5wfc4"]
 [ext_resource type="PackedScene" uid="uid://v2lfhu5ocdg3" path="res://pixel_fire_simulation.tscn" id="30_pxfire"]
 [ext_resource type="PackedScene" uid="uid://c8k3m5n7qaqr2" path="res://FireBottle.tscn" id="31_fbottle"]
 
@@ -90,12 +91,12 @@ layer_0/tile_data = PackedInt32Array(1048598, 393219, 18, 1048599, 393219, 18, 1
 position = Vector2(-304, 1050)
 ignition_points = Array[Vector2]([Vector2(200, 988), Vector2(1500, 988), Vector2(3000, 988)])
 cell_size = 5
-flame_particle_count = 1000
+flame_particle_count = 10000
 spread_interval = 0.01
 burn_heat_output = 4.0
 heat_conductivity = 3.0
-light_energy_max = 6.0
-light_radius = 700.0
+light_energy_max = 8.0
+light_radius = 1200.0
 
 [node name="Player" parent="." instance=ExtResource("5_oaku3")]
 position = Vector2(-924, 987)
@@ -178,15 +179,6 @@ rewind_warning_offset = Vector2(5, 20)
 rewind_warning_vibration_amplitude = 5.0
 game_timer_duration = 300.0
 
-[node name="JumpSound" parent="Player" index="7"]
-stream = null
-
-[node name="DashSound" parent="Player" index="8"]
-stream = null
-
-[node name="SlideSound" parent="Player" index="9"]
-stream = null
-
 [node name="Camera2D" parent="Player" index="10"]
 zoom = Vector2(1, 1)
 
@@ -234,13 +226,13 @@ polygon = PackedVector2Array(-39, -275, 44, -271.855, 43, 592, -40, 592)
 position = Vector2(1, 171.156)
 
 [node name="FireBottle1" parent="KickableObjects" instance=ExtResource("31_fbottle")]
-position = Vector2(1200, 988)
+position = Vector2(1715, 256)
 
 [node name="FireBottle2" parent="KickableObjects" instance=ExtResource("31_fbottle")]
-position = Vector2(2800, 988)
+position = Vector2(2435, 530)
 
 [node name="FireBottle3" parent="KickableObjects" instance=ExtResource("31_fbottle")]
-position = Vector2(4500, 988)
+position = Vector2(1204, 677)
 
 [node name="PauseMenu" parent="." instance=ExtResource("11_g8kww")]
 visible = false
@@ -414,6 +406,9 @@ z_index = -3
 position = Vector2(8544, 3582)
 scale = Vector2(0.859795, 0.399391)
 texture = ExtResource("21_e5e3i")
+
+[node name="Lamp" parent="." instance=ExtResource("22_5wfc4")]
+position = Vector2(2771, 320)
 
 [editable path="Player"]
 [editable path="KickableObjects/Window1"]

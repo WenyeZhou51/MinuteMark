@@ -204,15 +204,6 @@ rewind_warning_offset = Vector2(5, 20)
 rewind_warning_vibration_amplitude = 5.0
 game_timer_duration = 300.0
 
-[node name="JumpSound" parent="Player" index="7"]
-stream = null
-
-[node name="DashSound" parent="Player" index="8"]
-stream = null
-
-[node name="SlideSound" parent="Player" index="9"]
-stream = null
-
 [node name="Camera2D" parent="Player" index="10"]
 zoom = Vector2(1, 1)
 

@@ -7,8 +7,8 @@ extends Area2D
 @export var rotation_speed_max: float = 8.0
 
 @export_group("Light")
-@export var base_light_radius: float = 120.0
-@export var expanded_light_radius: float = 220.0
+@export var base_light_radius: float = 250.0
+@export var expanded_light_radius: float = 450.0
 @export var expand_duration: float = 0.5
 
 @export_group("Collision")
@@ -49,15 +49,15 @@ func _ready() -> void:
 
 
 func _setup_light_texture() -> void:
-	var size := 64
+	var size := 128 # Increased resolution for smoother scaling
 	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
 	var center := Vector2(size * 0.5, size * 0.5)
-	var max_d := center.length()
+	var max_d := size * 0.48 # Use distance to EDGE (with buffer) instead of CORNER
 	for y in size:
 		for x in size:
 			var d := Vector2(x, y).distance_to(center) / max_d
-			var a := 1.0 - clampf(d, 0.0, 1.0)
-			a = a * a
+			var a := clampf(1.0 - d, 0.0, 1.0)
+			a = a * a # Restore quadratic decay for smooth edge tapering
 			img.set_pixel(x, y, Color(1.0, 1.0, 1.0, a))
 	var tex := ImageTexture.create_from_image(img)
 	if light:
@@ -67,8 +67,8 @@ func _setup_light_texture() -> void:
 		for y in size:
 			for x in size:
 				var d := Vector2(x, y).distance_to(center) / max_d
-				var a := (1.0 - clampf(d, 0.0, 1.0)) * 0.5
-				a = a * a
+				var a := clampf(1.0 - d, 0.0, 1.0) * 0.5
+				a = a * a # Restore quadratic decay for smooth edge tapering
 				glow_img.set_pixel(x, y, Color(1.0, 0.5, 0.2, a))
 		glow_sprite.texture = ImageTexture.create_from_image(glow_img)
 		glow_sprite.z_index = -1

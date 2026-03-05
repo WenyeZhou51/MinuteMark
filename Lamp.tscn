@@ -1,0 +1,31 @@
+[gd_scene load_steps=4 format=3 uid="uid://d1x6m5n7qaqr3"]
+
+[ext_resource type="Script" path="res://lamp.gd" id="1_lamp"]
+
+[sub_resource type="Gradient" id="Gradient_lamp"]
+offsets = PackedFloat32Array(0, 0.7, 1)
+colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 0.2, 1, 1, 1, 0)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_lamp"]
+gradient = SubResource("Gradient_lamp")
+fill = 1
+fill_from = Vector2(0.5, 0.5)
+
+[node name="Lamp" type="Node2D"]
+script = ExtResource("1_lamp")
+
+[node name="Visual" type="Node2D" parent="."]
+
+[node name="Body" type="Polygon2D" parent="Visual"]
+color = Color(0.25, 0.2, 0.15, 1)
+polygon = PackedVector2Array(-8, 12, 8, 12, 10, 8, 10, -8, 8, -12, -8, -12, -10, -8, -10, 8)
+
+[node name="Glass" type="Polygon2D" parent="Visual"]
+color = Color(1, 0.8, 0.4, 0.6)
+polygon = PackedVector2Array(-6, 6, 6, 6, 6, -6, -6, -6)
+
+[node name="PointLight2D" type="PointLight2D" parent="."]
+color = Color(1, 0.7, 0.3, 1)
+energy = 1.5
+texture = SubResource("GradientTexture2D_lamp")
+texture_scale = 8.0

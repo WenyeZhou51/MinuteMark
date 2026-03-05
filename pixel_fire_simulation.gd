@@ -12,7 +12,7 @@ extends Node2D
 @export var burn_heat_output: float = 2.0  ## Heat emitted by burning cell per second
 @export var heat_conductivity: float = 1.5  ## How fast heat spreads to neighbors
 @export var heat_dissipation: float = 0.3  ## How fast heat cools naturally
-@export var burn_rate: float = 0.15  ## Fuel consumed per second while burning
+@export var burn_rate: float = 0.05  ## Fuel consumed per second while burning (decreased for longer duration)
 @export var darkness_color: Color = Color(0.03, 0.02, 0.04, 1.0)
 @export var light_energy_max: float = 1.8
 @export var light_radius: float = 400.0
@@ -122,15 +122,15 @@ func _setup_darkness() -> void:
 
 
 func _setup_lights() -> void:
-	var sz := 64
+	var sz := 128 # Increased resolution for smoother scaling
 	var img := Image.create(sz, sz, false, Image.FORMAT_RGBA8)
 	var center := Vector2(sz * 0.5, sz * 0.5)
-	var max_d := center.length()
+	var max_d := sz * 0.48 # Use distance to EDGE (with buffer) instead of CORNER
 	for y in sz:
 		for x in sz:
 			var d := Vector2(x, y).distance_to(center) / max_d
-			var a := 1.0 - clampf(d, 0.0, 1.0)
-			a = a * a
+			var a := clampf(1.0 - d, 0.0, 1.0)
+			a = a * a # Restore quadratic decay for smooth edge tapering
 			img.set_pixel(x, y, Color(1, 1, 1, a))
 	light_texture = ImageTexture.create_from_image(img)
 
@@ -353,7 +353,8 @@ func _update_particles(delta: float) -> void:
 
 		# Physics: rise with turbulence
 		particle_pool[idx + P_VEL_X] += rng.randf_range(-80, 80) * delta
-		particle_pool[idx + P_VEL_Y] -= 50 * delta
+		# Added gravity effect to particles (they still rise, but gravity pulls them down)
+		particle_pool[idx + P_VEL_Y] += (200.0 - 250.0) * delta # Gravity (200) vs Buoyancy (-250)
 		particle_pool[idx + P_POS_X] += particle_pool[idx + P_VEL_X] * delta
 		particle_pool[idx + P_POS_Y] += particle_pool[idx + P_VEL_Y] * delta
 		particle_pool[idx + P_HEAT] *= 0.97
@@ -459,8 +460,8 @@ func _update_lights() -> void:
 		fire_sources_y.append(key.y * cell_size)
 		fire_sources_w.append(fuel)
 
-	# Sample some particles for light (not all — sample every 4th)
-	var step := 4
+	# Sample some particles for light (not all — sample every 8th for performance)
+	var step := 8
 	var pi := 0
 	while pi < particle_count:
 		var pidx := pi * PARTICLE_STRIDE
@@ -468,10 +469,12 @@ func _update_lights() -> void:
 		var max_life: float = particle_pool[pidx + P_MAX_LIFE]
 		var heat: float = particle_pool[pidx + P_HEAT]
 		var life_frac: float = life / max_life
-		if heat * life_frac > 0.35:
+		# Particles emit light that fades with their life
+		if heat * life_frac > 0.3:
 			fire_sources_x.append(particle_pool[pidx + P_POS_X])
 			fire_sources_y.append(particle_pool[pidx + P_POS_Y])
-			fire_sources_w.append(heat * life_frac * 0.4)
+			# Light brightness is weighted by life_frac for fading effect
+			fire_sources_w.append(heat * life_frac * 0.5)
 		pi += step
 
 	var total_sources := fire_sources_x.size()

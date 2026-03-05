@@ -16,7 +16,7 @@ extends Area2D
 @export var idle_flame_particles: int = 3  ## Small flame particles while idle (wick)
 
 @export_group("Collision")
-@export var object_size: Vector2 = Vector2(20, 32)
+@export var object_size: Vector2 = Vector2(40, 64)
 @export var gravity_strength: float = 1800.0
 
 @export_group("Indicator")
@@ -184,12 +184,12 @@ func _spawn_kick_burst(fire_sim: Node2D) -> void:
 		vel += kick_velocity.normalized() * rng.randf_range(20, 80)
 
 		var particle = {
-			"pos": global_position + Vector2(rng.randf_range(-8, 8), rng.randf_range(-8, 8)),
+			"pos": global_position + Vector2(rng.randf_range(-16, 16), rng.randf_range(-16, 16)),
 			"vel": vel,
-			"life": rng.randf_range(0.4, 1.4),
-			"max_life": 1.4,
+			"life": 1.0,
+			"max_life": 1.0,
 			"heat": rng.randf_range(0.6, 1.0),
-			"size": rng.randf_range(8.0, 20.0),
+			"size": rng.randf_range(16.0, 32.0),
 		}
 		fire_sim.particles.append(particle)
 
@@ -203,12 +203,12 @@ func _spawn_collision_burst(fire_sim: Node2D) -> void:
 		vel += kick_velocity * 0.15
 
 		var particle = {
-			"pos": global_position + Vector2(rng.randf_range(-12, 12), rng.randf_range(-12, 12)),
+			"pos": global_position + Vector2(rng.randf_range(-24, 24), rng.randf_range(-24, 24)),
 			"vel": vel,
-			"life": rng.randf_range(0.5, 2.0),
-			"max_life": 2.0,
+			"life": 1.0,
+			"max_life": 1.0,
 			"heat": rng.randf_range(0.6, 1.0),
-			"size": rng.randf_range(8.0, 22.0),
+			"size": rng.randf_range(16.0, 36.0),
 		}
 		fire_sim.particles.append(particle)
 
@@ -307,12 +307,12 @@ func _check_player_nearby() -> void:
 func _update_wick(delta: float) -> void:
 	if wick_particles.size() < idle_flame_particles * 3:
 		wick_particles.append({
-			"offset": Vector2(rng.randf_range(-3, 3), -object_size.y * 0.5 - rng.randf_range(0, 4)),
-			"vel": Vector2(rng.randf_range(-8, 8), rng.randf_range(-40, -15)),
+			"offset": Vector2(rng.randf_range(-6, 6), -object_size.y * 0.5 - rng.randf_range(0, 8)),
+			"vel": Vector2(rng.randf_range(-16, 16), rng.randf_range(-80, -30)),
 			"life": rng.randf_range(0.15, 0.4),
 			"max_life": 0.4,
 			"heat": rng.randf_range(0.6, 1.0),
-			"size": rng.randf_range(2, 5),
+			"size": rng.randf_range(4, 10),
 		})
 
 	var i := 0
@@ -356,21 +356,52 @@ func _draw() -> void:
 		# "KICK" text indicator
 		draw_string(ThemeDB.fallback_font, Vector2(-14, arrow_y - 12), "KICK", HORIZONTAL_ALIGNMENT_CENTER, -1, 10, indicator_color)
 
-	# === BOTTLE BODY ===
-	# Bottle body (dark green glass)
-	var body_rect = Rect2(-half.x, -half.y * 0.3, object_size.x, object_size.y * 0.65)
-	draw_rect(body_rect, Color(0.15, 0.4, 0.1, 0.9))
+	# === MOLOTOV COCKTAIL BODY ===
+	# Bottle body (dark brown/amber glass for a beer bottle look)
+	var body_color = Color(0.25, 0.15, 0.05, 0.95)
+	var neck_color = Color(0.2, 0.12, 0.04, 0.95)
+	
+	# Main body (rounded bottom)
+	var body_rect = Rect2(-half.x, -half.y * 0.4, object_size.x, object_size.y * 0.75)
+	draw_rect(body_rect, body_color)
+	
+	# Shoulder (tapering to neck)
+	var shoulder_points = PackedVector2Array([
+		Vector2(-half.x, -half.y * 0.4),
+		Vector2(half.x, -half.y * 0.4),
+		Vector2(half.x * 0.4, -half.y * 0.7),
+		Vector2(-half.x * 0.4, -half.y * 0.7)
+	])
+	draw_colored_polygon(shoulder_points, body_color)
 
-	# Bottle neck (narrower)
-	var neck_rect = Rect2(-half.x * 0.4, -half.y, object_size.x * 0.4, object_size.y * 0.35)
-	draw_rect(neck_rect, Color(0.15, 0.4, 0.1, 0.9))
+	# Bottle neck
+	var neck_rect = Rect2(-half.x * 0.4, -half.y, object_size.x * 0.4, object_size.y * 0.3)
+	draw_rect(neck_rect, neck_color)
+	
+	# Bottle rim
+	var rim_rect = Rect2(-half.x * 0.5, -half.y - 4, object_size.x * 0.5, 6)
+	draw_rect(rim_rect, neck_color)
 
-	# Liquid inside (orange/red)
-	var liquid_rect = Rect2(-half.x + 2, 0, object_size.x - 4, object_size.y * 0.3)
-	draw_rect(liquid_rect, Color(0.9, 0.3, 0.05, 0.7))
+	# Liquid inside (sloshing effect)
+	var slosh := sin(time * 2.0 + global_position.x * 0.01) * 4.0
+	var liquid_height := object_size.y * 0.4
+	var liquid_rect = Rect2(-half.x + 4, slosh, object_size.x - 8, liquid_height)
+	draw_rect(liquid_rect, Color(0.95, 0.4, 0.1, 0.75)) # Brighter fuel color
+	
+	# Wick cloth (rag stuffed in the neck)
+	var rag_color = Color(0.8, 0.75, 0.7, 1.0)
+	var rag_points = PackedVector2Array([
+		Vector2(-half.x * 0.3, -half.y - 2),
+		Vector2(half.x * 0.3, -half.y - 2),
+		Vector2(half.x * 0.6, -half.y - 12),
+		Vector2(-half.x * 0.2, -half.y - 16),
+		Vector2(-half.x * 0.5, -half.y - 10)
+	])
+	draw_colored_polygon(rag_points, rag_color)
 
-	# Wick cloth at top
-	draw_rect(Rect2(-3, -half.y - 4, 6, 6), Color(0.7, 0.6, 0.4, 1.0))
+	# Wick flame glow (dynamic)
+	var flame_pulse := (sin(time * 15.0) * 0.2 + 0.8)
+	draw_circle(Vector2(0, -half.y - 12), 15.0 * flame_pulse, Color(1.0, 0.5, 0.1, 0.2 * flame_pulse))
 
 	# Draw wick flame particles
 	for p in wick_particles:
