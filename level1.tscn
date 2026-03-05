@@ -1,11 +1,11 @@
-[gd_scene load_steps=25 format=3 uid="uid://3ehbo8tce3h4"]
+[gd_scene load_steps=26 format=3 uid="uid://3ehbo8tce3h4"]
 
-[ext_resource type="Script" path="res://level_manager.gd" id="1_52iny"]
-[ext_resource type="Script" path="res://parallax_background.gd" id="2_nxqqj"]
-[ext_resource type="Texture2D" uid="uid://c4j73s3v0y5pl" path="res://parallax/1.png" id="3_7nyxr"]
-[ext_resource type="Texture2D" uid="uid://b3rmm2ysa5ihm" path="res://parallax/2.png" id="4_43lh3"]
-[ext_resource type="Texture2D" uid="uid://bvhobesnqci3w" path="res://parallax/3.png" id="5_5le63"]
-[ext_resource type="Texture2D" uid="uid://mvvkmdm6h3ub" path="res://parallax/4.png" id="6_pieet"]
+[ext_resource type="Script" uid="uid://cwcta33q2k8wp" path="res://level_manager.gd" id="1_52iny"]
+[ext_resource type="Script" uid="uid://c7n7nsu5owyy6" path="res://parallax_background.gd" id="2_nxqqj"]
+[ext_resource type="Texture2D" uid="uid://d0pbvpppq0xjj" path="res://parallax/1.png" id="3_7nyxr"]
+[ext_resource type="Texture2D" uid="uid://faqaw0xj43qk" path="res://parallax/2.png" id="4_43lh3"]
+[ext_resource type="Texture2D" uid="uid://kvm2g8pg5f7b" path="res://parallax/3.png" id="5_5le63"]
+[ext_resource type="Texture2D" uid="uid://4hrn7muk5qq6" path="res://parallax/4.png" id="6_pieet"]
 [ext_resource type="PackedScene" uid="uid://dmp8rksh3a5yl" path="res://TimerUI.tscn" id="7_qiqrj"]
 [ext_resource type="TileSet" uid="uid://cu555li7p074q" path="res://Sprites/tileset.tres" id="8_xm42n"]
 [ext_resource type="PackedScene" uid="uid://vv3m4nx6g3jo" path="res://player.tscn" id="9_6wmxb"]
@@ -24,6 +24,7 @@
 [ext_resource type="PackedScene" uid="uid://be4ysm5xnwocm" path="res://door.tscn" id="22_o45kq"]
 [ext_resource type="PackedScene" uid="uid://c2p1gqjfeqf38" path="res://LeverPlatformSystem.tscn" id="23_ycl4i"]
 [ext_resource type="PackedScene" uid="uid://b6ocum6m8b8o1" path="res://LeverTrigger.tscn" id="24_yj3vc"]
+[ext_resource type="Texture2D" uid="uid://dtoqovggpx6en" path="res://Sprites/level_backgrounds/watch shop.png" id="25_nxqqj"]
 
 [node name="Level10" type="Node2D"]
 position = Vector2(-1082, -7301)
@@ -381,7 +382,7 @@ horizontal_alignment = 1
 metadata/_edit_use_anchors_ = true
 
 [node name="LevelFinishTrigger" parent="." instance=ExtResource("14_6tyme")]
-position = Vector2(20601, 13879)
+position = Vector2(20352, 13891)
 scale = Vector2(6, 2)
 
 [node name="FallingBlock" parent="." instance=ExtResource("15_ktasi")]
@@ -677,6 +678,12 @@ show_bounds = false
 [node name="LeverTrigger" parent="." instance=ExtResource("24_yj3vc")]
 position = Vector2(18276, 16761)
 target_system_path = NodePath("../LeverPlatformSystem")
+
+[node name="WatchShop" type="Sprite2D" parent="."]
+z_index = -1
+position = Vector2(20309, 13850)
+scale = Vector2(0.6545403, 0.6545403)
+texture = ExtResource("25_nxqqj")
 
 [editable path="Player"]
 [editable path="KickableObjects/Window1"]
