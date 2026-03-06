@@ -33,6 +33,7 @@ var api_enabled: bool = true  # Set to true to enable Supabase integration
 
 # HTTP request tracking
 var http_request: HTTPRequest
+var http_request_fetch: HTTPRequest  # Dedicated for fetches so they don't conflict with submit
 var is_submitting: bool = false
 var is_fetching: bool = false
 
@@ -45,16 +46,22 @@ func _ready():
 	get_local_ip_address()
 	load_local_leaderboard()
 	
-	# Setup HTTP request node
+	# Setup HTTP request node for submissions (PATCH, POST, etc.)
 	http_request = HTTPRequest.new()
 	http_request.name = "SupabaseHTTPRequest"
 	# CRITICAL: Allow HTTPRequest to process even when game is paused
 	http_request.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(http_request)
 	http_request.request_completed.connect(_on_http_request_completed)
-	
-	# Set timeout to 10 seconds
 	http_request.timeout = 10.0
+	
+	# Dedicated HTTP request for fetches - allows fetch and submit to run in parallel
+	http_request_fetch = HTTPRequest.new()
+	http_request_fetch.name = "SupabaseHTTPRequestFetch"
+	http_request_fetch.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(http_request_fetch)
+	http_request_fetch.request_completed.connect(_on_fetch_request_completed)
+	http_request_fetch.timeout = 10.0
 	
 	# Try to fetch global leaderboard on startup if API is enabled
 	if api_enabled:
@@ -422,10 +429,38 @@ func fetch_global_leaderboard(level: int = -1):
 		"Authorization: Bearer " + SUPABASE_API_KEY
 	]
 	
-	var error = http_request.request(url, headers, HTTPClient.METHOD_GET)
+	var error = http_request_fetch.request(url, headers, HTTPClient.METHOD_GET)
 	if error != OK:
 		push_error("LeaderboardManager: HTTP request failed to initiate. Error code: %d" % error)
 		is_fetching = false
+
+func _on_fetch_request_completed(_result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray):
+	"""Handle fetch request completion (uses dedicated http_request_fetch)."""
+	var response_text = body.get_string_from_utf8()
+	is_fetching = false
+	if response_code == 200:
+		var json = JSON.new()
+		var parse_result = json.parse(response_text)
+		if parse_result == OK:
+			var parsed_data = json.data
+			var new_scores: Array[Dictionary] = []
+			if parsed_data is Array:
+				for item in parsed_data:
+					if item is Dictionary:
+						var time_value = item.get("time_taken", 0.0)
+						new_scores.append({
+							"time": float(time_value),
+							"player_name": item.get("player_name", "Player"),
+							"date": "",
+							"player_id": "",
+							"ip_address": ""
+						})
+			if new_scores.size() > 0:
+				global_leaderboard_data = new_scores
+				global_leaderboard_data.sort_custom(func(a, b): return a["time"] < b["time"])
+				global_leaderboard_updated.emit()
+	else:
+		push_error("LeaderboardManager: Fetch failed. Response code: %d, Error: %s" % [response_code, response_text])
 
 func _on_http_request_completed(result: int, response_code: int, headers: PackedStringArray, body: PackedByteArray):
 	"""Handle HTTP request completion."""
@@ -544,45 +579,6 @@ func _on_http_request_completed(result: int, response_code: int, headers: Packed
 		else:
 			push_error("LeaderboardManager: Submission failed. Response code: %d, Error: %s" % [response_code, response_text])
 		return
-	
-	# Handle leaderboard fetching
-	if is_fetching:
-		is_fetching = false
-		if response_code == 200:
-			var json = JSON.new()
-			var parse_result = json.parse(response_text)
-			if parse_result == OK:
-				var parsed_data = json.data
-				var new_scores: Array[Dictionary] = []
-				
-				if parsed_data is Array:
-					# Supabase returns an array directly
-					for item in parsed_data:
-						if item is Dictionary:
-							var time_value = item.get("time_taken", 0.0)
-							# Convert Supabase format to internal format
-							var score_entry = {
-								"time": float(time_value),  # Time is already in seconds as a number
-								"player_name": item.get("player_name", "Player"),
-								"date": "",  # Supabase doesn't store date in our schema
-								"player_id": "",  # Not stored in Supabase
-								"ip_address": ""  # Not stored in Supabase
-							}
-							new_scores.append(score_entry)
-				
-				# Only update if we got valid scores
-				if new_scores.size() > 0:
-					global_leaderboard_data = new_scores
-					# Already sorted by Supabase query, but ensure it
-					global_leaderboard_data.sort_custom(func(a, b): return a["time"] < b["time"])
-					# Emit signal to notify that global leaderboard was updated
-					global_leaderboard_updated.emit()
-				else:
-					pass
-			else:
-				push_error("LeaderboardManager: Failed to parse Supabase response JSON. Parse error: %d" % parse_result)
-		else:
-			push_error("LeaderboardManager: Fetch failed. Response code: %d, Error: %s" % [response_code, response_text])
 
 func get_top_scores(count: int = 3, use_global: bool = false) -> Array[Dictionary]:
 	"""Get the top N scores. use_global=true for global leaderboard, false for local."""

@@ -230,6 +230,12 @@ func setup(time_taken: float):
 	name_submitted = false
 	
 	if LeaderboardManager:
+		# CRITICAL: Fetch and set the current level's leaderboard BEFORE checking/displaying.
+		# Otherwise we may show a different level's leaderboard (e.g. level 0 from startup).
+		var level = LeaderboardManager.get_current_level_index()
+		LeaderboardManager.last_submitted_level = level
+		LeaderboardManager.fetch_global_leaderboard(level)
+		
 		made_leaderboard = LeaderboardManager.would_make_leaderboard(time_taken)
 		
 		if made_leaderboard:
