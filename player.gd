@@ -2846,6 +2846,34 @@ func _ease_out_cubic(t: float) -> float:
 # KICK ATTACK
 # ====================================
 
+func _has_line_of_sight_to(target: Node2D) -> bool:
+	"""Return true if there is no wall or solid obstacle between player and target.
+	Used to prevent kick indicator and kick from working through walls."""
+	if not target or not is_instance_valid(target):
+		return false
+	var space_state = get_world_2d().direct_space_state
+	if not space_state:
+		return false
+	var from_pos = global_position
+	var to_pos = target.global_position
+	var query = PhysicsRayQueryParameters2D.create(from_pos, to_pos)
+	query.exclude = [self]
+	# Include target so we can distinguish "hit target" vs "hit wall"
+	# If we hit the target first, we have LOS. If we hit something else, we're blocked.
+	var result = space_state.intersect_ray(query)
+	if result.is_empty():
+		return true  # Ray reached end without hitting anything (target may have no collision)
+	# Check if we hit the target (or a child of target, e.g. collision shape's parent)
+	var collider = result.collider
+	if collider == target:
+		return true
+	# If collider is a child of target (e.g. collision shape node), we hit the target
+	if target.is_ancestor_of(collider):
+		return true
+	# Hit something else (wall, platform, etc.) - blocked
+	return false
+
+
 func _update_enemy_detection() -> void:
 	"""Detect nearby enemies for potential attacks."""
 	nearby_enemies.clear()
@@ -2873,11 +2901,11 @@ func _update_enemy_detection() -> void:
 			if enemy_by_name:
 				enemies.append(enemy_by_name)
 	
-	# Check each enemy for distance and filter out destroyed enemies
+	# Check each enemy for distance, line of sight (no walls between), and filter out destroyed enemies
 	for enemy in enemies:
 		if enemy and is_instance_valid(enemy) and not enemy.is_destroyed:
 			var distance = global_position.distance_to(enemy.global_position)
-			if distance <= attack_detection_range:
+			if distance <= attack_detection_range and _has_line_of_sight_to(enemy):
 				nearby_enemies.append(enemy)
 	
 	
@@ -2990,11 +3018,13 @@ func _start_kick_sequence() -> void:
 		current_kick_target_type = KickTargetType.OBJECT
 		current_kick_target_node = closest_kickable_object
 	elif attack_enabled and not nearby_enemies.is_empty():
-		# Find closest enemy
+		# Find closest enemy with line of sight (safety check - prevents kick through walls)
 		var closest_enemy = null
 		var closest_distance = INF
 		for enemy in nearby_enemies:
 			if not enemy or not is_instance_valid(enemy) or enemy.is_destroyed:
+				continue
+			if not _has_line_of_sight_to(enemy):
 				continue
 			var distance = global_position.distance_to(enemy.global_position)
 			if distance < closest_distance:
@@ -4080,6 +4110,9 @@ func _update_kickable_object_detection() -> void:
 			effective_range += rect_shape.size.x / 2.0
 		
 		if distance <= effective_range:
+			# Require line of sight - no kicking through walls
+			if not _has_line_of_sight_to(obj):
+				continue
 			# When player is very close/overlapping the object, skip the cone check
 			# (direction_to_obj becomes zero vector when distance ≈ 0, breaking the dot product)
 			if distance < 1.0:
