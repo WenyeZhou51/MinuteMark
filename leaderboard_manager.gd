@@ -296,7 +296,8 @@ func get_current_level_index() -> int:
 	return 0
 
 func submit_score_to_api(score_data: Dictionary):
-	"""Submit a score to Supabase. First checks if cleanup is needed."""
+	"""Submit a score to Supabase. First checks if cleanup is needed.
+	Submits exactly ONE entry for the level the player just completed — never loops over levels."""
 	if is_submitting:
 		return
 	
@@ -305,11 +306,12 @@ func submit_score_to_api(score_data: Dictionary):
 	
 	is_submitting = true
 	
+	# Capture level once — we submit only for this level, never for all levels
 	var level = get_current_level_index()
 	last_submitted_level = level
 	last_submitted_time = score_data["time"]
 	
-	# Store the score data for later use after checking for cleanup
+	# Store the score data for later use after checking for cleanup (single entry only)
 	var pending_submission = {
 		"player_name": score_data.get("player_name", "Player"),
 		"time_taken": score_data["time"],
@@ -374,7 +376,7 @@ func _delete_worst_entry(entry_id: int):
 		remove_meta("pending_submission")
 
 func _actually_submit_score():
-	"""Actually submit the score after cleanup is done."""
+	"""Actually submit the score after cleanup is done. Inserts exactly one row for the completed level."""
 	if not has_meta("pending_submission"):
 		push_error("LeaderboardManager: No pending submission found!")
 		is_submitting = false

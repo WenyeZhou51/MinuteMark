@@ -5997,6 +5997,10 @@ func _handle_dust_effects(delta: float) -> void:
 
 func finish_level(time_taken: float) -> void:
 	"""Called when the player reaches the level finish trigger."""
+	# Prevent duplicate victory screens (e.g. from multiple body_entered in same frame)
+	if get_tree().root.get_node_or_null("VictoryUI") != null:
+		return
+	
 	# Stop the timer first to prevent it from expiring and triggering death
 	if timer_ui_instance and timer_ui_instance.has_method("stop_timer"):
 		timer_ui_instance.stop_timer()

@@ -2,6 +2,8 @@ extends Area2D
 
 signal level_finished(time_taken)
 
+var has_triggered: bool = false
+
 func _ready():
 	# Hide the debug visuals in game
 	if has_node("ColorRect"):
@@ -10,7 +12,10 @@ func _ready():
 	body_entered.connect(_on_body_entered)
 
 func _on_body_entered(body):
+	if has_triggered:
+		return
 	if body.name == "Player" or body.is_in_group("player"):
+		has_triggered = true
 		var time_taken = 0.0
 		
 		# Timer counts UP (starts at 0), so current_game_time IS the time taken
