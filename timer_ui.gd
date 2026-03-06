@@ -30,6 +30,7 @@ var max_time: float = 300.0
 var is_running: bool = false
 var dialogue_slow_mode: bool = false
 var is_rewinding: bool = false
+var rewind_slowmo_scale: float = 1.0  # When world is frozen during rewind, scale delta for timer (0.25 = quarter speed)
 var last_pulse_second: int = -1  # Track last second for pulse effect
 var pulse_tween: Tween  # Store current pulse tween
 var rank_pulse_tween: Tween  # Store current rank pulse tween
@@ -129,9 +130,10 @@ func play_time_delta_feedback(delta_seconds: float) -> void:
 			timer_label.add_theme_color_override("font_color", base_timer_font_color)
 	)
 
-func set_rewind_active(active: bool) -> void:
-	"""Set whether rewind is active (timer moves backwards)."""
+func set_rewind_active(active: bool, slowmo_scale: float = 1.0) -> void:
+	"""Set whether rewind is active (timer moves backwards). When world is frozen, pass slowmo_scale to match player slow-mo."""
 	is_rewinding = active
+	rewind_slowmo_scale = slowmo_scale
 
 func _is_ui_overlay_visible(node_name: String) -> bool:
 	var overlay = get_tree().root.find_child(node_name, true, false)
@@ -162,9 +164,9 @@ func _process(delta: float) -> void:
 			dt *= 0.5
 		# Otherwise, continue running (timer should run even when game is paused for other reasons)
 	
-	# During rewind, timer moves backwards at 0.5x speed
+	# During rewind, timer moves backwards at 0.5x speed (scaled by rewind_slowmo when world is frozen)
 	if is_rewinding:
-		current_time -= dt * 0.5
+		current_time -= dt * 0.5 * rewind_slowmo_scale
 		# Clamp to 0 to prevent going negative
 		current_time = max(current_time, 0.0)
 	else:

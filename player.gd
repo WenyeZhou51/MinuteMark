@@ -443,6 +443,7 @@ var elevator_exit_grace_period: float = 0.0 # Grace period timer after exiting e
 const ELEVATOR_EXIT_GRACE_PERIOD_DURATION: float = 0.1 # 0.1 seconds grace period
 var is_in_rewind_slowmo: bool = false  # Is game currently in rewind slow-mo
 var original_time_scale: float = 1.0  # Store original time scale before slow-mo
+var original_process_mode: Node.ProcessMode = Node.PROCESS_MODE_INHERIT  # Store process_mode before rewind (to restore on exit)
 var rewind_hold_start_time: float = 0.0  # When the hold started (game_time)
 var rewind_current_progress: float = 0.0  # Current progress through rewind (0.0 = current, 1.0 = 2 seconds ago)
 var rewind_traceback_frame_data: Array[Dictionary] = []  # Frames to animate through during traceback
@@ -4447,13 +4448,13 @@ func _start_rewind_hold() -> void:
 	_enter_rewind_slowmo()
 	_create_ghost_path_visualization()
 	
-	# Play music backwards during rewind
+	# Play music backwards during rewind (scale by slowmo since world is frozen, delta is real-time)
 	if AudioManager:
-		AudioManager.start_rewind(rewind_traceback_speed)
+		AudioManager.start_rewind(rewind_traceback_speed * rewind_slowmo_scale)
 	
-	# Notify timer to start moving backwards
+	# Notify timer to start moving backwards (pass slowmo scale for correct delta scaling)
 	if timer_ui_instance and timer_ui_instance.has_method("set_rewind_active"):
-		timer_ui_instance.set_rewind_active(true)
+		timer_ui_instance.set_rewind_active(true, rewind_slowmo_scale)
 	
 	# Start hold-to-rewind
 	is_rewind_holding = true
@@ -4638,10 +4639,9 @@ func _process_rewind_traceback(delta: float) -> void:
 	
 	# Advance progress backwards (0.0 = current, 1.0 = 2 seconds ago)
 	# Progress increases as we go back in time
-	# In slow-mo, delta is already affected by time_scale (0.25x)
-	# To make rewind 2.0x relative to slow-mo time: progress_delta = (2.0 * delta) / rewind_time
-	# Since delta is already 0.25x, this gives us 2.0x speed relative to slow-mo time
-	var progress_delta = (rewind_traceback_speed * delta) / rewind_time
+	# World is frozen (paused), player runs in slow-mo - delta is real-time, so scale by rewind_slowmo_scale
+	var scaled_delta = delta * rewind_slowmo_scale
+	var progress_delta = (rewind_traceback_speed * scaled_delta) / rewind_time
 	var old_progress = rewind_current_progress
 	rewind_current_progress += progress_delta
 	
@@ -4948,16 +4948,22 @@ func _find_nodes_by_name(node: Node, name_to_find: String) -> Array:
 
 
 func _enter_rewind_slowmo() -> void:
-	"""Enter slow-motion state for rewind."""
+	"""Enter rewind state: world freezes, player runs in slow-mo (via process_mode + pause)."""
 	if is_in_rewind_slowmo:
-		return  # Already in slow-mo
+		return  # Already in rewind
 	
-	# Store current time scale (in case something else modified it)
-	original_time_scale = Engine.time_scale
 	is_in_rewind_slowmo = true
-	Engine.time_scale = rewind_slowmo_scale
 	
-	# Disable physics interactions during rewind slow-mo
+	# Store current time scale (in case something else modified it) - we don't change it, but keep for compatibility
+	original_time_scale = Engine.time_scale
+	
+	# Freeze the world: pause the tree (stops physics, platforms, enemies)
+	# Player will keep running via PROCESS_MODE_WHEN_PAUSED (runs only when paused)
+	original_process_mode = process_mode
+	process_mode = Node.PROCESS_MODE_WHEN_PAUSED
+	get_tree().paused = true
+	
+	# Disable physics interactions during rewind
 	original_collision_layer = collision_layer
 	original_collision_mask = collision_mask
 	collision_layer = 0
@@ -4969,12 +4975,19 @@ func _enter_rewind_slowmo() -> void:
 
 
 func _exit_rewind_slowmo() -> void:
-	"""Exit slow-motion state for rewind."""
+	"""Exit rewind state: unpause world, restore player process_mode."""
 	if not is_in_rewind_slowmo:
-		return  # Not in slow-mo
+		return  # Not in rewind
 	
 	is_in_rewind_slowmo = false
-	Engine.time_scale = original_time_scale
+	
+	# Unpause the world (only if pause menu isn't open - it would have set paused for its own reasons)
+	var pause_menu = get_tree().root.find_child("PauseMenu", true, false)
+	if not (pause_menu is CanvasItem and (pause_menu as CanvasItem).visible):
+		get_tree().paused = false
+	
+	# Restore player process_mode
+	process_mode = original_process_mode
 	
 	# Restore physics interactions
 	collision_layer = original_collision_layer
@@ -4999,8 +5012,8 @@ func _update_rewind_validity_indicator() -> void:
 		# Show warning overlay
 		if rewind_warning_sprite:
 			rewind_warning_sprite.visible = true
-			# Update vibration time based on actual delta (using Engine.time_scale adjusted delta)
-			rewind_warning_vibration_time += get_process_delta_time()
+			# Update vibration time (scale by rewind_slowmo_scale since world is frozen, delta is real-time)
+			rewind_warning_vibration_time += get_process_delta_time() * rewind_slowmo_scale
 			
 			# Calculate vibration offset using sine wave
 			var vibration_x = sin(rewind_warning_vibration_time * rewind_warning_vibration_frequency * TAU) * rewind_warning_vibration_amplitude
