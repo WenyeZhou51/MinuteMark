@@ -2788,13 +2788,28 @@ func _check_ledge_climb(space_state: PhysicsDirectSpaceState2D) -> void:
 					if is_wall_running: print(_dbg_prefix + "REJECTED: Ground too low (y_rel=%0.1f)" % ground_relative_y)
 					continue
 					
-				ledge_found = true
-				if is_wall_running: print(_dbg_prefix + "SUCCESS: Ledge found at height_offset=%d | ground_y=%0.1f" % [height_offset, ground_hit.position.y])
 				# Calculate target position on top of ledge
 				ledge_climb_target_pos = Vector2(
 					global_position.x + (ledge_climb_forward_offset + half_width + 2) * wall_side,
 					ground_hit.position.y - half_height - 1
 				)
+				# Ceiling check: reject ledge if there's solid geometry between us and the target (prevents snapping through roofs)
+				# The ceiling/roof is between our current position and the ledge top - raycast along the snap path
+				# Start from past the wall edge to avoid hitting the wall we're against
+				var path_origin = Vector2(
+					global_position.x + check_x_offset + forward_check * wall_side,
+					global_position.y - half_height
+				)
+				var path_end = Vector2(ledge_climb_target_pos.x, ledge_climb_target_pos.y - half_height)
+				var path_query = PhysicsRayQueryParameters2D.create(path_origin, path_end)
+				path_query.exclude = [self]
+				var path_hit = space_state.intersect_ray(path_query)
+				if path_hit:
+					# Hit something in the path - likely ceiling/roof we'd snap through
+					if is_wall_running: print(_dbg_prefix + "REJECTED: Obstacle in snap path (ceiling/roof)")
+					continue
+				ledge_found = true
+				if is_wall_running: print(_dbg_prefix + "SUCCESS: Ledge found at height_offset=%d | ground_y=%0.1f" % [height_offset, ground_hit.position.y])
 				break
 			elif is_wall_running:
 				print(_dbg_prefix + "REJECTED: No ground found beyond wall edge (height_offset=%d)" % height_offset)
