@@ -1,6 +1,6 @@
 [gd_scene load_steps=26 format=3 uid="uid://3ehbo8tce3h4"]
 
-[ext_resource type="Script" uid="uid://daocmjnowrjfr" path="res://level_manager.gd" id="1_52iny"]
+[ext_resource type="Script" uid="uid://prcfbk34p20c" path="res://level_manager.gd" id="1_52iny"]
 [ext_resource type="Script" uid="uid://c7n7nsu5owyy6" path="res://parallax_background.gd" id="2_nxqqj"]
 [ext_resource type="Texture2D" uid="uid://d0pbvpppq0xjj" path="res://parallax/1.png" id="3_7nyxr"]
 [ext_resource type="Texture2D" uid="uid://faqaw0xj43qk" path="res://parallax/2.png" id="4_43lh3"]
@@ -20,7 +20,7 @@
 [ext_resource type="Texture2D" uid="uid://ykqviu722dpj" path="res://Sprites/S3.png" id="18_lslib"]
 [ext_resource type="Texture2D" uid="uid://dkn4p7cae0mtc" path="res://Sprites/S4.png" id="19_d78wo"]
 [ext_resource type="Texture2D" uid="uid://i2oeip2r1406" path="res://Sprites/S2.png" id="20_2cjx3"]
-[ext_resource type="Texture2D" uid="uid://dsrg05ag4t58x" path="res://Sprites/balcony.png" id="21_qx55u"]
+[ext_resource type="Texture2D" uid="uid://c4hxw8t82k607" path="res://Sprites/balcony.png" id="21_qx55u"]
 [ext_resource type="PackedScene" uid="uid://be4ysm5xnwocm" path="res://door.tscn" id="22_o45kq"]
 [ext_resource type="PackedScene" uid="uid://c2p1gqjfeqf38" path="res://LeverPlatformSystem.tscn" id="23_ycl4i"]
 [ext_resource type="PackedScene" uid="uid://b6ocum6m8b8o1" path="res://LeverTrigger.tscn" id="24_yj3vc"]
@@ -691,7 +691,7 @@ scale = Vector2(0.20002, 1.24)
 [node name="LeverPlatformSystem" parent="." instance=ExtResource("23_ycl4i")]
 position = Vector2(19235, 14423)
 platform_spacing = 4000.0
-platform_speed = 700.0
+platform_speed = 1400.0
 platform_size = Vector2(1000, 100)
 system_size = Vector2(2000, 5000)
 start_phase = 0.42
