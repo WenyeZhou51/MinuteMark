@@ -178,7 +178,7 @@ theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 20
 theme_override_fonts/font = ExtResource("2_t4l2a")
 theme_override_font_sizes/font_size = 85
-text = "The First 
+text = "First 
 Minute"
 horizontal_alignment = 1
 vertical_alignment = 1
@@ -244,8 +244,7 @@ theme_override_colors/font_outline_color = Color(1, 1, 1, 1)
 theme_override_constants/outline_size = 12
 theme_override_fonts/font = ExtResource("2_t4l2a")
 theme_override_font_sizes/font_size = 85
-text = "Neon 
-CountDown"
+text = "The Escape"
 horizontal_alignment = 1
 vertical_alignment = 1
 
@@ -306,17 +305,17 @@ default_color = Color(0.3, 0.25, 0.2, 1)
 [node name="LevelLabel" type="Label" parent="MenuContainer/LevelsContainer/Level3Block"]
 z_index = 3
 layout_mode = 1
-offset_left = 462.0
-offset_top = 323.0
-offset_right = 862.0
-offset_bottom = 413.0
+offset_left = 312.0
+offset_top = 328.0
+offset_right = 874.0
+offset_bottom = 418.0
 scale = Vector2(1.1, 1.1)
 theme_override_colors/font_color = Color(0, 0, 0, 1)
 theme_override_colors/font_outline_color = Color(1, 1, 1, 1)
 theme_override_constants/outline_size = 12
 theme_override_fonts/font = ExtResource("2_t4l2a")
 theme_override_font_sizes/font_size = 85
-text = "Level 3"
+text = "Burning Bright"
 horizontal_alignment = 1
 vertical_alignment = 1
 
@@ -376,16 +375,17 @@ default_color = Color(0.3, 0.25, 0.2, 1)
 [node name="LevelLabel" type="Label" parent="MenuContainer/LevelsContainer/Level4Block"]
 z_index = 3
 layout_mode = 1
-offset_left = 189.0
-offset_top = 6.0
-offset_right = 451.0
-offset_bottom = 96.0
+offset_left = 64.0
+offset_top = -4.0
+offset_right = 620.0
+offset_bottom = 179.0
 theme_override_colors/font_color = Color(0, 0, 0, 1)
 theme_override_colors/font_outline_color = Color(1, 1, 1, 1)
 theme_override_constants/outline_size = 12
 theme_override_fonts/font = ExtResource("2_t4l2a")
 theme_override_font_sizes/font_size = 85
-text = "LEVEL 4"
+text = "Time 
+Collapse"
 horizontal_alignment = 1
 vertical_alignment = 1
 
@@ -445,15 +445,16 @@ default_color = Color(0.3, 0.25, 0.2, 1)
 [node name="LevelLabel" type="Label" parent="MenuContainer/LevelsContainer/Level5Block"]
 z_index = 3
 layout_mode = 1
-offset_left = -175.0
-offset_top = 273.0
-offset_right = 78.0
-offset_bottom = 363.0
+offset_left = -253.0
+offset_top = 263.0
+offset_right = 203.0
+offset_bottom = 446.0
 theme_override_colors/font_color = Color(0, 0, 0, 1)
 theme_override_colors/font_outline_color = Color(1, 1, 1, 1)
 theme_override_constants/outline_size = 12
 theme_override_fonts/font = ExtResource("2_t4l2a")
 theme_override_font_sizes/font_size = 85
-text = "LEVEL 5"
+text = "Last 
+Minute"
 horizontal_alignment = 1
 vertical_alignment = 1
