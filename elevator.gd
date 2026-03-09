@@ -10,6 +10,7 @@ extends Node2D
 var player_inside: bool = false
 var has_dropped: bool = false
 var impact_triggered: bool = false
+var is_tutorial_level: bool = false
 
 # Audio
 var sfx_player: AudioStreamPlayer
@@ -47,6 +48,10 @@ func _ready() -> void:
 	# Find guard reference (assuming it's a sibling in the scene tree)
 	# We use call_deferred to ensure the parent and siblings are ready
 	call_deferred("_find_and_connect_guard")
+	
+	# Check if this is the tutorial level
+	if get_tree().current_scene.scene_file_path == "res://level.tscn":
+		is_tutorial_level = true
 	
 	# Setup audio
 	sfx_player = AudioStreamPlayer.new()
@@ -92,7 +97,8 @@ func _on_guard_destroyed(_enemy: Node2D = null) -> void:
 func _on_player_entered(body: Node2D) -> void:
 	if (body.is_in_group("player") or body.name == "Player") and not player_inside:
 		# Check if guard is still active (not destroyed)
-		if guard_ref and is_instance_valid(guard_ref):
+		# Skip this check if we are in the tutorial level
+		if not is_tutorial_level and guard_ref and is_instance_valid(guard_ref):
 			if "is_destroyed" in guard_ref and not guard_ref.is_destroyed:
 				return # Guard is alive, elevator won't start
 		

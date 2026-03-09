@@ -19,7 +19,7 @@
 [ext_resource type="Script" path="res://tutorial_block.gd" id="19_4amks"]
 [ext_resource type="Texture2D" uid="uid://iqnxi42u7eex" path="res://Sprites/level_backgrounds/IMG_4463.JPG" id="20_20kcu"]
 [ext_resource type="Texture2D" uid="uid://b5v5ch6lmmej" path="res://Sprites/level_backgrounds/IMG_4518.jpg" id="21_e5e3i"]
-[ext_resource type="PackedScene" path="res://Lamp.tscn" id="22_5wfc4"]
+[ext_resource type="PackedScene" uid="uid://d1x6m5n7qaqr3" path="res://Lamp.tscn" id="22_5wfc4"]
 [ext_resource type="PackedScene" uid="uid://v2lfhu5ocdg3" path="res://pixel_fire_simulation.tscn" id="30_pxfire"]
 [ext_resource type="PackedScene" uid="uid://c8k3m5n7qaqr2" path="res://FireBottle.tscn" id="31_fbottle"]
 
