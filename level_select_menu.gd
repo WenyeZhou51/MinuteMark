@@ -5,6 +5,7 @@ extends CanvasLayer
 @export var levels: Array[Dictionary] = []
 
 const SAVE_FILE_PATH = "user://level_progress.cfg"
+const PROGRESS_RESET_MARKER_PATH = "user://level_progress_reset_v1.marker"
 
 @export_group("Lock Overlay")
 @export var locked_overlay_node_name: NodePath = NodePath("LockedOverlay")  # Child of each level block; only visible when locked (add in scene or leave name to auto-create)
@@ -47,10 +48,18 @@ func _ready():
 	
 	# Build level blocks + defaults from scene nodes
 	setup_level_blocks()
-	# Load saved progress over node defaults
-	load_level_progress()
-	# Keep progression consistent: a level cannot be unlocked if the previous one is locked.
+	# One-time cleanup: reset old progress once, then allow normal progression saves.
+	var state_changed := _run_one_time_progress_reset()
+	if not state_changed:
+		load_level_progress()
+	# Ensure progression always starts with level 1 available.
+	if levels.size() > 0 and not _is_level_unlocked(0):
+		_set_level_unlocked(0, true)
+		state_changed = true
+	# Keep progression contiguous (no later level unlocked while an earlier one is locked).
 	if _enforce_sequential_unlocks():
+		state_changed = true
+	if state_changed:
 		save_level_progress()
 	# Apply loaded/default state to visuals
 	_apply_level_states_to_blocks()
@@ -65,6 +74,33 @@ func _ready():
 	
 	# Hide mouse cursor in level select; keyboard only
 	Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
+
+func clear_saved_level_progress():
+	"""Delete stored level progress so stale unlock data cannot leak into this run."""
+	var absolute_path := ProjectSettings.globalize_path(SAVE_FILE_PATH)
+	if FileAccess.file_exists(SAVE_FILE_PATH):
+		var err := DirAccess.remove_absolute(absolute_path)
+		if err != OK:
+			push_warning("LevelSelectMenu: Could not remove old save file: " + str(err))
+
+func _run_one_time_progress_reset() -> bool:
+	"""Reset progress only once so later level completions can unlock new levels."""
+	if FileAccess.file_exists(PROGRESS_RESET_MARKER_PATH):
+		return false
+	clear_saved_level_progress()
+	_reset_to_first_level_only()
+	var marker_file := FileAccess.open(PROGRESS_RESET_MARKER_PATH, FileAccess.WRITE)
+	if marker_file:
+		marker_file.store_string("reset_applied=1\n")
+	else:
+		push_warning("LevelSelectMenu: Could not create reset marker file.")
+	return true
+
+func _reset_to_first_level_only():
+	"""Lock every level except the first one."""
+	for i in range(levels.size()):
+		_set_level_unlocked(i, i == 0)
+	keyboard_focus_index = 0
 
 func setup_level_blocks():
 	"""Find level blocks from scene nodes and build level data from node metadata."""

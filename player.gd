@@ -4119,10 +4119,13 @@ func _update_kickable_object_detection() -> void:
 		
 		# Use extended range for large objects (like windows)
 		var effective_range = kick_object_detection_range
+		if obj.has_method("get_kick_range_override"):
+			effective_range = obj.get_kick_range_override()
 		if collision_shape and collision_shape.shape is RectangleShape2D:
 			var rect_shape = collision_shape.shape as RectangleShape2D
 			# Extend range by half the object's width for large objects
-			effective_range += rect_shape.size.x / 2.0
+			if not obj.has_method("get_kick_range_override"):
+				effective_range += rect_shape.size.x / 2.0
 		
 		if distance <= effective_range:
 			# Require line of sight - no kicking through walls
