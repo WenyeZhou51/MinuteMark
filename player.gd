@@ -485,6 +485,9 @@ var pre_fire_air_dash_impulse: float = 0.0
 var pre_fire_air_dash_duration: float = 0.0
 var pre_fire_ground_slide_speed: float = 0.0
 var pre_fire_ground_slide_slowdown: float = 0.0
+var fire_label_layer: CanvasLayer = null
+var fire_label: Label = null
+var fire_label_pulse_time: float = 0.0
 
 # Movement trail line (shown during dashes/slides/wallclimb/walljump/jump)
 var movement_trail_line: Line2D = null
@@ -6131,6 +6134,42 @@ func set_on_fire() -> void:
 	ground_slide_speed = 2200.0
 	ground_slide_slowdown_rate = 400.0
 
+	# "FIRE!" HUD label
+	if not fire_label_layer:
+		fire_label_layer = CanvasLayer.new()
+		fire_label_layer.layer = 99
+		add_child(fire_label_layer)
+
+		fire_label = Label.new()
+		fire_label.text = "FIRE!"
+		fire_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		fire_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		fire_label.anchors_preset = Control.PRESET_CENTER_TOP
+		fire_label.anchor_left = 0.5
+		fire_label.anchor_right = 0.5
+		fire_label.anchor_top = 0.0
+		fire_label.anchor_bottom = 0.0
+		fire_label.offset_left = -400.0
+		fire_label.offset_right = 400.0
+		fire_label.offset_top = 200.0
+		fire_label.offset_bottom = 320.0
+		fire_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+
+		var font_res = load("res://Fonts/Funkrocker.otf")
+		if font_res:
+			fire_label.add_theme_font_override("font", font_res)
+		fire_label.add_theme_font_size_override("font_size", 120)
+		fire_label.add_theme_color_override("font_color", Color(1.0, 0.35, 0.0, 1.0))
+		fire_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
+		fire_label.add_theme_constant_override("outline_size", 14)
+		fire_label.add_theme_color_override("font_shadow_color", Color(1.0, 0.1, 0.0, 0.6))
+		fire_label.add_theme_constant_override("shadow_offset_x", 4)
+		fire_label.add_theme_constant_override("shadow_offset_y", 6)
+
+		fire_label_layer.add_child(fire_label)
+	fire_label_layer.visible = true
+	fire_label_pulse_time = 0.0
+
 	# Dynamic point light (4x larger area)
 	if not fire_light:
 		fire_light = PointLight2D.new()
@@ -6264,6 +6303,10 @@ func extinguish_fire() -> void:
 	if fire_particles:
 		fire_particles.emitting = false
 
+	# Hide FIRE! label
+	if fire_label_layer:
+		fire_label_layer.visible = false
+
 
 func _handle_fire_trail(delta: float) -> void:
 	if not is_on_fire:
@@ -6273,6 +6316,16 @@ func _handle_fire_trail(delta: float) -> void:
 	if fire_light and fire_light.visible:
 		fire_light.energy = 1.8 + sin(game_time * 14.0) * 0.4 + sin(game_time * 23.0) * 0.25 + sin(game_time * 37.0) * 0.15
 		fire_light.position = Vector2(0, -40)
+
+	# Pulse the FIRE! label every 0.5 seconds
+	if fire_label and fire_label_layer and fire_label_layer.visible:
+		fire_label_pulse_time += delta
+		var pulse: float = absf(sin(fire_label_pulse_time * PI / 0.5))
+		var s: float = 1.0 + pulse * 0.25
+		fire_label.pivot_offset = fire_label.size * 0.5
+		fire_label.scale = Vector2(s, s)
+		var bright: float = 0.8 + pulse * 0.2
+		fire_label.add_theme_color_override("font_color", Color(1.0, 0.2 + pulse * 0.3, 0.0, bright))
 
 	# Leave a trail of fire when moving on the floor
 	if not is_on_floor():
