@@ -1,0 +1,81 @@
+[gd_scene load_steps=5 format=3 uid="uid://g0ufglwuqdq5"]
+
+[ext_resource type="Script" path="res://fire_animation_test.gd" id="1_script"]
+[ext_resource type="Shader" path="res://shaders/player_fire.gdshader" id="2_shader"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_fire"]
+shader = ExtResource("2_shader")
+shader_parameter/fire_intensity = 1.0
+shader_parameter/speed = 2.0
+shader_parameter/color_core = Color(1, 0.95, 0.55, 1)
+shader_parameter/color_mid = Color(1, 0.45, 0.1, 1)
+shader_parameter/color_tip = Color(0.65, 0.12, 0, 1)
+shader_parameter/fire_reach = 0.25
+shader_parameter/fire_width = 0.12
+shader_parameter/fire_turbulence = 0.7
+shader_parameter/fluctuation_speed = 6.0
+shader_parameter/fluctuation_amount = 0.3
+shader_parameter/particle_count = 25.0
+shader_parameter/particle_size = 0.012
+shader_parameter/particle_speed = 1.5
+shader_parameter/particle_spread = 0.25
+shader_parameter/particle_color = Color(1, 0.7, 0.15, 1)
+shader_parameter/rim_glow = 1.2
+shader_parameter/rim_color = Color(1, 0.35, 0, 1)
+shader_parameter/heat_distortion = 0.004
+shader_parameter/edge_warp_strength = 0.04
+shader_parameter/edge_warp_speed = 18.0
+
+[sub_resource type="LabelSettings" id="LabelSettings_title"]
+font_size = 24
+
+[node name="FireAnimationTest" type="Node2D"]
+script = ExtResource("1_script")
+
+[node name="Background" type="ColorRect" parent="."]
+offset_left = -960.0
+offset_top = -540.0
+offset_right = 960.0
+offset_bottom = 540.0
+color = Color(0.1, 0.1, 0.12, 1)
+
+[node name="PlayerSprite" type="AnimatedSprite2D" parent="."]
+material = SubResource("ShaderMaterial_fire")
+scale = Vector2(2, 2)
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="Controls" type="VBoxContainer" parent="UI"]
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 400.0
+offset_bottom = 200.0
+
+[node name="Title" type="Label" parent="UI/Controls"]
+layout_mode = 2
+text = "Fire Shader Test"
+label_settings = SubResource("LabelSettings_title")
+
+[node name="AnimLabel" type="Label" parent="UI/Controls"]
+layout_mode = 2
+text = "Animation: idle"
+
+[node name="IntensityLabel" type="Label" parent="UI/Controls"]
+layout_mode = 2
+text = "Intensity: 1.00"
+
+[node name="Spacer" type="Control" parent="UI/Controls"]
+custom_minimum_size = Vector2(0, 8)
+layout_mode = 2
+
+[node name="Help1" type="Label" parent="UI/Controls"]
+layout_mode = 2
+text = "Left/Right: cycle animation"
+
+[node name="Help2" type="Label" parent="UI/Controls"]
+layout_mode = 2
+text = "Up/Down: adjust intensity"
+
+[node name="Help3" type="Label" parent="UI/Controls"]
+layout_mode = 2
+text = "Space: toggle fire on/off"

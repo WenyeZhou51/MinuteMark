@@ -205,6 +205,10 @@ func _process(delta: float) -> void:
 	if frame_count % 2 == 0:
 		_update_lights()
 
+	# Check if player is near burning fire (every 10 frames)
+	if frame_count % 10 == 0:
+		_check_player_fire_proximity()
+
 	queue_redraw()
 
 
@@ -540,3 +544,33 @@ func _update_lights() -> void:
 		lights[light_idx].visible = false
 		lights[light_idx].energy = 0.0
 		light_idx += 1
+
+
+func _check_player_fire_proximity() -> void:
+	if burning_set.is_empty():
+		return
+	var players = get_tree().get_nodes_in_group("player")
+	for p in players:
+		if not p or not is_instance_valid(p):
+			continue
+		if p.get("is_on_fire"):
+			continue
+		var pos: Vector2 = p.global_position
+		var px := pos.x
+		var py := pos.y
+		var detection_radius := 80.0
+		var cx_min := int(round((px - detection_radius) / cell_size))
+		var cx_max := int(round((px + detection_radius) / cell_size))
+		var cy_min := int(round((py - detection_radius) / cell_size))
+		var cy_max := int(round((py + detection_radius) / cell_size))
+		var found := false
+		for bx in range(cx_min, cx_max + 1):
+			if found:
+				break
+			for by in range(cy_min, cy_max + 1):
+				var key := Vector2i(bx, by)
+				if burning_set.has(key):
+					if p.has_method("set_on_fire"):
+						p.set_on_fire()
+					found = true
+					break

@@ -471,6 +471,26 @@ var tutorial_rewind_hold_time: float = 0.0  # Time spent holding R during tutori
 var tutorial_rewind_auto_completing: bool = false  # Player released early, auto-completing to 0.5s
 var require_minimum_rewind_hold: bool = false  # Require minimum 0.5s hold (set by elevator/tutorial triggers)
 
+# On-fire state
+var is_on_fire: bool = false
+var fire_shader_material: ShaderMaterial = null
+var fire_light: PointLight2D = null
+var fire_particles: GPUParticles2D = null
+var fire_trail_timer: float = 0.0
+const FIRE_TRAIL_INTERVAL: float = 0.08
+var fire_sim_ref: Node2D = null
+var pre_fire_max_speed: float = 0.0
+var pre_fire_wall_run_speed_decay: float = 0.0
+var pre_fire_air_dash_impulse: float = 0.0
+var pre_fire_air_dash_duration: float = 0.0
+var pre_fire_ground_slide_speed: float = 0.0
+var pre_fire_ground_slide_slowdown: float = 0.0
+
+# Movement trail line (shown during dashes/slides/wallclimb/walljump/jump)
+var movement_trail_line: Line2D = null
+var movement_trail_history: Array = []  # Array of {pos: Vector2, time: float}
+const MOVEMENT_TRAIL_DURATION: float = 0.3
+
 # Dust effect state
 var dust_spawn_timer: float = 0.0
 
@@ -653,6 +673,18 @@ func _ready() -> void:
 			land_dash_sfx = load("res://audio/landDash.mp3")
 		elif ResourceLoader.exists("res://audio/landDash.ogg"):
 			land_dash_sfx = load("res://audio/landDash.ogg")
+
+	# Movement trail line (drawn in world space via parent)
+	movement_trail_line = Line2D.new()
+	movement_trail_line.width = 9.0
+	movement_trail_line.default_color = Color(1.0, 1.0, 1.0, 0.7)
+	movement_trail_line.z_index = z_index - 2
+	movement_trail_line.top_level = true
+	var gradient := Gradient.new()
+	gradient.set_color(0, Color(1.0, 1.0, 1.0, 0.0))
+	gradient.set_color(1, Color(1.0, 1.0, 1.0, 0.8))
+	movement_trail_line.gradient = gradient
+	get_parent().call_deferred("add_child", movement_trail_line)
 
 
 func _on_dialogue_interrupt_kick() -> void:
@@ -1189,15 +1221,12 @@ func _physics_process(delta: float) -> void:
 		if trail_afterimage_timer >= trail_afterimage_interval:
 			trail_afterimage_timer = 0.0
 			
-			# Determine how many afterimages should be in the trail
-			# Above sprint speed (1000) = 2 afterimages
-			# At max speed (1500) = 4 afterimages
 			var count = 2
 			if current_speed >= trail_max_speed_threshold:
 				count = 4
+			if is_on_fire:
+				count = 6
 			
-			# Spawn a single afterimage with a lifetime that results in 'count' afterimages being visible
-			# (since they are spawned every trail_afterimage_interval seconds)
 			_spawn_trail_afterimage(count * trail_afterimage_interval * trail_afterimage_lifetime_multiplier)
 	else:
 		trail_afterimage_timer = 0.0
@@ -1220,6 +1249,12 @@ func _physics_process(delta: float) -> void:
 	# Handle continuous dust effects (run, slide)
 	_handle_dust_effects(delta)
 	
+	# Handle on-fire trail and light flickering
+	_handle_fire_trail(delta)
+
+	# Update movement trail line
+	_update_movement_trail()
+
 	# Update facing direction based on movement
 	if input_vector.x != 0 and not is_attacking and not is_ground_sliding and not is_air_dashing:
 		facing_direction = sign(input_vector.x)
@@ -4241,17 +4276,15 @@ func _spawn_air_dash_afterimage() -> void:
 	"""Spawn a specialized brighter/desaturated afterimage for air dashing."""
 	var afterimage = AfterimageScene.instantiate()
 	
-	# Alternate between bright yellow and bright electric pink for air dash
 	var dash_modulate: Color
-	var color_name: String
-	if trail_afterimage_color_toggle:
-		dash_modulate = Color(1.0, 1.0, 0.0, 0.9)  # Bright Yellow
-		color_name = "YELLOW"
+	if is_on_fire:
+		dash_modulate = Color(1.0, 1.0, 1.0, 0.9)
 	else:
-		dash_modulate = Color(1.0, 0.0, 1.0, 0.9)  # Bright Electric Pink
-		color_name = "PINK"
+		if trail_afterimage_color_toggle:
+			dash_modulate = Color(1.0, 1.0, 0.0, 0.9)  # Bright Yellow
+		else:
+			dash_modulate = Color(1.0, 0.0, 1.0, 0.9)  # Bright Electric Pink
 	
-	# Toggle for next afterimage
 	trail_afterimage_color_toggle = !trail_afterimage_color_toggle
 	
 	if afterimage.has_method("setup_from_sprite"):
@@ -4275,17 +4308,15 @@ func _spawn_trail_afterimage(lifetime: float) -> void:
 	var afterimage = AfterimageScene.instantiate()
 	
 	if afterimage.has_method("setup_from_sprite"):
-		# Alternate between bright yellow and bright electric pink
 		var trail_modulate: Color
-		var color_name: String
-		if trail_afterimage_color_toggle:
-			trail_modulate = Color(1.0, 1.0, 0.0, 0.9)  # Bright Yellow
-			color_name = "YELLOW"
+		if is_on_fire:
+			trail_modulate = Color(1.0, 1.0, 1.0, 0.9)
 		else:
-			trail_modulate = Color(1.0, 0.0, 1.0, 0.9)  # Bright Electric Pink
-			color_name = "PINK"
+			if trail_afterimage_color_toggle:
+				trail_modulate = Color(1.0, 1.0, 0.0, 0.9)  # Bright Yellow
+			else:
+				trail_modulate = Color(1.0, 0.0, 1.0, 0.9)  # Bright Electric Pink
 		
-		# Toggle for next afterimage
 		trail_afterimage_color_toggle = !trail_afterimage_color_toggle
 		
 		afterimage.setup_from_sprite(animated_sprite, trail_modulate)
@@ -6057,6 +6088,264 @@ func _handle_dust_effects(delta: float) -> void:
 			var dust_offset = Vector2(-facing_direction * 10, 32)
 			_spawn_dust("run", dust_offset, Vector2(-facing_direction, 0))
 			dust_spawn_timer = 0.11 # Increased frequency for running
+
+
+func set_on_fire() -> void:
+	if is_on_fire:
+		return
+	is_on_fire = true
+
+	# Shader effect
+	var shader = load("res://shaders/player_fire.gdshader")
+	if shader and animated_sprite:
+		fire_shader_material = ShaderMaterial.new()
+		fire_shader_material.shader = shader
+		fire_shader_material.set_shader_parameter("fire_intensity", 1.0)
+		fire_shader_material.set_shader_parameter("speed", 3.0)
+		fire_shader_material.set_shader_parameter("fire_reach", 0.45)
+		fire_shader_material.set_shader_parameter("fire_width", 0.22)
+		fire_shader_material.set_shader_parameter("fire_turbulence", 1.4)
+		fire_shader_material.set_shader_parameter("particle_count", 40.0)
+		fire_shader_material.set_shader_parameter("particle_size", 0.015)
+		fire_shader_material.set_shader_parameter("particle_speed", 2.0)
+		fire_shader_material.set_shader_parameter("particle_spread", 0.35)
+		fire_shader_material.set_shader_parameter("rim_glow", 1.8)
+		fire_shader_material.set_shader_parameter("heat_distortion", 0.012)
+		fire_shader_material.set_shader_parameter("edge_warp_strength", 0.04)
+		fire_shader_material.set_shader_parameter("edge_warp_speed", 18.0)
+		fire_shader_material.set_shader_parameter("fluctuation_speed", 14.0)
+		fire_shader_material.set_shader_parameter("fluctuation_amount", 0.55)
+		animated_sprite.material = fire_shader_material
+
+	# Stat boosts
+	pre_fire_max_speed = max_speed
+	pre_fire_wall_run_speed_decay = wall_run_speed_decay
+	pre_fire_air_dash_impulse = air_dash_horizontal_impulse
+	pre_fire_air_dash_duration = air_dash_duration
+	max_speed = 2000.0
+	wall_run_speed_decay *= 0.7
+	air_dash_horizontal_impulse = 4000.0
+	air_dash_duration = 0.25
+	pre_fire_ground_slide_speed = ground_slide_speed
+	pre_fire_ground_slide_slowdown = ground_slide_slowdown_rate
+	ground_slide_speed = 2200.0
+	ground_slide_slowdown_rate = 400.0
+
+	# Dynamic point light (4x larger area)
+	if not fire_light:
+		fire_light = PointLight2D.new()
+		fire_light.color = Color(1.0, 0.5, 0.15, 1.0)
+		fire_light.energy = 2.0
+		fire_light.shadow_enabled = false
+		var light_img := Image.create(128, 128, false, Image.FORMAT_RGBA8)
+		var center := Vector2(64, 64)
+		for y in 128:
+			for x in 128:
+				var d := Vector2(x, y).distance_to(center) / 60.0
+				var a := clampf(1.0 - d, 0.0, 1.0)
+				a = a * a
+				light_img.set_pixel(x, y, Color(1.0, 1.0, 1.0, a))
+		fire_light.texture = ImageTexture.create_from_image(light_img)
+		fire_light.texture_scale = 20.0
+		add_child(fire_light)
+	fire_light.visible = true
+
+	# GPUParticles2D fire emitter
+	if not fire_particles:
+		fire_particles = GPUParticles2D.new()
+		fire_particles.amount = 60
+		fire_particles.lifetime = 0.8
+		fire_particles.preprocess = 0.2
+		fire_particles.speed_scale = 1.5
+		fire_particles.explosiveness = 0.0
+		fire_particles.randomness = 0.5
+		fire_particles.fixed_fps = 0
+		fire_particles.local_coords = false
+		fire_particles.position = Vector2(0, -20)
+
+		var mat := ParticleProcessMaterial.new()
+		mat.direction = Vector3(0, -1, 0)
+		mat.spread = 35.0
+		mat.initial_velocity_min = 60.0
+		mat.initial_velocity_max = 150.0
+		mat.gravity = Vector3(0, -80, 0)
+		mat.angular_velocity_min = -180.0
+		mat.angular_velocity_max = 180.0
+		mat.scale_min = 3.0
+		mat.scale_max = 7.0
+		mat.damping_min = 10.0
+		mat.damping_max = 30.0
+
+		var color_ramp := Gradient.new()
+		color_ramp.set_offset(0, 0.0)
+		color_ramp.set_color(0, Color(1.0, 0.95, 0.5, 1.0))
+		color_ramp.add_point(0.25, Color(1.0, 0.6, 0.1, 0.9))
+		color_ramp.add_point(0.5, Color(1.0, 0.3, 0.0, 0.7))
+		color_ramp.add_point(0.75, Color(0.6, 0.1, 0.0, 0.35))
+		color_ramp.set_offset(1, 1.0)
+		color_ramp.set_color(1, Color(0.2, 0.05, 0.0, 0.0))
+		var color_tex := GradientTexture1D.new()
+		color_tex.gradient = color_ramp
+		mat.color_ramp = color_tex
+
+		var scale_curve := Curve.new()
+		scale_curve.add_point(Vector2(0.0, 0.5))
+		scale_curve.add_point(Vector2(0.3, 1.0))
+		scale_curve.add_point(Vector2(1.0, 0.0))
+		var scale_tex := CurveTexture.new()
+		scale_tex.curve = scale_curve
+		mat.scale_curve = scale_tex
+
+		fire_particles.process_material = mat
+		add_child(fire_particles)
+	fire_particles.emitting = true
+
+	# Cache fire simulation reference for trail
+	if not fire_sim_ref:
+		_cache_fire_sim_ref()
+
+	fire_trail_timer = 0.0
+
+
+func _cache_fire_sim_ref() -> void:
+	for node in get_tree().get_nodes_in_group("fire_simulation"):
+		fire_sim_ref = node
+		return
+	var root = get_tree().current_scene
+	if root:
+		fire_sim_ref = _find_fire_sim_recursive(root)
+
+
+func _find_fire_sim_recursive(node: Node) -> Node2D:
+	if node.has_method("ignite_at"):
+		return node as Node2D
+	for child in node.get_children():
+		var found = _find_fire_sim_recursive(child)
+		if found:
+			return found
+	return null
+
+
+func extinguish_fire() -> void:
+	if not is_on_fire:
+		return
+	is_on_fire = false
+
+	# Remove shader
+	if animated_sprite:
+		animated_sprite.material = null
+	fire_shader_material = null
+
+	# Restore stats
+	if pre_fire_max_speed > 0.0:
+		max_speed = pre_fire_max_speed
+	if pre_fire_wall_run_speed_decay > 0.0:
+		wall_run_speed_decay = pre_fire_wall_run_speed_decay
+	if pre_fire_air_dash_impulse > 0.0:
+		air_dash_horizontal_impulse = pre_fire_air_dash_impulse
+	if pre_fire_air_dash_duration > 0.0:
+		air_dash_duration = pre_fire_air_dash_duration
+	if pre_fire_ground_slide_speed > 0.0:
+		ground_slide_speed = pre_fire_ground_slide_speed
+	if pre_fire_ground_slide_slowdown > 0.0:
+		ground_slide_slowdown_rate = pre_fire_ground_slide_slowdown
+	pre_fire_max_speed = 0.0
+	pre_fire_wall_run_speed_decay = 0.0
+	pre_fire_air_dash_impulse = 0.0
+	pre_fire_air_dash_duration = 0.0
+	pre_fire_ground_slide_speed = 0.0
+	pre_fire_ground_slide_slowdown = 0.0
+
+	# Remove light
+	if fire_light:
+		fire_light.visible = false
+
+	# Stop fire particles
+	if fire_particles:
+		fire_particles.emitting = false
+
+
+func _handle_fire_trail(delta: float) -> void:
+	if not is_on_fire:
+		return
+
+	# Flicker the fire light erratically
+	if fire_light and fire_light.visible:
+		fire_light.energy = 1.8 + sin(game_time * 14.0) * 0.4 + sin(game_time * 23.0) * 0.25 + sin(game_time * 37.0) * 0.15
+		fire_light.position = Vector2(0, -40)
+
+	# Leave a trail of fire when moving on the floor
+	if not is_on_floor():
+		return
+	if abs(velocity.x) < 50.0:
+		return
+
+	fire_trail_timer -= delta
+	if fire_trail_timer <= 0.0:
+		fire_trail_timer = FIRE_TRAIL_INTERVAL
+
+		# Try to cache fire sim if we don't have one yet
+		if not fire_sim_ref or not is_instance_valid(fire_sim_ref):
+			_cache_fire_sim_ref()
+
+		if fire_sim_ref and is_instance_valid(fire_sim_ref):
+			var foot_pos := global_position + Vector2(0, 32)
+
+			# Ignite surface cells if they exist under the player
+			if fire_sim_ref.has_method("ignite_at"):
+				fire_sim_ref.ignite_at(foot_pos, 3)
+
+			# Inject fire particles directly into the simulation's particle pool
+			# (same method fire bottles use — works even without tilemap surfaces)
+			if "particles" in fire_sim_ref:
+				for i in range(4):
+					var spread_x := randf_range(-12.0, 12.0)
+					fire_sim_ref.particles.append({
+						"pos": foot_pos + Vector2(spread_x, randf_range(-4, 4)),
+						"vel": Vector2(randf_range(-30, 30), randf_range(-120, -40)),
+						"life": randf_range(0.3, 0.7),
+						"max_life": 0.7,
+						"heat": randf_range(0.6, 1.0),
+						"size": randf_range(8.0, 20.0),
+					})
+
+
+func _update_movement_trail() -> void:
+	var now := game_time
+	var in_trail_state := is_air_dashing or is_ground_sliding or is_wall_running or is_jumping or is_wall_sliding
+
+	if in_trail_state:
+		movement_trail_history.append({"pos": global_position, "time": now})
+
+	# Prune old entries
+	while movement_trail_history.size() > 0 and now - movement_trail_history[0]["time"] > MOVEMENT_TRAIL_DURATION:
+		movement_trail_history.pop_front()
+
+	if not movement_trail_line or not is_instance_valid(movement_trail_line):
+		return
+
+	if movement_trail_history.size() < 2:
+		movement_trail_line.clear_points()
+		return
+
+	movement_trail_line.clear_points()
+	for entry in movement_trail_history:
+		movement_trail_line.add_point(entry["pos"])
+
+	if is_on_fire:
+		movement_trail_line.default_color = Color(1.0, 0.4, 0.0, 0.8)
+		movement_trail_line.width = 12.0
+		var g := Gradient.new()
+		g.set_color(0, Color(1.0, 0.2, 0.0, 0.0))
+		g.set_color(1, Color(1.0, 0.6, 0.1, 0.9))
+		movement_trail_line.gradient = g
+	else:
+		movement_trail_line.default_color = Color(1.0, 1.0, 1.0, 0.7)
+		movement_trail_line.width = 9.0
+		var g := Gradient.new()
+		g.set_color(0, Color(1.0, 1.0, 1.0, 0.0))
+		g.set_color(1, Color(1.0, 1.0, 1.0, 0.8))
+		movement_trail_line.gradient = g
 
 
 func finish_level(time_taken: float) -> void:

@@ -85,7 +85,14 @@ func _update_light_radius(radius: float) -> void:
 		glow_sprite.scale = Vector2(radius / 64.0, radius / 64.0) * 2.0
 
 
+var _fire_check_counter: int = 0
+
 func _physics_process(delta: float) -> void:
+	# Check player proximity for on-fire ignition (every 10 physics frames)
+	_fire_check_counter += 1
+	if _fire_check_counter % 10 == 0:
+		_check_player_ignition()
+
 	if not is_kicked or has_collided:
 		return
 	raycast.target_position = kick_velocity.normalized() * kick_velocity.length() * delta * 1.5
@@ -95,6 +102,20 @@ func _physics_process(delta: float) -> void:
 	else:
 		global_position += kick_velocity * delta
 		rotation += rotation_speed * delta
+
+
+func _check_player_ignition() -> void:
+	var detection_dist := _get_current_max_radius() * 0.5
+	detection_dist = maxf(detection_dist, 100.0)
+	var players = get_tree().get_nodes_in_group("player")
+	for p in players:
+		if not p or not is_instance_valid(p):
+			continue
+		if p.get("is_on_fire"):
+			continue
+		if global_position.distance_to(p.global_position) < detection_dist:
+			if p.has_method("set_on_fire"):
+				p.set_on_fire()
 
 
 func kick(direction: Vector2, speed: float = 0.0) -> void:
