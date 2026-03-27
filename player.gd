@@ -488,6 +488,8 @@ var pre_fire_ground_slide_slowdown: float = 0.0
 var fire_label_layer: CanvasLayer = null
 var fire_label: Label = null
 var fire_label_pulse_time: float = 0.0
+var fire_countdown: float = 5.0
+var fire_border_rects: Array = []
 
 # Movement trail line (shown during dashes/slides/wallclimb/walljump/jump)
 var movement_trail_line: Line2D = null
@@ -5545,7 +5547,14 @@ func set_speed_cap(enabled: bool) -> void:
 	if enabled:
 		velocity.x = clamp(velocity.x, -300.0, 300.0)
 
-func die() -> void:
+func die_immolated() -> void:
+	"""Kill the player by immolation (fire countdown reached 0)."""
+	if fire_label_layer:
+		fire_label_layer.visible = false
+	_die_with_message("IMMOLATED")
+
+
+func die(custom_message: String = "") -> void:
 	"""Kill the player and restart the level."""
 	if is_dying:
 		return
@@ -5610,7 +5619,9 @@ func die() -> void:
 	# 4. Show Death UI (Add to Root to persist)
 	if DeathUIScene:
 		var death_ui = DeathUIScene.instantiate()
-		death_ui.name = "DeathUI" # Name it to find it later
+		death_ui.name = "DeathUI"
+		if custom_message != "" and death_ui.has_method("set_custom_message"):
+			death_ui.set_custom_message(custom_message)
 		get_tree().root.add_child(death_ui)
 	
 	# 5. Stop Velocity
@@ -5621,7 +5632,17 @@ func die() -> void:
 	set_physics_process(false)
 	set_process(false)
 
+
+func _die_with_message(msg: String) -> void:
+	die(msg)
+
 func _input(event: InputEvent) -> void:
+	# Press 6 to extinguish fire
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_6:
+		if is_on_fire:
+			extinguish_fire()
+		return
+
 	# Toggle keybind layout with T key
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_T:
 		_toggle_keybinds()
@@ -6134,14 +6155,81 @@ func set_on_fire() -> void:
 	ground_slide_speed = 2200.0
 	ground_slide_slowdown_rate = 400.0
 
-	# "FIRE!" HUD label
+	# Fire countdown label + border flames
+	fire_countdown = 5.0
 	if not fire_label_layer:
 		fire_label_layer = CanvasLayer.new()
 		fire_label_layer.layer = 99
 		add_child(fire_label_layer)
 
+		# Fire border overlays — 4 TextureRects with gradient textures, no shaders
+		var screen_container := Control.new()
+		screen_container.set_anchors_preset(Control.PRESET_FULL_RECT)
+		screen_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		fire_label_layer.add_child(screen_container)
+
+		var fire_grad := Gradient.new()
+		fire_grad.offsets = PackedFloat32Array([0.0, 0.15, 0.4, 1.0])
+		fire_grad.colors = PackedColorArray([
+			Color(1.0, 0.95, 0.5, 0.95),
+			Color(1.0, 0.4, 0.0, 0.8),
+			Color(0.85, 0.1, 0.0, 0.35),
+			Color(0.3, 0.0, 0.0, 0.0),
+		])
+
+		var dirs: Array[Array] = [
+			[Vector2(0.5, 0.0), Vector2(0.5, 1.0)],
+			[Vector2(0.5, 1.0), Vector2(0.5, 0.0)],
+			[Vector2(0.0, 0.5), Vector2(1.0, 0.5)],
+			[Vector2(1.0, 0.5), Vector2(0.0, 0.5)],
+		]
+
+		fire_border_rects.clear()
+		for i in 4:
+			var grad_tex := GradientTexture2D.new()
+			grad_tex.gradient = fire_grad
+			grad_tex.fill_from = dirs[i][0]
+			grad_tex.fill_to = dirs[i][1]
+			grad_tex.width = 64
+			grad_tex.height = 64
+
+			var rect := TextureRect.new()
+			rect.texture = grad_tex
+			rect.stretch_mode = TextureRect.STRETCH_SCALE
+			rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+			match i:
+				0:  # Top
+					rect.anchor_left = 0.0
+					rect.anchor_right = 1.0
+					rect.anchor_top = 0.0
+					rect.anchor_bottom = 0.0
+					rect.offset_bottom = 150.0
+				1:  # Bottom
+					rect.anchor_left = 0.0
+					rect.anchor_right = 1.0
+					rect.anchor_top = 1.0
+					rect.anchor_bottom = 1.0
+					rect.offset_top = -150.0
+				2:  # Left
+					rect.anchor_left = 0.0
+					rect.anchor_right = 0.0
+					rect.anchor_top = 0.0
+					rect.anchor_bottom = 1.0
+					rect.offset_right = 150.0
+				3:  # Right
+					rect.anchor_left = 1.0
+					rect.anchor_right = 1.0
+					rect.anchor_top = 0.0
+					rect.anchor_bottom = 1.0
+					rect.offset_left = -150.0
+
+			screen_container.add_child(rect)
+			fire_border_rects.append(rect)
+
+		# Countdown label
 		fire_label = Label.new()
-		fire_label.text = "FIRE!"
+		fire_label.text = "5"
 		fire_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		fire_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		fire_label.anchors_preset = Control.PRESET_CENTER_TOP
@@ -6167,6 +6255,9 @@ func set_on_fire() -> void:
 		fire_label.add_theme_constant_override("shadow_offset_y", 6)
 
 		fire_label_layer.add_child(fire_label)
+	else:
+		if fire_label:
+			fire_label.text = "5"
 	fire_label_layer.visible = true
 	fire_label_pulse_time = 0.0
 
@@ -6317,8 +6408,17 @@ func _handle_fire_trail(delta: float) -> void:
 		fire_light.energy = 1.8 + sin(game_time * 14.0) * 0.4 + sin(game_time * 23.0) * 0.25 + sin(game_time * 37.0) * 0.15
 		fire_light.position = Vector2(0, -40)
 
-	# Pulse the FIRE! label every 0.5 seconds
+	# Fire countdown timer
+	fire_countdown -= delta
+	if fire_countdown <= 0.0:
+		fire_countdown = 0.0
+		die_immolated()
+		return
+
+	# Update countdown label with pulse
 	if fire_label and fire_label_layer and fire_label_layer.visible:
+		var display_sec: int = ceili(fire_countdown)
+		fire_label.text = str(display_sec)
 		fire_label_pulse_time += delta
 		var pulse: float = absf(sin(fire_label_pulse_time * PI / 0.5))
 		var s: float = 1.0 + pulse * 0.25
@@ -6326,6 +6426,22 @@ func _handle_fire_trail(delta: float) -> void:
 		fire_label.scale = Vector2(s, s)
 		var bright: float = 0.8 + pulse * 0.2
 		fire_label.add_theme_color_override("font_color", Color(1.0, 0.2 + pulse * 0.3, 0.0, bright))
+
+	# Intensify border flames as countdown gets lower
+	if fire_border_rects.size() > 0:
+		var urgency: float = 1.0 - (fire_countdown / 5.0)
+		var flicker: float = 0.85 + sin(game_time * 12.0) * 0.1 + sin(game_time * 19.0) * 0.05
+		var base_size: float = 120.0 + urgency * 150.0
+		for i in fire_border_rects.size():
+			var rect: TextureRect = fire_border_rects[i] as TextureRect
+			if not rect:
+				continue
+			rect.modulate.a = (0.7 + urgency * 0.3) * flicker
+			match i:
+				0: rect.offset_bottom = base_size
+				1: rect.offset_top = -base_size
+				2: rect.offset_right = base_size
+				3: rect.offset_left = -base_size
 
 	# Leave a trail of fire when moving on the floor
 	if not is_on_floor():

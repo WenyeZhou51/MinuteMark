@@ -621,19 +621,20 @@ func unlock_next_level():
 	# Keep this in sync with `level_select_menu.tscn` metadata order.
 	var ordered_levels = [
 		"res://level.tscn",      # Level 1 - The First Minute
-		"res://level1.tscn",     # Level 2 - Neon Countdown
-		"res://level1.1.tscn",   # Level 3
-		"res://level1.2.tscn",   # Level 4
-		"res://level1.3.tscn"    # Level 5
+		"res://level1.tscn",     # Level 2 - The Escape
+		"res://level2.tscn",     # Level 3 - Burning Bright
+		"res://level1.1.tscn",   # Level 4
+		"res://level1.2.tscn",   # Level 5
+		"res://level1.3.tscn"    # Level 6
 	]
 	# Accept alternate/legacy scene paths that should map to the same level index.
 	var level_path_alias_to_index := {
 		"res://level.tscn": 0,
 		"res://level1.tscn": 1,
-		"res://level2.tscn": 1,   # Alternate path some runs may still use for Level 2.
-		"res://level1.1.tscn": 2,
-		"res://level1.2.tscn": 3,
-		"res://level1.3.tscn": 4
+		"res://level2.tscn": 2,
+		"res://level1.1.tscn": 3,
+		"res://level1.2.tscn": 4,
+		"res://level1.3.tscn": 5
 	}
 	
 	# Get current scene path

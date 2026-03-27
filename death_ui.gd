@@ -20,6 +20,12 @@ var reload_triggered = false
 var state = 0 # 0: Waiting, 1: Fading, 2: Animation
 var fade_timer = 0.0
 var fade_duration = 0.3
+var _custom_message: String = ""
+
+
+func set_custom_message(msg: String) -> void:
+	_custom_message = msg
+
 
 func _ready():
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -34,7 +40,10 @@ func _ready():
 	
 	# Initial state
 	background.color.a = 0.0
-	main_label.text = MESSAGES.pick_random()
+	if _custom_message != "":
+		main_label.text = _custom_message
+	else:
+		main_label.text = MESSAGES.pick_random()
 	main_label.pivot_offset = main_label.size / 2
 	main_label.scale = Vector2(5.0, 5.0)
 	main_label.modulate.a = 0.0

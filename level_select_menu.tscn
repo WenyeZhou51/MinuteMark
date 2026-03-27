@@ -254,7 +254,7 @@ offset_left = -4.0
 offset_top = 41.0
 offset_right = 696.0
 offset_bottom = 141.0
-metadata/scene_path = "res://level1.1.tscn"
+metadata/scene_path = "res://level2.tscn"
 metadata/default_unlocked = false
 
 [node name="LockedOverlay" type="Node2D" parent="MenuContainer/LevelsContainer/Level3Block"]
