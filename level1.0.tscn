@@ -1,4 +1,4 @@
-[gd_scene load_steps=33 format=3 uid="uid://315757g0trrp"]
+[gd_scene load_steps=32 format=3 uid="uid://315757g0trrp"]
 
 [ext_resource type="Script" path="res://level_manager.gd" id="1_38wbk"]
 [ext_resource type="Texture2D" uid="uid://d2g7jojkre5ug" path="res://Sprites/Bd.png" id="2_kqecp"]
@@ -22,7 +22,6 @@
 [ext_resource type="PackedScene" uid="uid://b4k7n2p8q5sam" path="res://spike_trap.tscn" id="23_spike"]
 [ext_resource type="PackedScene" uid="uid://d8bd1w1cu2gs" path="res://crusher.tscn" id="24_crusher"]
 [ext_resource type="PackedScene" path="res://Sprinkler.tscn" id="25_sprinkler"]
-[ext_resource type="PackedScene" path="res://FireAlarmButton.tscn" id="26_alarm_btn"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_tutorial_longK"]
 size = Vector2(407.625, 218.25)
@@ -187,10 +186,6 @@ fragment_count = 3
 
 [node name="SprinklerTest1" parent="KickableObjects" instance=ExtResource("25_sprinkler")]
 position = Vector2(2852, 16636)
-
-[node name="FireAlarmButtonTest1" parent="KickableObjects" instance=ExtResource("26_alarm_btn")]
-position = Vector2(3473, 17482)
-target_sprinkler_path = NodePath("../SprinklerTest1")
 
 [node name="Window1" parent="KickableObjects" instance=ExtResource("8_b6vk1")]
 position = Vector2(5717, -239)

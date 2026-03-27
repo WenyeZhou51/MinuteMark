@@ -35,6 +35,10 @@ polygon = PackedVector2Array(-32, 6, 32, 6, 124, 150, 168, 210, -168, 210, -124,
 monitoring = false
 monitorable = true
 
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="SprayArea"]
+polygon = PackedVector2Array(-28, 6, 28, 6, 170, 200, -170, 200)
+disabled = true
+
 [node name="CollisionShape2D" type="CollisionShape2D" parent="SprayArea"]
 position = Vector2(0, 100)
 shape = SubResource("RectangleShape2D_spray")

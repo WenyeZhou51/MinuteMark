@@ -473,6 +473,7 @@ var require_minimum_rewind_hold: bool = false  # Require minimum 0.5s hold (set 
 
 # On-fire state
 var is_on_fire: bool = false
+var is_water_protected: bool = false
 var fire_shader_material: ShaderMaterial = null
 var fire_light: PointLight2D = null
 var fire_particles: GPUParticles2D = null
@@ -6115,7 +6116,7 @@ func _handle_dust_effects(delta: float) -> void:
 
 
 func set_on_fire() -> void:
-	if is_on_fire:
+	if is_on_fire or is_water_protected:
 		return
 	is_on_fire = true
 
@@ -6397,6 +6398,14 @@ func extinguish_fire() -> void:
 	# Hide FIRE! label
 	if fire_label_layer:
 		fire_label_layer.visible = false
+
+
+func set_water_protected(active: bool) -> void:
+	if is_water_protected == active:
+		return
+	is_water_protected = active
+	if active and is_on_fire:
+		extinguish_fire()
 
 
 func _handle_fire_trail(delta: float) -> void:

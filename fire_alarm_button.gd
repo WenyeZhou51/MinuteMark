@@ -8,7 +8,7 @@ extends Area2D
 @export_group("Behavior")
 @export var one_shot: bool = false
 @export var debug_logs: bool = false
-@export var kick_range_override: float = 22.0
+@export var kick_range_override: float = 8.0
 
 @export_group("Audio")
 @export var button_sfx_path: String = "res://audio/button.wav"

@@ -3,7 +3,7 @@
 [ext_resource type="Script" path="res://fire_alarm_button.gd" id="1_script"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_trigger"]
-size = Vector2(54, 54)
+size = Vector2(92, 104)
 
 [node name="FireAlarmButton" type="Area2D" groups=["kickable_objects"]]
 script = ExtResource("1_script")

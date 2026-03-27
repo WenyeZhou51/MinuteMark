@@ -1,10 +1,11 @@
 extends Node2D
-## Sprinkler that can be triggered by external systems (e.g., fire alarm button).
-## Trigger flow: delay -> water on -> duration -> water off.
+## Sprinkler water system.
+## Current design: always watering (no button trigger required).
 
 @export_group("Timing")
 @export var activation_delay: float = 0.5
 @export var watering_duration: float = 2.0
+@export var always_watering: bool = true
 
 @export_group("Audio")
 @export var water_sfx_path: String = "res://audio/water.wav"
@@ -43,9 +44,11 @@ var _spray_intensity: float = 0.0
 var _anim_time: float = 0.0
 var _current_spray_height: float = 0.0
 var _players_in_water: Array[Node2D] = []
+var _extinguish_tick_accum: float = 0.0
 
 @onready var spray_area: Area2D = $SprayArea
-@onready var spray_shape: CollisionShape2D = $SprayArea/CollisionShape2D
+@onready var spray_shape: CollisionShape2D = get_node_or_null("SprayArea/CollisionShape2D") as CollisionShape2D
+@onready var spray_polygon: CollisionPolygon2D = get_node_or_null("SprayArea/CollisionPolygon2D") as CollisionPolygon2D
 @onready var sprinkler_head: Polygon2D = $SprinklerHead
 @onready var spray_shader: Polygon2D = get_node_or_null("SprayShader") as Polygon2D
 @onready var spray_shader_material: ShaderMaterial = spray_shader.material as ShaderMaterial if spray_shader else null
@@ -62,7 +65,7 @@ func _ready() -> void:
 	if spray_area:
 		spray_area.body_entered.connect(_on_spray_body_entered)
 		spray_area.body_exited.connect(_on_spray_body_exited)
-	_set_watering_state(false)
+	_set_watering_state(always_watering)
 	queue_redraw()
 
 
@@ -79,10 +82,19 @@ func _process(delta: float) -> void:
 func _physics_process(_delta: float) -> void:
 	if auto_size_to_floor:
 		_refresh_spray_height(false)
+	if is_watering:
+		_extinguish_tick_accum += _delta
+		if _extinguish_tick_accum >= 0.1:
+			_extinguish_tick_accum = 0.0
+			_extinguish_players_in_water()
 
 
 func trigger_sprinkler() -> void:
 	"""Start sprinkler sequence (delay + active duration)."""
+	if always_watering:
+		_set_watering_state(true)
+		return
+	
 	_sequence_id += 1
 	var sequence = _sequence_id
 	_set_watering_state(false)
@@ -105,13 +117,21 @@ func _set_watering_state(active: bool) -> void:
 	if spray_area:
 		spray_area.monitoring = active
 	if spray_shape:
-		spray_shape.disabled = not active
+		# When polygon collider exists, keep rectangle disabled.
+		spray_shape.disabled = true if spray_polygon else (not active)
+	if spray_polygon:
+		spray_polygon.disabled = not active
 	if not active:
+		_set_water_protection_for_all(false)
 		_players_in_water.clear()
+		_extinguish_tick_accum = 0.0
 	if sprinkler_head:
 		sprinkler_head.color = Color(0.55, 0.85, 1.0, 1.0) if active else Color(0.65, 0.65, 0.7, 1.0)
 	if spray_shader:
 		spray_shader.visible = true
+	if active:
+		_collect_players_currently_in_water()
+		_extinguish_players_in_water()
 	_update_water_audio_state()
 	queue_redraw()
 
@@ -121,6 +141,16 @@ func _update_spray_shape() -> void:
 		var rect := spray_shape.shape as RectangleShape2D
 		rect.size = Vector2(spray_width, _current_spray_height)
 		spray_shape.position = Vector2(0.0, _current_spray_height * 0.5)
+	
+	if spray_polygon:
+		var top_half := spray_width * 0.5 * 0.38
+		var bottom_half := spray_width * 0.5 * cone_spread_multiplier * bottom_fan_multiplier
+		spray_polygon.polygon = PackedVector2Array([
+			Vector2(-top_half, 6.0),
+			Vector2(top_half, 6.0),
+			Vector2(bottom_half, _current_spray_height),
+			Vector2(-bottom_half, _current_spray_height),
+		])
 	_update_shader_visual()
 
 
@@ -327,15 +357,60 @@ func _should_ignore_floor_collider(collider: Variant) -> bool:
 func _on_spray_body_entered(body: Node2D) -> void:
 	if _is_player_body(body) and not _players_in_water.has(body):
 		_players_in_water.append(body)
+		_set_player_water_protection(body, true)
+		_try_extinguish_player(body)
 
 
 func _on_spray_body_exited(body: Node2D) -> void:
 	if _is_player_body(body):
 		_players_in_water.erase(body)
+		_set_player_water_protection(body, false)
 
 
 func _is_player_body(body: Node2D) -> bool:
 	return body and (body.is_in_group("player") or body.name == "Player")
+
+
+func _collect_players_currently_in_water() -> void:
+	if not spray_area:
+		return
+	var bodies := spray_area.get_overlapping_bodies()
+	for b in bodies:
+		if b is Node2D and _is_player_body(b as Node2D):
+			var player_body := b as Node2D
+			if not _players_in_water.has(player_body):
+				_players_in_water.append(player_body)
+			_set_player_water_protection(player_body, true)
+
+
+func _extinguish_players_in_water() -> void:
+	for i in range(_players_in_water.size() - 1, -1, -1):
+		var p = _players_in_water[i]
+		if not p or not is_instance_valid(p):
+			_players_in_water.remove_at(i)
+			continue
+		_try_extinguish_player(p)
+
+
+func _try_extinguish_player(player: Node2D) -> void:
+	if not player or not is_instance_valid(player):
+		return
+	_set_player_water_protection(player, is_watering)
+	if player.get("is_on_fire") and player.has_method("extinguish_fire"):
+		player.extinguish_fire()
+
+
+func _set_player_water_protection(player: Node2D, active: bool) -> void:
+	if not player or not is_instance_valid(player):
+		return
+	if player.has_method("set_water_protected"):
+		player.set_water_protected(active)
+
+
+func _set_water_protection_for_all(active: bool) -> void:
+	for p in _players_in_water:
+		if p and is_instance_valid(p):
+			_set_player_water_protection(p, active)
 
 
 func _setup_audio_player() -> void:
