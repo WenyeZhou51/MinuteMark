@@ -1,7 +1,8 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://sprinkler.gd" id="1_script"]
 [ext_resource type="Shader" path="res://water_spray.gdshader" id="2_water_shader"]
+[ext_resource type="Shader" path="res://sprinkler_head_beacon.gdshader" id="3_head_beacon_shader"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_spray"]
 size = Vector2(150, 200)
@@ -18,12 +19,42 @@ shader_parameter/flow_strength = 3.8
 shader_parameter/core_fill = 0.92
 shader_parameter/bottom_density_boost = 1.7
 
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_head_beacon"]
+shader = ExtResource("3_head_beacon_shader")
+shader_parameter/visibility_boost = 1.25
+
 [node name="Sprinkler" type="Node2D"]
 script = ExtResource("1_script")
 
 [node name="SprinklerHead" type="Polygon2D" parent="."]
+material = SubResource("ShaderMaterial_head_beacon")
 color = Color(0.65, 0.65, 0.7, 1)
 polygon = PackedVector2Array(-34, -14, 34, -14, 26, 14, -26, 14)
+
+[node name="CeilingStem" type="Polygon2D" parent="."]
+z_index = 1
+color = Color(0.7, 0.72, 0.78, 1)
+polygon = PackedVector2Array(-5, -54, 5, -54, 5, -14, -5, -14)
+
+[node name="CeilingPlate" type="Polygon2D" parent="."]
+z_index = 1
+color = Color(0.76, 0.78, 0.84, 1)
+polygon = PackedVector2Array(-20, -62, 20, -62, 20, -52, -20, -52)
+
+[node name="WaterLight" type="PointLight2D" parent="."]
+enabled = true
+texture_scale = 4.6875
+energy = 0.0
+color = Color(0.22, 0.86, 1, 1)
+z_index = -2
+
+[node name="WaterRimLight" type="PointLight2D" parent="."]
+enabled = true
+position = Vector2(0, 120)
+texture_scale = 2.8125
+energy = 0.0
+color = Color(0.55, 0.98, 1, 1)
+z_index = -2
 
 [node name="SprayShader" type="Polygon2D" parent="."]
 material = SubResource("ShaderMaterial_water")
