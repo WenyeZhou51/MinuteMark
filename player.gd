@@ -397,6 +397,9 @@ var camera_shake_intensity: float = 0.0
 var camera_shake_timer: float = 0.0
 var camera_shake_type: String = "random" # "random" or "sine"
 
+# HITSTOP
+var hitstop_active: bool = false
+
 # EARLY PARRY SYSTEM
 var early_parry_timer: float = 0.0  # Time remaining in early parry window (pressed kick before hit)
 @export var parry_early_grace_period: float = 0.15 ## Time window BEFORE getting hit or before bullet enters range to press kick (seconds)
@@ -5872,6 +5875,23 @@ func apply_camera_shake(intensity: float, duration: float) -> void:
 	"""Apply a screen shake effect."""
 	camera_shake_intensity = intensity
 	camera_shake_timer = duration
+
+
+func apply_hitstop(duration: float) -> void:
+	"""Freeze the game for a brief moment to sell impact. Works even at time_scale 0."""
+	if hitstop_active:
+		return
+	hitstop_active = true
+	var pre_scale := Engine.time_scale
+	Engine.time_scale = 0.0
+	get_tree().create_timer(duration, true, false, true).timeout.connect(func():
+		hitstop_active = false
+		if parry_time_slowdown_active:
+			Engine.time_scale = parry_time_scale
+		elif Engine.time_scale == 0.0:
+			Engine.time_scale = max(pre_scale, 1.0)
+	)
+
 
 func _process_camera_shake(delta: float) -> void:
 	"""Update the camera shake offset."""

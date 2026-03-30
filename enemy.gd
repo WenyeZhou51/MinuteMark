@@ -13,6 +13,13 @@ var despawn_duration: float = 1.0  # Fast despawn after collision (1 second)
 const MAX_FLIGHT_TIME: float = 1.0  # Max time to fly in straight line before timeout
 var rotation_speed: float = 0.0
 
+# VFX state
+var speed_lines: Array[Line2D] = []
+var afterimage_timer: float = 0.0
+const AFTERIMAGE_INTERVAL: float = 0.015
+const SPEED_LINE_COUNT: int = 4
+const SPEED_LINE_LENGTH: float = 90.0
+
 # Targeting/outline variables
 var is_targeted: bool = false
 var outline_shake_intensity: float = 2.0
@@ -258,14 +265,12 @@ func _physics_process(delta: float) -> void:
 		raycast.force_raycast_update()
 		
 		if shapecast.is_colliding() or raycast.is_colliding():
-			# Hit something! Start falling
 			_on_collision()
 		else:
-			# Keep flying in straight line
 			global_position += move_step
-			
-			# Rotate while flying
 			rotation += rotation_speed * delta
+			_update_speed_lines()
+			_spawn_afterimage_vfx(delta)
 	
 	elif has_collided:
 		# Falling with gravity after collision
@@ -320,7 +325,98 @@ func kick(knockback_direction: Vector2, force: float) -> void:
 		
 		# Change color to indicate it's been kicked
 		modulate = Color(1.5, 0.5, 0.5)  # Red tint
-		
+
+		_create_speed_lines()
+
+
+# ---- VFX helpers ----
+
+func _create_speed_lines() -> void:
+	for i in SPEED_LINE_COUNT:
+		var line := Line2D.new()
+		line.width = 2.0
+		line.default_color = Color(1.0, 1.0, 1.0, 0.6)
+		line.z_index = -1
+		var g := Gradient.new()
+		g.set_color(0, Color(1, 1, 1, 0))
+		g.set_color(1, Color(1, 1, 1, 0.7))
+		line.gradient = g
+		get_parent().add_child(line)
+		speed_lines.append(line)
+
+
+func _update_speed_lines() -> void:
+	var back_dir := -kick_velocity.normalized()
+	for i in speed_lines.size():
+		var line := speed_lines[i]
+		if not is_instance_valid(line):
+			continue
+		var spread := Vector2(back_dir.y, -back_dir.x) * randf_range(-14.0, 14.0)
+		var origin := global_position + spread
+		line.clear_points()
+		line.add_point(origin)
+		line.add_point(origin + back_dir * SPEED_LINE_LENGTH * randf_range(0.6, 1.0))
+
+
+func _remove_speed_lines() -> void:
+	for line in speed_lines:
+		if is_instance_valid(line):
+			line.queue_free()
+	speed_lines.clear()
+
+
+func _spawn_afterimage_vfx(delta: float) -> void:
+	afterimage_timer += delta
+	if afterimage_timer < AFTERIMAGE_INTERVAL:
+		return
+	afterimage_timer = 0.0
+	if not animated_sprite or not animated_sprite.sprite_frames:
+		return
+	var tex = animated_sprite.sprite_frames.get_frame_texture(animated_sprite.animation, animated_sprite.frame)
+	if not tex:
+		return
+	var ghost := Sprite2D.new()
+	ghost.texture = tex
+	ghost.flip_h = animated_sprite.flip_h
+	ghost.global_position = global_position + animated_sprite.position
+	ghost.rotation = rotation
+	ghost.modulate = Color(modulate.r, modulate.g, modulate.b, 0.65)
+	ghost.z_index = z_index - 1
+	# Stretch along velocity for motion-blur feel
+	var vel_dir := kick_velocity.normalized()
+	ghost.scale = animated_sprite.scale * Vector2(1.0 + abs(vel_dir.x) * 0.3, 1.0 + abs(vel_dir.y) * 0.3)
+	get_parent().add_child(ghost)
+	var tw := get_tree().create_tween()
+	tw.tween_property(ghost, "modulate:a", 0.0, 0.3)
+	tw.tween_callback(ghost.queue_free)
+
+
+func _spawn_impact_particles() -> void:
+	var particles := CPUParticles2D.new()
+	particles.emitting = true
+	particles.one_shot = true
+	particles.explosiveness = 1.0
+	particles.amount = 20
+	particles.lifetime = 0.4
+	particles.direction = -kick_velocity.normalized()
+	particles.spread = 60.0
+	particles.initial_velocity_min = 200.0
+	particles.initial_velocity_max = 500.0
+	particles.gravity = Vector2(0, 800)
+	particles.scale_amount_min = 2.0
+	particles.scale_amount_max = 4.0
+	particles.color = Color(1.0, 0.95, 0.7)
+	var color_ramp := Gradient.new()
+	color_ramp.set_color(0, Color(1.0, 1.0, 0.8, 1.0))
+	color_ramp.set_color(1, Color(1.0, 0.6, 0.2, 0.0))
+	particles.color_ramp = color_ramp
+	particles.global_position = global_position
+	get_parent().add_child(particles)
+	get_tree().create_timer(particles.lifetime + 0.1, true, false, true).timeout.connect(func():
+		if is_instance_valid(particles):
+			particles.queue_free()
+	)
+
 
 func _on_collision() -> void:
 	"""Called when kicked enemy hits something - start falling."""
@@ -328,25 +424,25 @@ func _on_collision() -> void:
 	raycast.enabled = false
 	shapecast.enabled = false
 	despawn_timer = 0.0
-	
-	# Screenshake on wall hit (lessened by 50%)
-	if player_ref and player_ref.has_method("apply_camera_shake"):
-		player_ref.apply_camera_shake(10.0, 0.3)
-	
-	# Show impact text
+
+	_remove_speed_lines()
+	_spawn_impact_particles()
+
+	if player_ref:
+		if player_ref.has_method("apply_camera_shake"):
+			player_ref.apply_camera_shake(18.0, 0.2)
+		if player_ref.has_method("apply_hitstop"):
+			player_ref.apply_hitstop(0.04)
+
 	_show_impact_text()
-	
-	# Reduce velocity significantly on impact
 	kick_velocity *= 0.3
 	
 
 func _on_timeout() -> void:
 	"""Called when flight time expires without hitting a wall."""
-	# Trigger screenshake anyways (lessened by 50%)
+	_remove_speed_lines()
 	if player_ref and player_ref.has_method("apply_camera_shake"):
 		player_ref.apply_camera_shake(7.5, 0.2)
-	
-	# Destroy the enemy
 	queue_free()
 
 func _show_impact_text() -> void:

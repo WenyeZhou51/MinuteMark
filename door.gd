@@ -38,6 +38,13 @@ const MAX_FLIGHT_TIME: float = 10.0  ## Max time to fly before timeout (enough t
 var initial_position: Vector2 = Vector2.ZERO  ## Store position when kicked
 var distance_traveled: float = 0.0  ## Track distance traveled backward
 
+# VFX state
+var speed_lines: Array[Line2D] = []
+var afterimage_timer: float = 0.0
+const AFTERIMAGE_INTERVAL: float = 0.015
+const SPEED_LINE_COUNT: int = 5
+const SPEED_LINE_LENGTH: float = 100.0
+
 # Visual references
 @onready var sprite: Sprite2D = $Sprite2D
 @onready var collision_shape: CollisionShape2D = $CollisionShape2D
@@ -165,6 +172,8 @@ func _physics_process(delta: float) -> void:
 		global_position += move_step
 		rotation += rotation_speed * delta
 		distance_traveled = global_position.distance_to(initial_position)
+		_update_speed_lines()
+		_spawn_afterimage(delta)
 		
 		# Check for collisions using shapecast and raycast AFTER moving
 		# Only check AHEAD in the movement direction, not at current position
@@ -334,6 +343,103 @@ func kick(direction: Vector2, speed: float = 0.0) -> void:
 	# Visual feedback - slight tint
 	modulate = Color(1.2, 1.0, 0.9)
 
+	_create_speed_lines()
+
+
+# ---- VFX helpers ----
+
+func _create_speed_lines() -> void:
+	for i in SPEED_LINE_COUNT:
+		var line := Line2D.new()
+		line.width = 2.5
+		line.default_color = Color(1.0, 1.0, 1.0, 0.6)
+		line.z_index = -1
+		var g := Gradient.new()
+		g.set_color(0, Color(1, 1, 1, 0))
+		g.set_color(1, Color(1, 1, 1, 0.7))
+		line.gradient = g
+		get_parent().add_child(line)
+		speed_lines.append(line)
+
+
+func _update_speed_lines() -> void:
+	var back_dir := -kick_velocity.normalized()
+	for i in speed_lines.size():
+		var line := speed_lines[i]
+		if not is_instance_valid(line):
+			continue
+		var spread := Vector2(back_dir.y, -back_dir.x) * randf_range(-20.0, 20.0)
+		var origin := global_position + spread
+		line.clear_points()
+		line.add_point(origin)
+		line.add_point(origin + back_dir * SPEED_LINE_LENGTH * randf_range(0.6, 1.0))
+
+
+func _remove_speed_lines() -> void:
+	for line in speed_lines:
+		if is_instance_valid(line):
+			line.queue_free()
+	speed_lines.clear()
+
+
+func _spawn_afterimage(delta: float) -> void:
+	afterimage_timer += delta
+	if afterimage_timer < AFTERIMAGE_INTERVAL:
+		return
+	afterimage_timer = 0.0
+	if not sprite or not sprite.texture:
+		return
+	var ghost := Sprite2D.new()
+	ghost.texture = sprite.texture
+	ghost.global_position = global_position
+	ghost.rotation = rotation
+	ghost.modulate = Color(modulate.r, modulate.g, modulate.b, 0.65)
+	ghost.z_index = z_index - 1
+	# Stretch along velocity for motion-blur feel
+	var vel_dir := kick_velocity.normalized()
+	ghost.scale = sprite.scale * Vector2(1.0 + abs(vel_dir.x) * 0.35, 1.0 + abs(vel_dir.y) * 0.35)
+	get_parent().add_child(ghost)
+	var tw := get_tree().create_tween()
+	tw.tween_property(ghost, "modulate:a", 0.0, 0.3)
+	tw.tween_callback(ghost.queue_free)
+
+
+func _spawn_impact_particles() -> void:
+	var particles := CPUParticles2D.new()
+	particles.emitting = true
+	particles.one_shot = true
+	particles.explosiveness = 1.0
+	particles.amount = 24
+	particles.lifetime = 0.45
+	particles.direction = -kick_velocity.normalized()
+	particles.spread = 55.0
+	particles.initial_velocity_min = 250.0
+	particles.initial_velocity_max = 550.0
+	particles.gravity = Vector2(0, 800)
+	particles.scale_amount_min = 2.0
+	particles.scale_amount_max = 5.0
+	particles.color = Color(1.0, 0.95, 0.7)
+	var color_ramp := Gradient.new()
+	color_ramp.set_color(0, Color(1.0, 1.0, 0.8, 1.0))
+	color_ramp.set_color(1, Color(1.0, 0.6, 0.2, 0.0))
+	particles.color_ramp = color_ramp
+	particles.global_position = global_position
+	get_parent().add_child(particles)
+	get_tree().create_timer(particles.lifetime + 0.1, true, false, true).timeout.connect(func():
+		if is_instance_valid(particles):
+			particles.queue_free()
+	)
+
+
+func _apply_impact_vfx(is_enemy_hit: bool) -> void:
+	_spawn_impact_particles()
+	var player = get_tree().get_first_node_in_group("player")
+	if player:
+		if player.has_method("apply_camera_shake"):
+			player.apply_camera_shake(22.0 if is_enemy_hit else 16.0, 0.15)
+		if player.has_method("apply_hitstop"):
+			player.apply_hitstop(0.05 if is_enemy_hit else 0.03)
+
 
 func _handle_collision(collider: Node) -> void:
 	"""Handle collision with wall or enemy."""
@@ -350,31 +456,25 @@ func _handle_collision(collider: Node) -> void:
 
 func _collide_with_enemy(enemy: Node) -> void:
 	"""Door hits an enemy - knock down the enemy and continue flying."""
-	# Only process the first enemy hit
 	if has_hit_enemy:
 		return
 	
 	has_hit_enemy = true
-	
-	# Make enemy also become physics object (knock it down)
-	# Use the door's velocity direction and speed
+	_apply_impact_vfx(true)
+
 	var knock_direction = kick_velocity.normalized()
 	var knock_speed = kick_velocity.length()
 	
 	if enemy.has_method("become_physics_object"):
 		enemy.become_physics_object(knock_direction, knock_speed)
 	elif enemy.has_method("kick"):
-		# Fallback: use existing kick method
 		enemy.kick(knock_direction, knock_speed)
 	
-	# Door continues flying (doesn't stop on enemy hit)
-	# Just reduce velocity slightly
 	kick_velocity *= 0.95
 
 
 func _collide_with_wall() -> void:
 	"""Hit a wall - start falling with gravity."""
-	# Don't collide with wall if we've already hit an enemy (enemies take priority)
 	if has_collided:
 		return
 	
@@ -386,20 +486,20 @@ func _collide_with_wall() -> void:
 	shapecast.enabled = false
 	despawn_timer = 0.0
 	
-	# Reduce velocity significantly on impact
+	_apply_impact_vfx(false)
+	_remove_speed_lines()
+
 	kick_velocity *= bounce_damping
-	
-	# Apply slight upward bounce
 	kick_velocity.y = min(kick_velocity.y, -200.0)
 
 
 func _on_timeout() -> void:
 	"""Called when flight time expires without hitting a wall."""
-	# Start falling
 	has_collided = true
 	raycast.enabled = false
 	shapecast.enabled = false
 	despawn_timer = 0.0
+	_remove_speed_lines()
 
 
 func _on_body_entered(body: Node2D) -> void:
@@ -443,8 +543,9 @@ func reset_state() -> void:
 	flight_timer = 0.0
 	despawn_timer = 0.0
 	distance_traveled = 0.0
+	_remove_speed_lines()
+	afterimage_timer = 0.0
 	
-	# Reset visual
 	modulate = Color.WHITE
 	modulate.a = 1.0
 	
