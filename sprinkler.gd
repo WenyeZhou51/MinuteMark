@@ -11,6 +11,20 @@ extends Node2D
 @export var water_sfx_path: String = "res://audio/water.wav"
 @export var water_sfx_volume_db: float = 3.0
 
+@export_group("Water Light")
+@export var enable_water_light: bool = true
+@export var use_radial_point_lights: bool = true
+@export var water_light_color: Color = Color(0.22, 0.86, 1.0, 1.0)
+@export var water_light_energy: float = 2.8
+@export var water_light_radius: float = 280.0
+@export var water_light_flicker_strength: float = 0.14
+@export var water_light_edge_softness: float = 0.09
+@export var water_light_top_fade: float = 0.03
+@export var water_light_bottom_boost: float = 0.45
+@export var water_rim_light_color: Color = Color(0.62, 0.98, 1.0, 1.0)
+@export var water_rim_light_energy: float = 2.4
+@export var water_rim_light_radius: float = 170.0
+
 @export_group("Water Area")
 @export var spray_width: float = 150.0
 @export var spray_height: float = 200.0 ## Minimum spray distance.
@@ -52,11 +66,14 @@ var _extinguish_tick_accum: float = 0.0
 @onready var sprinkler_head: Polygon2D = $SprinklerHead
 @onready var spray_shader: Polygon2D = get_node_or_null("SprayShader") as Polygon2D
 @onready var spray_shader_material: ShaderMaterial = spray_shader.material as ShaderMaterial if spray_shader else null
+@onready var water_light: PointLight2D = get_node_or_null("WaterLight") as PointLight2D
+@onready var water_rim_light: PointLight2D = get_node_or_null("WaterRimLight") as PointLight2D
 var _water_sfx_player: AudioStreamPlayer2D
 
 
 func _ready() -> void:
 	_setup_audio_player()
+	_setup_water_light()
 	_current_spray_height = spray_height
 	_refresh_spray_height(true)
 	_update_spray_shape()
@@ -75,6 +92,7 @@ func _process(delta: float) -> void:
 	var transition_speed := 8.0
 	_spray_intensity = move_toward(_spray_intensity, target_intensity, delta * transition_speed)
 	_update_shader_params()
+	_update_water_light()
 	if _spray_intensity > 0.001 or is_watering:
 		queue_redraw()
 
@@ -425,8 +443,103 @@ func _setup_audio_player() -> void:
 		_water_sfx_player.stream = water_stream
 
 
+func _setup_water_light() -> void:
+	if not water_light and not water_rim_light:
+		return
+	
+	if not enable_water_light:
+		if water_light:
+			water_light.visible = false
+		if water_rim_light:
+			water_rim_light.visible = false
+		return
+	
+	# Build cone-shaped texture for water volume.
+	var cone_tex := _build_cone_light_texture()
+	if water_light:
+		water_light.texture = cone_tex
+		water_light.color = water_light_color
+		water_light.texture_scale = water_light_radius / 64.0
+		water_light.energy = 0.0
+		water_light.visible = false
+	if water_rim_light:
+		water_rim_light.texture = cone_tex
+		water_rim_light.color = water_rim_light_color
+		water_rim_light.texture_scale = water_rim_light_radius / 64.0
+		water_rim_light.energy = 0.0
+		water_rim_light.visible = false
+
+
+func _update_water_light() -> void:
+	if not water_light and not water_rim_light:
+		return
+	
+	if not enable_water_light:
+		if water_light:
+			water_light.visible = false
+		if water_rim_light:
+			water_rim_light.visible = false
+		return
+	
+	var active := _spray_intensity > 0.01
+	if water_light:
+		water_light.visible = active and use_radial_point_lights
+	if water_rim_light:
+		water_rim_light.visible = false
+	if not active:
+		if water_light:
+			water_light.energy = 0.0
+		if water_rim_light:
+			water_rim_light.energy = 0.0
+		return
+	
+	var flicker := 1.0 + sin(_anim_time * 11.0) * water_light_flicker_strength
+	var pulse := 0.92 + 0.08 * sin(_anim_time * 5.0 + 1.3)
+	if use_radial_point_lights and water_light:
+		water_light.color = water_light_color
+		var bottom_half := spray_width * 0.5 * cone_spread_multiplier * bottom_fan_multiplier * 1.18
+		var target_width := maxf(64.0, bottom_half * 2.0)
+		# Cone texture starts at center and extends downward.
+		water_light.position = Vector2(0.0, 6.0)
+		water_light.scale = Vector2(target_width / 246.0, _current_spray_height / 128.0)
+		water_light.texture_scale = 1.0
+		water_light.energy = water_light_energy * _spray_intensity * flicker * pulse
+	elif water_light:
+		water_light.energy = 0.0
+	
+	if water_rim_light:
+		water_rim_light.energy = 0.0
+
+
+func _build_cone_light_texture() -> ImageTexture:
+	var size := 256
+	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	for y in size:
+		var v := float(y) / float(size - 1)
+		# Cone starts at texture center and only extends downward.
+		if v < 0.5:
+			continue
+		var t := (v - 0.5) * 2.0 # 0..1
+		var half_w := lerpf(0.06, 0.48, t)
+		var edge_fade := 0.06
+		for x in size:
+			var u := float(x) / float(size - 1)
+			var dx := absf(u - 0.5)
+			var edge := 1.0 - smoothstep(half_w - edge_fade, half_w, dx)
+			if edge <= 0.0:
+				continue
+			var vertical := smoothstep(0.0, 0.08, t)
+			var bottom_boost := 0.8 + 0.2 * t
+			var a := edge * vertical * bottom_boost
+			img.set_pixel(x, y, Color(1.0, 1.0, 1.0, a))
+	return ImageTexture.create_from_image(img)
+
+
 func _update_water_audio_state() -> void:
 	if not _water_sfx_player or not _water_sfx_player.stream:
+		return
+	if _is_death_scene_active():
+		_water_sfx_player.stop()
 		return
 	if is_watering:
 		if not _water_sfx_player.playing:
@@ -436,8 +549,21 @@ func _update_water_audio_state() -> void:
 
 
 func _on_water_sfx_finished() -> void:
-	if is_watering and _water_sfx_player and _water_sfx_player.stream:
+	if is_watering and not _is_death_scene_active() and _water_sfx_player and _water_sfx_player.stream:
 		_water_sfx_player.play()
+
+
+func _is_death_scene_active() -> bool:
+	# Death UI is added to root on player death.
+	var root := get_tree().root
+	if root and root.get_node_or_null("DeathUI"):
+		return true
+	
+	# Fallback: player flagged as dying before UI fully appears.
+	for p in get_tree().get_nodes_in_group("player"):
+		if p and is_instance_valid(p) and p.get("is_dying"):
+			return true
+	return false
 
 
 func _hash01(v: float) -> float:
