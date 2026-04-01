@@ -240,7 +240,7 @@ var sfx_player: AudioStreamPlayer
 @export_group("Kick Object")
 @export var kick_object_enabled: bool = true  ## Enable kicking objects
 @export var kick_object_detection_range: float = 60.0  ## Range to detect kickable objects
-@export var kick_object_speed: float = 2500.0  ## Speed at which kicked objects fly
+@export var kick_object_speed: float = 5000.0  ## Speed at which kicked objects fly
 @export var kick_object_cone_angle: float = 90.0  ## Cone angle in front of player for detection (degrees)
 @export var kick_object_knockback_force: float = 1200.0  ## Initial horizontal knockback velocity applied to player when kicking an object
 @export var kick_object_knockback_vertical: float = -200.0 ## Initial vertical knockback velocity (negative is up)
@@ -489,6 +489,7 @@ var pre_fire_air_dash_impulse: float = 0.0
 var pre_fire_air_dash_duration: float = 0.0
 var pre_fire_ground_slide_speed: float = 0.0
 var pre_fire_ground_slide_slowdown: float = 0.0
+var pre_fire_jump_velocity: float = 0.0
 var fire_label_layer: CanvasLayer = null
 var fire_label: Label = null
 var fire_label_pulse_time: float = 0.0
@@ -2234,7 +2235,8 @@ func _check_wall_run_activation() -> void:
 	
 	# If player has any downward velocity, skip wall run and go straight to wall slide
 	# FIX: Only skip if NOT on floor. If on floor, we allow starting a wallrun even with 0 or slight positive y velocity
-	if not is_on_floor() and velocity_before_move_and_slide.y > 0:
+	# When on fire, allow wall climb regardless of vertical velocity
+	if not is_on_fire and not is_on_floor() and velocity_before_move_and_slide.y > 0:
 		return
 	
 	# Check if wall run should START (hit wall during dash or fast run)
@@ -3586,6 +3588,10 @@ func _start_ground_slide(input_x: float) -> void:
 	# Play slide sound
 	if slide_sound:
 		slide_sound.play()
+	
+	# Fire burst on slide start
+	if is_on_fire:
+		_spawn_fire_burst(global_position + Vector2(0, 20), Vector2(-dash_direction, -0.5).normalized(), 10)
 
 
 func _process_ground_slide(delta: float) -> void:
@@ -3617,6 +3623,10 @@ func _process_ground_slide(delta: float) -> void:
 	
 	# Snap to ground
 	velocity.y = ground_snap_force
+	
+	# Continuous fire particles during slide
+	if is_on_fire:
+		_spawn_fire_burst(global_position + Vector2(0, 20), Vector2(-dash_direction, -0.5).normalized(), 2)
 	
 	# Update paper tear effect
 	if paper_tear_effect:
@@ -3784,6 +3794,10 @@ func _start_air_dash(input_x: float) -> void:
 	# Play dash sound
 	if dash_sound:
 		dash_sound.play()
+	
+	# Fire burst on air dash start
+	if is_on_fire:
+		_spawn_fire_burst(global_position, Vector2(-dash_direction, 0), 12)
 
 
 func _process_air_dash(delta: float) -> void:
@@ -3797,6 +3811,10 @@ func _process_air_dash(delta: float) -> void:
 	if air_dash_timer >= (air_dash_afterimages_spawned + 0.5) * interval and air_dash_afterimages_spawned < air_dash_afterimage_count:
 		_spawn_air_dash_afterimage()
 		air_dash_afterimages_spawned += 1
+	
+	# Continuous fire particles during air dash
+	if is_on_fire:
+		_spawn_fire_burst(global_position, Vector2(-dash_direction, 0), 3)
 	
 	# Check if air dash duration has elapsed
 	if air_dash_timer >= effective_duration:
@@ -6167,7 +6185,9 @@ func set_on_fire() -> void:
 	pre_fire_wall_run_speed_decay = wall_run_speed_decay
 	pre_fire_air_dash_impulse = air_dash_horizontal_impulse
 	pre_fire_air_dash_duration = air_dash_duration
-	max_speed = 2000.0
+	pre_fire_jump_velocity = jump_velocity
+	max_speed *= 1.5
+	jump_velocity *= 1.5
 	wall_run_speed_decay *= 0.7
 	air_dash_horizontal_impulse = 4000.0
 	air_dash_duration = 0.25
@@ -6400,12 +6420,15 @@ func extinguish_fire() -> void:
 		ground_slide_speed = pre_fire_ground_slide_speed
 	if pre_fire_ground_slide_slowdown > 0.0:
 		ground_slide_slowdown_rate = pre_fire_ground_slide_slowdown
+	if pre_fire_jump_velocity != 0.0:
+		jump_velocity = pre_fire_jump_velocity
 	pre_fire_max_speed = 0.0
 	pre_fire_wall_run_speed_decay = 0.0
 	pre_fire_air_dash_impulse = 0.0
 	pre_fire_air_dash_duration = 0.0
 	pre_fire_ground_slide_speed = 0.0
 	pre_fire_ground_slide_slowdown = 0.0
+	pre_fire_jump_velocity = 0.0
 
 	# Remove light
 	if fire_light:
@@ -6508,6 +6531,28 @@ func _handle_fire_trail(delta: float) -> void:
 					})
 
 
+func _spawn_fire_burst(origin: Vector2, direction: Vector2, count: int) -> void:
+	"""Inject fire particles into the fire simulation, exploding outward from origin."""
+	if not fire_sim_ref or not is_instance_valid(fire_sim_ref):
+		_cache_fire_sim_ref()
+	if not fire_sim_ref or not is_instance_valid(fire_sim_ref):
+		return
+	if not "particles" in fire_sim_ref:
+		return
+	for i in range(count):
+		var spread_angle := randf_range(-PI * 0.5, PI * 0.5)
+		var base_dir := direction.rotated(spread_angle)
+		var speed := randf_range(80.0, 250.0)
+		fire_sim_ref.particles.append({
+			"pos": origin + Vector2(randf_range(-10, 10), randf_range(-10, 10)),
+			"vel": base_dir * speed + Vector2(0, randf_range(-60, -20)),
+			"life": randf_range(0.3, 0.8),
+			"max_life": 0.8,
+			"heat": randf_range(0.7, 1.0),
+			"size": randf_range(10.0, 24.0),
+		})
+
+
 func _update_movement_trail() -> void:
 	var now := game_time
 	var in_trail_state := is_air_dashing or is_ground_sliding or is_wall_running or is_jumping or is_wall_sliding
@@ -6531,11 +6576,11 @@ func _update_movement_trail() -> void:
 		movement_trail_line.add_point(entry["pos"])
 
 	if is_on_fire:
-		movement_trail_line.default_color = Color(1.0, 0.4, 0.0, 0.8)
+		movement_trail_line.default_color = Color(1.0, 0.1, 0.0, 0.9)
 		movement_trail_line.width = 12.0
 		var g := Gradient.new()
-		g.set_color(0, Color(1.0, 0.2, 0.0, 0.0))
-		g.set_color(1, Color(1.0, 0.6, 0.1, 0.9))
+		g.set_color(0, Color(1.0, 0.0, 0.0, 0.0))
+		g.set_color(1, Color(1.0, 0.15, 0.05, 0.95))
 		movement_trail_line.gradient = g
 	else:
 		movement_trail_line.default_color = Color(1.0, 1.0, 1.0, 0.7)

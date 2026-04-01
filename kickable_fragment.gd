@@ -5,6 +5,8 @@ var gravity: float = 2000.0
 var life_time: float = 1.0
 var timer: float = 0.0
 var rotation_speed: float = 0.0
+var afterimage_timer: float = 0.0
+const AFTERIMAGE_INTERVAL: float = 0.03
 
 @onready var visual: Polygon2D = Polygon2D.new()
 @onready var outline: Line2D = null
@@ -82,6 +84,9 @@ func _physics_process(delta: float) -> void:
 	global_position += velocity * delta
 	rotation += rotation_speed * delta
 	
+	# Spawn faint afterimage ghosts while moving fast enough
+	_spawn_afterimage(delta)
+	
 	# Fade out all visual elements
 	if timer > life_time * 0.5:
 		var fade_progress = (timer - life_time * 0.5) / (life_time * 0.5)
@@ -103,3 +108,23 @@ func _physics_process(delta: float) -> void:
 	# Clean up
 	if timer >= life_time:
 		queue_free()
+
+
+func _spawn_afterimage(delta: float) -> void:
+	afterimage_timer += delta
+	if afterimage_timer < AFTERIMAGE_INTERVAL:
+		return
+	afterimage_timer = 0.0
+	if not visual or velocity.length() < 100.0:
+		return
+	var ghost := Polygon2D.new()
+	ghost.polygon = visual.polygon
+	ghost.color = visual.color
+	ghost.global_position = global_position
+	ghost.rotation = rotation
+	ghost.modulate = Color(modulate.r, modulate.g, modulate.b, 0.2)
+	ghost.z_index = z_index - 1
+	get_parent().add_child(ghost)
+	var tw := get_tree().create_tween()
+	tw.tween_property(ghost, "modulate:a", 0.0, 0.25)
+	tw.tween_callback(ghost.queue_free)

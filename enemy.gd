@@ -454,38 +454,34 @@ func _show_impact_text() -> void:
 	label.text = word
 	label.z_index = 100
 	
-	# Style the label to match parry text size
-	label.add_theme_font_size_override("font_size", 45)
-	label.add_theme_constant_override("outline_size", 8)
+	var font_res = load("res://Fonts/ComicStrip-KG3p.ttf")
+	if font_res:
+		label.add_theme_font_override("font", font_res)
+	label.add_theme_font_size_override("font_size", 120)
+	label.add_theme_constant_override("outline_size", 14)
+	label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.7))
 	label.add_theme_color_override("font_outline_color", Color.BLACK)
 	
-	# Center the label
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.pivot_offset = label.size * 0.5
 	
-	# Add to the level
 	get_parent().add_child(label)
-	# Center label roughly on enemy
-	label.global_position = global_position + Vector2(-50, -25)
+	label.global_position = global_position + Vector2(-100, -50)
 	
-	# Flame red and yellow flashing
-	var flash_tween = label.create_tween().set_loops(6)
-	flash_tween.tween_callback(func(): label.add_theme_color_override("font_color", Color(1.0, 0.0, 0.0))) # Red
-	flash_tween.tween_interval(0.05)
-	flash_tween.tween_callback(func(): label.add_theme_color_override("font_color", Color(1.0, 1.0, 0.0))) # Yellow
-	flash_tween.tween_interval(0.05)
+	# Pink/yellow flash
+	var flash_tween = label.create_tween().set_loops()
+	flash_tween.tween_callback(func(): label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.7)))
+	flash_tween.tween_interval(0.06)
+	flash_tween.tween_callback(func(): label.add_theme_color_override("font_color", Color(1.0, 1.0, 0.0)))
+	flash_tween.tween_interval(0.06)
 	
-	# Fade out and movement in direction of flight
-	var move_tween = label.create_tween()
-	var final_color = label.modulate
-	final_color.a = 0.0
-	
-	# Normalize flight direction for consistent text movement
-	var move_direction = kick_velocity.normalized()
-	var movement_vector = move_direction * 100.0 # Move 100 pixels in impact direction
-	
-	move_tween.tween_property(label, "global_position", label.global_position + movement_vector, 0.6).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	move_tween.parallel().tween_property(label, "modulate", final_color, 0.6).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	move_tween.tween_callback(label.queue_free)
+	# Fast rise, then hold in place while fading
+	var tween = label.create_tween()
+	tween.tween_property(label, "global_position:y", label.global_position.y - 120, 0.3).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(label, "scale", Vector2(1.4, 1.4), 0.3).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tween.tween_property(label, "modulate:a", 0.0, 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tween.tween_callback(flash_tween.kill)
+	tween.tween_callback(label.queue_free)
 
 func destroy() -> void:
 	"""Destroy the enemy (fallback for old system compatibility)"""
@@ -577,27 +573,33 @@ func _show_bonk_text() -> void:
 	label.text = "Bonk!"
 	label.z_index = 100
 	
-	# Style the label
-	label.add_theme_font_size_override("font_size", 30) # Small popup text
-	label.add_theme_constant_override("outline_size", 6)
-	label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8)) # Light grey
+	var font_res = load("res://Fonts/ComicStrip-KG3p.ttf")
+	if font_res:
+		label.add_theme_font_override("font", font_res)
+	label.add_theme_font_size_override("font_size", 100)
+	label.add_theme_constant_override("outline_size", 12)
+	label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.7))
 	label.add_theme_color_override("font_outline_color", Color.BLACK)
 	
-	# Center the label
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.pivot_offset = label.size * 0.5
 	
-	# Add to the level
 	get_parent().add_child(label)
-	# Center label roughly on enemy
-	label.global_position = global_position + Vector2(-50, -40) # Slightly higher up
+	label.global_position = global_position + Vector2(-90, -50)
 	
-	# Fade out and movement upwards
+	# Pink/yellow flash
+	var flash_tween = label.create_tween().set_loops()
+	flash_tween.tween_callback(func(): label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.7)))
+	flash_tween.tween_interval(0.06)
+	flash_tween.tween_callback(func(): label.add_theme_color_override("font_color", Color(1.0, 1.0, 0.0)))
+	flash_tween.tween_interval(0.06)
+	
+	# Fast rise, then hold in place while fading
 	var tween = label.create_tween()
-	var final_color = label.modulate
-	final_color.a = 0.0
-	
-	tween.tween_property(label, "global_position:y", label.global_position.y - 60, 0.3).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	tween.parallel().tween_property(label, "modulate", final_color, 0.3).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tween.tween_property(label, "global_position:y", label.global_position.y - 100, 0.3).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(label, "scale", Vector2(1.3, 1.3), 0.3).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tween.tween_property(label, "modulate:a", 0.0, 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tween.tween_callback(flash_tween.kill)
 	tween.tween_callback(label.queue_free)
 
 func set_targeted(targeted: bool) -> void:

@@ -175,6 +175,30 @@ tracking_speed_degrees = 150.0
 detection_range = 1000.0
 laser_width = 6.0
 
+[node name="Enemy3" parent="." instance=ExtResource("2_enemy")]
+position = Vector2(-781, 981)
+tracking_speed_degrees = 150.0
+detection_range = 1000.0
+laser_width = 6.0
+
+[node name="Enemy4" parent="." instance=ExtResource("2_enemy")]
+position = Vector2(-203, 994)
+tracking_speed_degrees = 150.0
+detection_range = 1000.0
+laser_width = 6.0
+
+[node name="Enemy5" parent="." instance=ExtResource("2_enemy")]
+position = Vector2(-1063, 1048)
+tracking_speed_degrees = 150.0
+detection_range = 1000.0
+laser_width = 6.0
+
+[node name="Enemy6" parent="." instance=ExtResource("2_enemy")]
+position = Vector2(886, 947)
+tracking_speed_degrees = 150.0
+detection_range = 1000.0
+laser_width = 6.0
+
 [node name="Elevator Guard" parent="." instance=ExtResource("2_enemy")]
 position = Vector2(6744, 827)
 
