@@ -98,6 +98,7 @@ burn_heat_output = 4.0
 heat_conductivity = 3.0
 light_energy_max = 8.0
 light_radius = 1200.0
+max_brightness = 0.9
 
 [node name="Player" parent="." instance=ExtResource("5_oaku3")]
 position = Vector2(-924, 987)
