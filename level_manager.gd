@@ -65,7 +65,7 @@ func _configure_level_audio() -> void:
 			AudioManager.set_level_music("res://audio/Rush Hour.ogg")
 	elif scene_path == "res://level2.tscn":
 		if AudioManager:
-			AudioManager.set_level_music("res://audio/City Central.wav")
+			AudioManager.set_level_music("res://audio/Level2 Final.wav")
 	else:
 		# All other levels: default music (Second Chance)
 		if AudioManager:

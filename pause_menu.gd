@@ -35,6 +35,7 @@ var last_focused_button: Control = null
 # Audio
 var menu_transition_player: AudioStreamPlayer
 var menu_select_player: AudioStreamPlayer
+var pause_music_player: AudioStreamPlayer
 
 # Keep track of where we came from
 var opened_from_victory: bool = false
@@ -284,9 +285,11 @@ func open_pause_menu(from_victory: bool = false):
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	visible = true
 	
-	# Explicitly pause music immediately
+	# Pause level music and play pause menu music
 	if AudioManager:
 		AudioManager.pause_music()
+	if pause_music_player and pause_music_player.stream:
+		pause_music_player.play()
 	
 	play_menu_transition_sound()
 	play_pause_menu_intro()
@@ -312,11 +315,13 @@ func toggle_pause():
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 		visible = true
 		
-		# Explicitly pause music immediately when pausing
+		# Pause level music and play pause menu music
 		if AudioManager:
 			AudioManager.pause_music()
+		if pause_music_player and pause_music_player.stream:
+			pause_music_player.play()
 			
-		play_menu_transition_sound()  # Play transition sound when entering pause menu
+		play_menu_transition_sound()
 		play_pause_menu_intro()
 		
 		# Update buttons state
@@ -325,7 +330,9 @@ func toggle_pause():
 		# Hide other UI (timer, dialogue, etc.)
 		_set_other_ui_visible(false)
 	else:
-		# Resume music
+		# Stop pause menu music and resume level music
+		if pause_music_player:
+			pause_music_player.stop()
 		if AudioManager:
 			AudioManager.resume_music()
 			
@@ -372,6 +379,9 @@ func _update_buttons_state():
 			resume_btn.grab_focus()
 
 func _on_restart_pressed():
+	if pause_music_player:
+		pause_music_player.stop()
+	
 	# 1. Block input to prevent double clicks
 	if has_node("MenuContainer"):
 		$MenuContainer.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -671,6 +681,8 @@ func show_main_menu_after_transition():
 
 func _on_menu_pressed():
 	"""Return to level select menu"""
+	if pause_music_player:
+		pause_music_player.stop()
 	get_tree().paused = false
 	_set_other_ui_visible(true)
 	if ResourceLoader.exists("res://level_select_menu.tscn"):
@@ -680,6 +692,8 @@ func _on_menu_pressed():
 
 
 func _on_quit_pressed():
+	if pause_music_player:
+		pause_music_player.stop()
 	get_tree().quit()
 
 
@@ -713,6 +727,16 @@ func setup_audio_players():
 		menu_select_player.stream = load("res://audio/menu_select.ogg")
 	elif ResourceLoader.exists("res://audio/menu_select.mp3"):
 		menu_select_player.stream = load("res://audio/menu_select.mp3")
+	
+	# Create pause menu background music player
+	pause_music_player = AudioStreamPlayer.new()
+	pause_music_player.name = "PauseMusicPlayer"
+	pause_music_player.bus = "Master"
+	pause_music_player.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(pause_music_player)
+	
+	if ResourceLoader.exists("res://audio/Pause menu music.wav"):
+		pause_music_player.stream = load("res://audio/Pause menu music.wav")
 
 
 func setup_menu_button_hover():
