@@ -1,0 +1,41 @@
+[gd_scene load_steps=6 format=3 uid="uid://c3n8k5m7neon1"]
+
+[ext_resource type="Script" path="res://neon_stripe.gd" id="1_neon_script"]
+[ext_resource type="Shader" path="res://shaders/neon_glow.gdshader" id="2_neon_shader"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_neon_glow"]
+shader = ExtResource("2_neon_shader")
+shader_parameter/neon_color = Color(0.2, 0.6, 1, 0.6)
+shader_parameter/pulse_speed = 3.0
+shader_parameter/pulse_min = 0.5
+shader_parameter/flicker_intensity = 0.15
+
+[sub_resource type="Gradient" id="Gradient_neon"]
+offsets = PackedFloat32Array(0, 0.4, 0.7, 1)
+colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 0.6, 1, 1, 1, 0.15, 1, 1, 1, 0)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_neon"]
+gradient = SubResource("Gradient_neon")
+fill = 1
+fill_from = Vector2(0.5, 0.5)
+
+[node name="NeonStripe" type="Node2D"]
+script = ExtResource("1_neon_script")
+
+[node name="GlowOverlay" type="Line2D" parent="."]
+z_index = -1
+material = SubResource("ShaderMaterial_neon_glow")
+points = PackedVector2Array(-100, 0, 100, 0)
+width = 24.0
+default_color = Color(0.2, 0.6, 1, 0.4)
+
+[node name="StripeMesh" type="Line2D" parent="."]
+points = PackedVector2Array(-100, 0, 100, 0)
+width = 6.0
+default_color = Color(0.2, 0.6, 1, 1)
+
+[node name="PointLight2D" type="PointLight2D" parent="."]
+color = Color(0.2, 0.6, 1, 1)
+energy = 1.5
+texture = SubResource("GradientTexture2D_neon")
+texture_scale = 8.0
