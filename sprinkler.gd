@@ -13,17 +13,13 @@ extends Node2D
 
 @export_group("Water Light")
 @export var enable_water_light: bool = true
-@export var use_radial_point_lights: bool = true
-@export var water_light_color: Color = Color(0.22, 0.86, 1.0, 1.0)
-@export var water_light_energy: float = 2.8
-@export var water_light_radius: float = 280.0
-@export var water_light_flicker_strength: float = 0.14
-@export var water_light_edge_softness: float = 0.09
-@export var water_light_top_fade: float = 0.03
-@export var water_light_bottom_boost: float = 0.45
-@export var water_rim_light_color: Color = Color(0.62, 0.98, 1.0, 1.0)
-@export var water_rim_light_energy: float = 2.4
-@export var water_rim_light_radius: float = 170.0
+@export var water_light_color: Color = Color(0.32, 0.88, 1.0, 1.0)
+@export var water_light_energy: float = 1.55
+@export var water_light_flicker_strength: float = 0.06
+@export var enable_fluorescent_droplet_lights: bool = false
+@export var droplet_light_count: int = 10
+@export var droplet_light_energy: float = 0.42
+@export var droplet_light_radius: float = 34.0
 
 @export_group("Water Area")
 @export var spray_width: float = 150.0
@@ -36,11 +32,11 @@ extends Node2D
 @export var water_color: Color = Color(0.58, 0.9, 1.0, 1.0)
 
 @export_group("Water Visual")
-@export var droplet_count: int = 110
-@export var droplet_size_min: float = 0.8
-@export var droplet_size_max: float = 3.0
-@export var head_mist_drop_count: int = 56
-@export var floor_splash_drop_count: int = 44
+@export var droplet_count: int = 52
+@export var droplet_size_min: float = 1.5
+@export var droplet_size_max: float = 4.2
+@export var head_mist_drop_count: int = 22
+@export var floor_splash_drop_count: int = 18
 @export var cone_spread_multiplier: float = 1.65
 @export var bottom_fan_multiplier: float = 1.35
 @export var shader_time_scale: float = 1.0
@@ -50,6 +46,12 @@ extends Node2D
 @export var shader_flow_strength: float = 3.8
 @export var shader_core_fill: float = 0.92
 @export var shader_bottom_density_boost: float = 1.7
+@export var droplet_glow_color: Color = Color(0.55, 0.95, 1.0, 1.0)
+@export var droplet_core_color: Color = Color(0.92, 1.0, 1.0, 1.0)
+@export var droplet_glow_boost: float = 2.6
+@export var droplet_core_boost: float = 2.0
+@export var additive_droplet_render: bool = true
+@export var show_spray_body_shader: bool = false
 @export var show_status_label: bool = false
 
 var _sequence_id: int = 0
@@ -59,6 +61,9 @@ var _anim_time: float = 0.0
 var _current_spray_height: float = 0.0
 var _players_in_water: Array[Node2D] = []
 var _extinguish_tick_accum: float = 0.0
+var _droplet_lights: Array[PointLight2D] = []
+var _droplet_light_texture: Texture2D
+var _droplet_draw_material: CanvasItemMaterial
 
 @onready var spray_area: Area2D = $SprayArea
 @onready var spray_shape: CollisionShape2D = get_node_or_null("SprayArea/CollisionShape2D") as CollisionShape2D
@@ -72,18 +77,31 @@ var _water_sfx_player: AudioStreamPlayer2D
 
 
 func _ready() -> void:
+	_setup_droplet_render_material()
 	_setup_audio_player()
 	_setup_water_light()
+	_setup_fluorescent_droplet_lights()
 	_current_spray_height = spray_height
 	_refresh_spray_height(true)
 	_update_spray_shape()
 	_update_shader_visual()
 	_update_shader_params()
+	if spray_shader:
+		spray_shader.visible = show_spray_body_shader and is_watering
 	if spray_area:
 		spray_area.body_entered.connect(_on_spray_body_entered)
 		spray_area.body_exited.connect(_on_spray_body_exited)
 	_set_watering_state(always_watering)
 	queue_redraw()
+
+
+func _setup_droplet_render_material() -> void:
+	if additive_droplet_render:
+		_droplet_draw_material = CanvasItemMaterial.new()
+		_droplet_draw_material.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+		material = _droplet_draw_material
+	else:
+		material = null
 
 
 func _process(delta: float) -> void:
@@ -93,6 +111,7 @@ func _process(delta: float) -> void:
 	_spray_intensity = move_toward(_spray_intensity, target_intensity, delta * transition_speed)
 	_update_shader_params()
 	_update_water_light()
+	_update_fluorescent_droplet_lights()
 	if _spray_intensity > 0.001 or is_watering:
 		queue_redraw()
 
@@ -146,7 +165,7 @@ func _set_watering_state(active: bool) -> void:
 	if sprinkler_head:
 		sprinkler_head.color = Color(0.55, 0.85, 1.0, 1.0) if active else Color(0.65, 0.65, 0.7, 1.0)
 	if spray_shader:
-		spray_shader.visible = true
+		spray_shader.visible = show_spray_body_shader and active
 	if active:
 		_collect_players_currently_in_water()
 		_extinguish_players_in_water()
@@ -206,6 +225,8 @@ func _draw_water_accents() -> void:
 	var left_x := -spray_width * 0.5
 	var right_x := spray_width * 0.5
 	var height := _current_spray_height
+	var glow_tint := droplet_glow_color
+	var core_tint := droplet_core_color
 
 	# Fine mist droplets near the head to complement shader body.
 	for i in range(maxi(0, head_mist_drop_count)):
@@ -214,11 +235,10 @@ func _draw_water_accents() -> void:
 		var y := lerpf(5.0, 26.0, _hash01(seed + 2.9))
 		var pulse := 0.55 + 0.45 * sin(_anim_time * 9.0 + seed)
 		var size := lerpf(1.0, 2.6, _hash01(seed + 3.2))
-		draw_circle(
-			Vector2(x + pulse * 2.0, y),
-			size,
-			Color(water_color.r, water_color.g, water_color.b, 0.30 * _spray_intensity)
-		)
+		var p := Vector2(x + pulse * 2.0, y)
+		var core := size * 1.15
+		draw_circle(p, core * 2.2, Color(glow_tint.r, glow_tint.g, glow_tint.b, 0.16 * _spray_intensity * droplet_glow_boost))
+		draw_circle(p, core, Color(core_tint.r, core_tint.g, core_tint.b, 0.38 * _spray_intensity * droplet_core_boost))
 
 	# Fast droplets with stronger downward fall and sideways spread.
 	var drops := maxi(0, int(droplet_count * _spray_intensity))
@@ -230,18 +250,20 @@ func _draw_water_accents() -> void:
 		var spread := lerpf(0.25, cone_spread_multiplier * 1.2, pow(flow, 1.2))
 		var x := lerpf(left_x * spread, right_x * spread, lane) + drift
 		var y := 10.0 + flow * (height - 8.0)
-		var size := lerpf(droplet_size_max * 1.1, droplet_size_min * 0.8, flow)
+		var size := lerpf(droplet_size_max, droplet_size_min, flow)
 		var alpha := (0.78 + flow * 0.18) * _spray_intensity
-		draw_circle(Vector2(x, y), size, Color(water_color.r, water_color.g, water_color.b, alpha))
+		var p := Vector2(x, y)
+		draw_circle(p, size * 2.25, Color(glow_tint.r, glow_tint.g, glow_tint.b, alpha * 0.20 * droplet_glow_boost))
+		draw_circle(p, size, Color(core_tint.r, core_tint.g, core_tint.b, alpha * 0.72 * droplet_core_boost))
 	
-	# Bottom haze band so ground-adjacent water stays visible.
-	var haze_alpha := 0.24 * _spray_intensity
+	# Keep only a very subtle near-floor mist, so it doesn't look like a poured slab.
+	var haze_alpha := 0.055 * _spray_intensity
 	draw_colored_polygon(
 		PackedVector2Array([
-			Vector2(left_x * 1.55, height - 30.0),
-			Vector2(right_x * 1.55, height - 30.0),
-			Vector2(right_x * 1.75, height + 8.0),
-			Vector2(left_x * 1.75, height + 8.0),
+			Vector2(left_x * 1.18, height - 12.0),
+			Vector2(right_x * 1.18, height - 12.0),
+			Vector2(right_x * 1.24, height + 5.0),
+			Vector2(left_x * 1.24, height + 5.0),
 		]),
 		Color(water_color.r, water_color.g, water_color.b, haze_alpha)
 	)
@@ -256,17 +278,22 @@ func _draw_water_accents() -> void:
 		var r := lerpf(1.1, 2.8, _hash01(seed + 7.4))
 		draw_circle(
 			Vector2(x, y),
+			r * 2.1,
+			Color(glow_tint.r, glow_tint.g, glow_tint.b, 0.18 * _spray_intensity * droplet_glow_boost)
+		)
+		draw_circle(
+			Vector2(x, y),
 			r,
-			Color(water_color.r, water_color.g, water_color.b, 0.42 * _spray_intensity)
+			Color(core_tint.r, core_tint.g, core_tint.b, 0.46 * _spray_intensity * droplet_core_boost)
 		)
 	
-	# Softer splash line at bottom.
-	var splash_alpha := 0.24 * _spray_intensity
+	# Keep floor indicator subtle and broken up by droplets.
+	var splash_alpha := 0.08 * _spray_intensity
 	draw_line(
 		Vector2(left_x * 1.4, height),
 		Vector2(right_x * 1.4, height),
 		Color(water_color.r, water_color.g, water_color.b, splash_alpha),
-		2.8,
+		1.4,
 		true
 	)
 	
@@ -444,94 +471,192 @@ func _setup_audio_player() -> void:
 
 
 func _setup_water_light() -> void:
-	if not water_light and not water_rim_light:
+	if not water_light:
 		return
-	
 	if not enable_water_light:
-		if water_light:
-			water_light.visible = false
+		water_light.visible = false
+		water_light.energy = 0.0
 		if water_rim_light:
 			water_rim_light.visible = false
+			water_rim_light.energy = 0.0
 		return
-	
-	# Build cone-shaped texture for water volume.
-	var cone_tex := _build_cone_light_texture()
-	if water_light:
-		water_light.texture = cone_tex
-		water_light.color = water_light_color
-		water_light.texture_scale = water_light_radius / 64.0
-		water_light.energy = 0.0
-		water_light.visible = false
+	var cone_tex := _build_smooth_cone_light_texture()
+	water_light.texture = cone_tex
+	water_light.color = water_light_color
+	water_light.texture_scale = 1.0
+	water_light.energy = 0.0
+	water_light.visible = false
 	if water_rim_light:
 		water_rim_light.texture = cone_tex
-		water_rim_light.color = water_rim_light_color
-		water_rim_light.texture_scale = water_rim_light_radius / 64.0
+		water_rim_light.color = water_light_color
+		water_rim_light.texture_scale = 1.0
 		water_rim_light.energy = 0.0
 		water_rim_light.visible = false
+
+
+func _setup_fluorescent_droplet_lights() -> void:
+	for l in _droplet_lights:
+		if l and is_instance_valid(l):
+			l.queue_free()
+	_droplet_lights.clear()
+	
+	if not enable_fluorescent_droplet_lights:
+		return
+	
+	var count := maxi(0, droplet_light_count)
+	if count <= 0:
+		return
+	
+	_droplet_light_texture = _build_droplet_light_texture()
+	for i in range(count):
+		var light := PointLight2D.new()
+		light.name = "DropletLight_%d" % i
+		light.texture = _droplet_light_texture
+		light.texture_scale = 1.0
+		light.energy = 0.0
+		light.visible = false
+		light.color = droplet_glow_color
+		light.z_index = 12
+		var s := droplet_light_radius / 64.0
+		light.scale = Vector2(s, s)
+		add_child(light)
+		_droplet_lights.append(light)
+
+
+func _update_fluorescent_droplet_lights() -> void:
+	if _droplet_lights.is_empty():
+		return
+	
+	var active := enable_fluorescent_droplet_lights and _spray_intensity > 0.01 and is_watering
+	if not active:
+		for l in _droplet_lights:
+			if not l:
+				continue
+			l.visible = false
+			l.energy = 0.0
+		return
+	
+	var left_x := -spray_width * 0.5
+	var right_x := spray_width * 0.5
+	var h := _current_spray_height
+	for i in range(_droplet_lights.size()):
+		var l := _droplet_lights[i]
+		if not l:
+			continue
+		# Keep light positions aligned with the same droplet motion used in _draw_water_accents().
+		var seed := float(i) * 13.173
+		var lane := _hash01(seed + 1.7)
+		var flow := fposmod(_anim_time * (1.7 + _hash01(seed + 4.0) * 1.8) + _hash01(seed + 9.0), 1.0)
+		var spread := lerpf(0.25, cone_spread_multiplier * 1.2, pow(flow, 1.2))
+		var drift := sin(_anim_time * 7.1 + seed) * (spray_width * 0.08 * (0.3 + flow * 0.8))
+		var x := lerpf(left_x * spread, right_x * spread, lane) + drift
+		var y := 10.0 + flow * (h - 8.0)
+		var pulse := 0.90 + 0.10 * sin(_anim_time * 10.0 + seed * 0.5)
+		l.position = Vector2(x, y)
+		l.color = droplet_glow_color
+		l.energy = droplet_light_energy * _spray_intensity * pulse
+		l.visible = true
+
+
+func _build_droplet_light_texture() -> ImageTexture:
+	var size := 128
+	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	for y in size:
+		for x in size:
+			var u := (float(x) / float(size - 1)) * 2.0 - 1.0
+			var v := (float(y) / float(size - 1)) * 2.0 - 1.0
+			var r := sqrt(u * u + v * v)
+			if r >= 1.0:
+				continue
+			var core := exp(-pow(r, 2.0) * 5.2)
+			var halo := exp(-pow(r, 1.25) * 1.9)
+			var a := clampf(core * 0.95 + halo * 0.28, 0.0, 1.0)
+			img.set_pixel(x, y, Color(1.0, 1.0, 1.0, a))
+	return ImageTexture.create_from_image(img)
 
 
 func _update_water_light() -> void:
-	if not water_light and not water_rim_light:
+	if not water_light:
 		return
-	
 	if not enable_water_light:
-		if water_light:
-			water_light.visible = false
+		water_light.visible = false
+		water_light.energy = 0.0
 		if water_rim_light:
 			water_rim_light.visible = false
-		return
-	
-	var active := _spray_intensity > 0.01
-	if water_light:
-		water_light.visible = active and use_radial_point_lights
-	if water_rim_light:
-		water_rim_light.visible = false
-	if not active:
-		if water_light:
-			water_light.energy = 0.0
-		if water_rim_light:
 			water_rim_light.energy = 0.0
 		return
 	
-	var flicker := 1.0 + sin(_anim_time * 11.0) * water_light_flicker_strength
-	var pulse := 0.92 + 0.08 * sin(_anim_time * 5.0 + 1.3)
-	if use_radial_point_lights and water_light:
-		water_light.color = water_light_color
-		var bottom_half := spray_width * 0.5 * cone_spread_multiplier * bottom_fan_multiplier * 1.18
-		var target_width := maxf(64.0, bottom_half * 2.0)
-		# Cone texture starts at center and extends downward.
-		water_light.position = Vector2(0.0, 6.0)
-		water_light.scale = Vector2(target_width / 246.0, _current_spray_height / 128.0)
-		water_light.texture_scale = 1.0
-		water_light.energy = water_light_energy * _spray_intensity * flicker * pulse
-	elif water_light:
+	var active := _spray_intensity > 0.01
+	if not active:
+		water_light.visible = false
 		water_light.energy = 0.0
+		if water_rim_light:
+			water_rim_light.visible = false
+			water_rim_light.energy = 0.0
+		return
 	
+	var flicker := 1.0 + sin(_anim_time * 8.3) * water_light_flicker_strength
+	var pulse  := 0.94 + 0.06 * sin(_anim_time * 3.7 + 1.1)
+	
+	# The cone texture apex is at v=0.5 (pixel row 128 of 256).
+	# The bottom half of the texture covers the spray volume.
+	# Anchor the light at the sprinkler head (y=6); scale Y so the
+	# bottom half of the texture exactly covers _current_spray_height pixels.
+	# The texture is 256px; bottom half = 128px reference.
+	var spread_w := spray_width * cone_spread_multiplier * bottom_fan_multiplier * 2.0
+	var scale_x := maxf(spread_w, 120.0) / 256.0
+	var scale_y := (_current_spray_height * 1.05) / 128.0   # bottom-half reference
+	water_light.position = Vector2(0.0, 6.0)
+	water_light.scale = Vector2(scale_x, scale_y)
+	water_light.texture_scale = 1.0
+	water_light.color = water_light_color
+	water_light.energy = water_light_energy * _spray_intensity * flicker * pulse
+	water_light.visible = true
+	
+	# Rim light: same cone, slightly larger, centered lower for ambient spill.
 	if water_rim_light:
-		water_rim_light.energy = 0.0
+		water_rim_light.position = Vector2(0.0, 6.0)
+		water_rim_light.scale = Vector2(scale_x * 1.3, scale_y * 1.15)
+		water_rim_light.texture_scale = 1.0
+		water_rim_light.color = water_light_color
+		water_rim_light.energy = water_light_energy * _spray_intensity * 0.28 * pulse
+		water_rim_light.visible = true
 
 
-func _build_cone_light_texture() -> ImageTexture:
+func _build_smooth_cone_light_texture() -> ImageTexture:
+	# Cone apex at (0.5, 0.5); cone opens downward through bottom half of texture.
+	# All falloffs are pure Gaussian - no step functions, no hard contours,
+	# so no bell silhouette or layer banding is possible.
 	var size := 256
 	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
-	for y in size:
-		var v := float(y) / float(size - 1)
-		# Cone starts at texture center and only extends downward.
+	for yi in size:
+		var v := float(yi) / float(size - 1)
+		# Upper half stays dark (light only goes downward).
 		if v < 0.5:
 			continue
-		var t := (v - 0.5) * 2.0 # 0..1
-		var half_w := lerpf(0.06, 0.48, t)
-		var edge_fade := 0.06
-		for x in size:
-			var u := float(x) / float(size - 1)
+		var t := (v - 0.5) * 2.0   # 0 = apex, 1 = bottom
+		# Cone grows wider as t increases; use smooth mapping so it never snaps.
+		var half_w := lerpf(0.015, 0.42, t * t * (3.0 - 2.0 * t))
+		for xi in size:
+			var u := float(xi) / float(size - 1)
 			var dx := absf(u - 0.5)
-			var edge := 1.0 - smoothstep(half_w - edge_fade, half_w, dx)
-			if edge <= 0.0:
+			# Normalize horizontal distance by the local cone half-width,
+			# then apply a pure Gaussian. This produces smooth falloff at
+			# every depth with NO hard edge anywhere.
+			var norm := dx / maxf(half_w, 0.001)
+			var side := exp(-norm * norm * 2.8)
+			# Soft fade-in just below the apex so the top isn't a hard dot.
+			var top_fade := smoothstep(0.0, 0.18, t)
+			# Very slight brightness taper toward the floor (natural light loss).
+			var depth_fade := 1.0 - t * 0.22
+			var a := side * top_fade * depth_fade
+			if a <= 0.002:
 				continue
-			var vertical := smoothstep(0.0, 0.08, t)
-			var bottom_boost := 0.8 + 0.2 * t
-			var a := edge * vertical * bottom_boost
-			img.set_pixel(x, y, Color(1.0, 1.0, 1.0, a))
+			# Sub-pixel dither to break 8-bit quantization bands.
+			var g_seed: float = sin(Vector2(float(xi), float(yi)).dot(Vector2(12.9898, 78.233))) * 43758.5453
+			var dither: float = (g_seed - floor(g_seed) - 0.5) * 0.009
+			a = clampf(a + dither, 0.0, 1.0)
+			img.set_pixel(xi, yi, Color(1.0, 1.0, 1.0, a))
 	return ImageTexture.create_from_image(img)
 
 

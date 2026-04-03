@@ -15,9 +15,12 @@ shader_parameter/time_scale = 1.0
 shader_parameter/distortion = 0.03
 shader_parameter/streak_density = 38.0
 shader_parameter/edge_softness = 0.045
-shader_parameter/flow_strength = 3.8
-shader_parameter/core_fill = 0.92
+shader_parameter/flow_strength = 2.7
+shader_parameter/core_fill = 0.7
 shader_parameter/bottom_density_boost = 1.7
+shader_parameter/fluorescence_color = Color(0.34, 0.82, 1, 1)
+shader_parameter/fluorescence_strength = 1.5
+shader_parameter/droplet_fluorescence = 1.35
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_head_beacon"]
 shader = ExtResource("3_head_beacon_shader")
@@ -25,6 +28,17 @@ shader_parameter/visibility_boost = 1.25
 
 [node name="Sprinkler" type="Node2D"]
 script = ExtResource("1_script")
+enable_water_light = true
+enable_fluorescent_droplet_lights = false
+water_light_color = Color(0.32, 0.88, 1, 1)
+water_light_energy = 1.55
+water_light_flicker_strength = 0.06
+droplet_glow_color = Color(0.55, 0.95, 1, 1)
+droplet_core_color = Color(0.92, 1, 1, 1)
+droplet_glow_boost = 2.6
+droplet_core_boost = 2.0
+additive_droplet_render = true
+show_spray_body_shader = false
 
 [node name="SprinklerHead" type="Polygon2D" parent="."]
 material = SubResource("ShaderMaterial_head_beacon")
@@ -43,22 +57,19 @@ polygon = PackedVector2Array(-20, -62, 20, -62, 20, -52, -20, -52)
 
 [node name="WaterLight" type="PointLight2D" parent="."]
 enabled = true
-texture_scale = 4.6875
+texture_scale = 1.0
 energy = 0.0
-color = Color(0.22, 0.86, 1, 1)
-z_index = -2
+color = Color(0.32, 0.88, 1, 1)
 
 [node name="WaterRimLight" type="PointLight2D" parent="."]
 enabled = true
-position = Vector2(0, 120)
-texture_scale = 2.8125
+texture_scale = 1.0
 energy = 0.0
-color = Color(0.55, 0.98, 1, 1)
-z_index = -2
+color = Color(0.32, 0.88, 1, 1)
 
 [node name="SprayShader" type="Polygon2D" parent="."]
 material = SubResource("ShaderMaterial_water")
-z_index = -1
+z_index = 8
 color = Color(1, 1, 1, 1)
 polygon = PackedVector2Array(-32, 6, 32, 6, 124, 150, 168, 210, -168, 210, -124, 150)
 
