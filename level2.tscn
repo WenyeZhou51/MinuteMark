@@ -1,4 +1,4 @@
-[gd_scene load_steps=33 format=3 uid="uid://co3ys7ojrgbkb"]
+[gd_scene load_steps=36 format=3 uid="uid://co3ys7ojrgbkb"]
 
 [ext_resource type="Script" uid="uid://b4i78xyv03saw" path="res://level_manager.gd" id="1_qfdq4"]
 [ext_resource type="Texture2D" uid="uid://cftqvbphtaci0" path="res://Sprites/Bd.png" id="2_h0v3f"]
@@ -23,6 +23,9 @@
 [ext_resource type="PackedScene" uid="uid://v2lfhu5ocdg3" path="res://pixel_fire_simulation.tscn" id="30_pxfire"]
 [ext_resource type="PackedScene" uid="uid://c8k3m5n7qaqr2" path="res://FireBottle.tscn" id="31_fbottle"]
 [ext_resource type="PackedScene" path="res://Sprinkler.tscn" id="32_sprinkler"]
+[ext_resource type="PackedScene" path="res://NeonStripe.tscn" id="33_neon"]
+[ext_resource type="PackedScene" path="res://PosterizedLight.tscn" id="34_poster"]
+[ext_resource type="PackedScene" path="res://HangingLight.tscn" id="35_hang"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_tutorial_longK"]
 size = Vector2(407.625, 218.25)
@@ -98,6 +101,7 @@ burn_heat_output = 4.0
 heat_conductivity = 3.0
 light_energy_max = 8.0
 light_radius = 1200.0
+max_brightness = 0.9
 
 [node name="Player" parent="." instance=ExtResource("5_oaku3")]
 position = Vector2(-924, 987)
@@ -418,6 +422,16 @@ texture = ExtResource("21_e5e3i")
 
 [node name="Lamp" parent="." instance=ExtResource("22_5wfc4")]
 position = Vector2(2771, 320)
+
+[node name="NeonStripe" parent="." instance=ExtResource("33_neon")]
+position = Vector2(500, 820)
+stripe_length = 250.0
+
+[node name="PosterizedLight" parent="." instance=ExtResource("34_poster")]
+position = Vector2(4500, 650)
+
+[node name="HangingLight" parent="." instance=ExtResource("35_hang")]
+position = Vector2(2000, 200)
 
 [editable path="Player"]
 [editable path="KickableObjects/Window1"]

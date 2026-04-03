@@ -17,6 +17,7 @@ extends Node2D
 @export var light_energy_max: float = 1.8
 @export var light_radius: float = 400.0
 @export var num_lights: int = 8
+@export var max_brightness: float = 1.0  ## Tonemap cap — single lights look normal, stacked lights compress
 
 # Cell data — only surface cells exist in these dictionaries
 # surface_fuel: Vector2i -> float (1.0 = full fuel, 0.0 = burnt out)
@@ -86,6 +87,7 @@ func _ready() -> void:
 	_build_surface()
 	_setup_darkness()
 	_setup_lights()
+	_setup_tonemap()
 	call_deferred("_ignite_start_points")
 
 
@@ -146,6 +148,31 @@ func _setup_lights() -> void:
 		lights.append(pl)
 
 
+func _setup_tonemap() -> void:
+	# Enable HDR 2D so the framebuffer stores values >1.0 from stacked lights
+	get_viewport().use_hdr_2d = true
+
+	var shader := load("res://shaders/light_tonemap.gdshader") as Shader
+	if not shader:
+		push_warning("PixelFireSimulation: light_tonemap.gdshader not found, skipping tonemap")
+		return
+	var mat := ShaderMaterial.new()
+	mat.shader = shader
+	mat.set_shader_parameter("max_brightness", max_brightness)
+	var layer := CanvasLayer.new()
+	layer.layer = 100
+	var rect := ColorRect.new()
+	rect.material = mat
+	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(rect)
+	add_child(layer)
+	# Size must be set after the node is in the tree
+	var vp_size := get_viewport().get_visible_rect().size
+	rect.position = Vector2.ZERO
+	rect.size = vp_size
+	get_viewport().size_changed.connect(func(): rect.size = get_viewport().get_visible_rect().size)
+
+
 func _ignite_start_points() -> void:
 	for pt in ignition_points:
 		ignite_at(pt)
@@ -194,9 +221,14 @@ func _process(delta: float) -> void:
 
 	# Sim step
 	spread_timer += delta
-	if spread_timer >= spread_interval:
+	var max_steps := 10
+	var steps_run := 0
+	while spread_timer >= spread_interval and steps_run < max_steps:
 		spread_timer -= spread_interval
 		_simulate_step(spread_interval)
+		steps_run += 1
+	if steps_run >= max_steps:
+		spread_timer = 0.0
 
 	# Particles
 	_update_particles(delta)
@@ -269,8 +301,9 @@ func _simulate_step(dt: float) -> void:
 				if not heated_set.has(n):
 					new_heated.append(n)
 
-		# Spawn particles (only if pool has room)
-		if rng.randf() < 0.5 and particle_count < flame_particle_count:
+		# Spawn particles — scale probability by fuel so dim cells yield pool space
+		var spawn_chance: float = surface_fuel.get(key, 0.0)
+		if rng.randf() < 0.5 * spawn_chance and particle_count < flame_particle_count:
 			_pool_spawn(
 				key.x * cell_size + rng.randf_range(0, cell_size),
 				key.y * cell_size,
@@ -279,7 +312,7 @@ func _simulate_step(dt: float) -> void:
 				rng.randf_range(0.5, 1.0),
 				rng.randf_range(cell_size * 1.0, cell_size * 2.5)
 			)
-		if rng.randf() < 0.2 and particle_count < flame_particle_count:
+		if rng.randf() < 0.2 * spawn_chance and particle_count < flame_particle_count:
 			_pool_spawn(
 				key.x * cell_size + rng.randf_range(0, cell_size),
 				key.y * cell_size,
@@ -288,6 +321,10 @@ func _simulate_step(dt: float) -> void:
 				rng.randf_range(0.7, 1.0),
 				rng.randf_range(cell_size * 1.5, cell_size * 3.5)
 			)
+
+	# Merge newly heated cells BEFORE Phase 2 so they can ignite this tick
+	for key in new_heated:
+		heated_set[key] = true
 
 	# Phase 2: Heated non-burning cells — check ignition
 	var to_ignite: Array[Vector2i] = []
@@ -308,10 +345,6 @@ func _simulate_step(dt: float) -> void:
 			surface_temp[key] = maxf(temp - heat_dissipation * dt, 0.0)
 			if surface_temp[key] <= 0.01:
 				to_unheat.append(key)
-
-	# Add newly heated cells
-	for key in new_heated:
-		heated_set[key] = true
 
 	# Apply changes
 	for key in to_ignite:
@@ -379,11 +412,11 @@ func _draw() -> void:
 		var fuel: float = surface_fuel.get(key, 0.0)
 		var lx: float = wx - gp_x
 		var ly: float = wy - gp_y
-		var intensity: float = clampf(fuel, 0.1, 1.0)
+		var intensity: float = clampf(fuel, 0.3, 1.0)
 		draw_rect(Rect2(lx, ly, cell_size, cell_size),
-			Color(1.0, 0.3 * intensity, 0.05, intensity * 0.9))
+			Color(1.0, 0.3 * intensity, 0.05, 0.4 + intensity * 0.5))
 		draw_rect(Rect2(lx + 1, ly + 1, cell_size - 2, cell_size - 2),
-			Color(1.0, 0.6 * intensity, 0.1, intensity * 0.7))
+			Color(1.0, 0.6 * intensity, 0.1, 0.3 + intensity * 0.4))
 
 	# Draw heated cells (about to ignite) — only those on screen
 	for key in heated_set:
@@ -458,11 +491,10 @@ func _update_lights() -> void:
 
 	for key in burning_set:
 		var fuel: float = surface_fuel.get(key, 0.0)
-		if fuel < 0.15:
-			continue
+		var weight: float = 0.3 + fuel * 0.7
 		fire_sources_x.append(key.x * cell_size + cell_size * 0.5)
 		fire_sources_y.append(key.y * cell_size)
-		fire_sources_w.append(fuel)
+		fire_sources_w.append(weight)
 
 	# Sample some particles for light (not all — sample every 8th for performance)
 	var step := 8
@@ -488,57 +520,41 @@ func _update_lights() -> void:
 			l.energy = 0.0
 		return
 
-	# Simple gap-based clustering sorted by x
-	# Build sorted indices
+	# Distribute lights evenly across fire sources sorted by x
 	var sorted_idx: Array[int] = []
 	sorted_idx.resize(total_sources)
 	for si in range(total_sources):
 		sorted_idx[si] = si
 	sorted_idx.sort_custom(func(a, b): return fire_sources_x[a] < fire_sources_x[b])
 
-	# Split into clusters at large gaps
-	var cluster_starts: PackedInt32Array = [0]
-	var gap_threshold: float = light_radius * 0.3
-	for si in range(1, total_sources):
-		var prev_si := sorted_idx[si - 1]
-		var cur_si := sorted_idx[si]
-		var dx_val: float = abs(fire_sources_x[cur_si] - fire_sources_x[prev_si])
-		var dy_val: float = abs(fire_sources_y[cur_si] - fire_sources_y[prev_si])
-		if dx_val + dy_val > gap_threshold:
-			cluster_starts.append(si)
-	cluster_starts.append(total_sources)  # sentinel
-
+	var sources_per_light := maxi(1, total_sources / num_lights)
 	var light_idx := 0
-	for ci in range(cluster_starts.size() - 1):
-		if light_idx >= num_lights:
-			break
-		var start_si: int = cluster_starts[ci]
-		var end_si: int = cluster_starts[ci + 1]
+	var si := 0
+	while si < total_sources and light_idx < num_lights:
+		var end_si: int = mini(si + sources_per_light, total_sources)
+		if light_idx == num_lights - 1:
+			end_si = total_sources
 
 		var wx_sum := 0.0
 		var wy_sum := 0.0
 		var w_total := 0.0
-		for si in range(start_si, end_si):
-			var src := sorted_idx[si]
+		for j in range(si, end_si):
+			var src := sorted_idx[j]
 			var w: float = fire_sources_w[src]
 			wx_sum += fire_sources_x[src] * w
 			wy_sum += fire_sources_y[src] * w
 			w_total += w
 
-		if w_total < 0.01:
-			continue
-
-		var cx2: float = wx_sum / w_total
-		var cy2: float = wy_sum / w_total - cell_size * 2.0
-
-		lights[light_idx].global_position = Vector2(cx2, cy2)
-		var intensity := clampf(w_total / 8.0, 0.2, 1.0)
-		lights[light_idx].energy = light_energy_max * intensity
-		lights[light_idx].texture_scale = (light_radius * (0.4 + intensity * 0.6)) / 64.0
-		lights[light_idx].visible = true
-		light_idx += 1
-
-	# If more clusters than lights, we just skip the rest (no O(n²) merge needed)
+		if w_total >= 0.01:
+			var cx2: float = wx_sum / w_total
+			var cy2: float = wy_sum / w_total - cell_size * 2.0
+			lights[light_idx].global_position = Vector2(cx2, cy2)
+			var intensity := clampf(w_total / 8.0, 0.2, 1.0)
+			lights[light_idx].energy = light_energy_max * intensity
+			lights[light_idx].texture_scale = (light_radius * (0.4 + intensity * 0.6)) / 64.0
+			lights[light_idx].visible = true
+			light_idx += 1
+		si = end_si
 
 	while light_idx < lights.size():
 		lights[light_idx].visible = false
