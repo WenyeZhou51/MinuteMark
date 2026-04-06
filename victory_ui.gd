@@ -19,6 +19,22 @@ extends CanvasLayer
 @onready var name_submit_btn: Button = $Control/Panel/NameEntryContainer/NameInputRow/SubmitButton
 @onready var name_cancel_btn: Button = $Control/Panel/NameEntryContainer/NameInputRow/CancelButton
 
+var restart_btn: Button
+var leaderboard_btn: Button
+var menu_btn: Button
+var action_buttons: Array[Button] = []
+var action_buttons_ready: bool = false
+var _action_button_index: int = 0
+var _using_keyboard_nav: bool = false
+
+# Victory action row: loud keyboard/mouse selection styling (theme default focus is too subtle).
+var _vab_style_idle: StyleBoxFlat
+var _vab_style_idle_hover: StyleBoxFlat
+var _vab_style_idle_pressed: StyleBoxFlat
+var _vab_style_selected: StyleBoxFlat
+var _vab_style_selected_hover: StyleBoxFlat
+var _vab_style_selected_pressed: StyleBoxFlat
+
 var current_shake_intensity: float = 0.0
 var shake_timer: float = 0.0
 var original_control_pos: Vector2
@@ -87,9 +103,10 @@ func _ready():
 			name_input.text_changed.connect(_on_name_input_text_changed)
 	
 	# Ensure buttons are clickable even when paused
-	var restart_btn = $Control/Panel/HBoxContainer/RestartButton
-	var leaderboard_btn = $Control/Panel/HBoxContainer/LeaderboardButton
-	var menu_btn = $Control/Panel/HBoxContainer/MenuButton
+	restart_btn = $Control/Panel/HBoxContainer/RestartButton
+	leaderboard_btn = $Control/Panel/HBoxContainer/LeaderboardButton
+	menu_btn = $Control/Panel/HBoxContainer/MenuButton
+	action_buttons = [restart_btn, leaderboard_btn, menu_btn]
 	
 	restart_btn.process_mode = Node.PROCESS_MODE_ALWAYS
 	leaderboard_btn.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -151,6 +168,103 @@ func _ready():
 	if not score_peak_sfx:
 		pass
 
+func _ensure_victory_action_button_highlight_styles() -> void:
+	if _vab_style_idle != null:
+		return
+	var corner := 8
+	var m := 6
+	_vab_style_idle = StyleBoxFlat.new()
+	_vab_style_idle.set_corner_radius_all(corner)
+	_vab_style_idle.set_border_width_all(2)
+	_vab_style_idle.border_color = Color(0.12, 0.09, 0.07, 1)
+	_vab_style_idle.bg_color = Color(0.30, 0.24, 0.20, 1)
+	_vab_style_idle.set_content_margin_all(m)
+
+	_vab_style_idle_hover = StyleBoxFlat.new()
+	_vab_style_idle_hover.set_corner_radius_all(corner)
+	_vab_style_idle_hover.set_border_width_all(2)
+	_vab_style_idle_hover.border_color = Color(0.18, 0.14, 0.11, 1)
+	_vab_style_idle_hover.bg_color = Color(0.38, 0.30, 0.25, 1)
+	_vab_style_idle_hover.set_content_margin_all(m)
+
+	_vab_style_idle_pressed = StyleBoxFlat.new()
+	_vab_style_idle_pressed.set_corner_radius_all(corner)
+	_vab_style_idle_pressed.set_border_width_all(2)
+	_vab_style_idle_pressed.border_color = Color(0.08, 0.06, 0.05, 1)
+	_vab_style_idle_pressed.bg_color = Color(0.22, 0.18, 0.14, 1)
+	_vab_style_idle_pressed.set_content_margin_all(m)
+
+	_vab_style_selected = StyleBoxFlat.new()
+	_vab_style_selected.set_corner_radius_all(10)
+	_vab_style_selected.set_border_width_all(5)
+	_vab_style_selected.border_color = Color(1, 0.96, 0.82, 1)
+	_vab_style_selected.bg_color = Color(0.55, 0.46, 0.30, 1)
+	_vab_style_selected.shadow_color = Color(0, 0, 0, 0.45)
+	_vab_style_selected.shadow_size = 12
+	_vab_style_selected.shadow_offset = Vector2(0, 3)
+	_vab_style_selected.set_content_margin_all(m)
+
+	_vab_style_selected_hover = StyleBoxFlat.new()
+	_vab_style_selected_hover.set_corner_radius_all(10)
+	_vab_style_selected_hover.set_border_width_all(5)
+	_vab_style_selected_hover.border_color = Color(1, 1, 1, 1)
+	_vab_style_selected_hover.bg_color = Color(0.62, 0.54, 0.36, 1)
+	_vab_style_selected_hover.shadow_color = Color(0, 0, 0, 0.45)
+	_vab_style_selected_hover.shadow_size = 12
+	_vab_style_selected_hover.shadow_offset = Vector2(0, 3)
+	_vab_style_selected_hover.set_content_margin_all(m)
+
+	_vab_style_selected_pressed = StyleBoxFlat.new()
+	_vab_style_selected_pressed.set_corner_radius_all(10)
+	_vab_style_selected_pressed.set_border_width_all(5)
+	_vab_style_selected_pressed.border_color = Color(0.85, 0.78, 0.55, 1)
+	_vab_style_selected_pressed.bg_color = Color(0.42, 0.36, 0.24, 1)
+	_vab_style_selected_pressed.shadow_color = Color(0, 0, 0, 0.35)
+	_vab_style_selected_pressed.shadow_size = 6
+	_vab_style_selected_pressed.shadow_offset = Vector2(0, 2)
+	_vab_style_selected_pressed.set_content_margin_all(m)
+
+
+func _get_effective_victory_action_button_index() -> int:
+	if _using_keyboard_nav:
+		return _action_button_index
+	for i in range(action_buttons.size()):
+		if action_buttons[i].is_hovered():
+			return i
+	return _action_button_index
+
+
+func _apply_victory_action_button_highlight() -> void:
+	if not action_buttons_ready or action_buttons.is_empty():
+		return
+	_ensure_victory_action_button_highlight_styles()
+	var sel := _get_effective_victory_action_button_index()
+	sel = clampi(sel, 0, action_buttons.size() - 1)
+	for i in range(action_buttons.size()):
+		var b: Button = action_buttons[i]
+		if not is_instance_valid(b):
+			continue
+		b.pivot_offset = b.size * 0.5
+		if i == sel:
+			b.scale = Vector2(1.07, 1.07)
+			b.add_theme_stylebox_override("normal", _vab_style_selected)
+			b.add_theme_stylebox_override("hover", _vab_style_selected_hover)
+			b.add_theme_stylebox_override("pressed", _vab_style_selected_pressed)
+			b.add_theme_stylebox_override("focus", _vab_style_selected)
+			b.add_theme_color_override("font_color", Color(1.0, 0.98, 0.75))
+			b.add_theme_color_override("font_outline_color", Color(0.05, 0.04, 0.02, 1))
+			b.add_theme_constant_override("outline_size", 14)
+		else:
+			b.scale = Vector2.ONE
+			b.add_theme_stylebox_override("normal", _vab_style_idle)
+			b.add_theme_stylebox_override("hover", _vab_style_idle_hover)
+			b.add_theme_stylebox_override("pressed", _vab_style_idle_pressed)
+			b.add_theme_stylebox_override("focus", _vab_style_idle)
+			b.remove_theme_color_override("font_color")
+			b.remove_theme_color_override("font_outline_color")
+			b.remove_theme_constant_override("outline_size")
+
+
 func _process(delta):
 	# Ensure mouse is visible (sometimes it gets hidden by other scripts)
 	if Input.mouse_mode != Input.MOUSE_MODE_VISIBLE:
@@ -169,6 +283,20 @@ func _process(delta):
 		control_node.position = original_control_pos + offset
 	else:
 		control_node.position = original_control_pos
+	
+	if action_buttons_ready and action_buttons.size() > 0:
+		if _using_keyboard_nav:
+			var kb_btn: Button = action_buttons[_action_button_index]
+			var vp := get_viewport()
+			if vp != null and vp.gui_get_focus_owner() != kb_btn:
+				kb_btn.grab_focus()
+		else:
+			for i in range(action_buttons.size()):
+				if action_buttons[i].is_hovered():
+					_action_button_index = i
+					break
+
+	_apply_victory_action_button_highlight()
 
 func setup(time_taken: float):
 	# Stop all game logic and timer
@@ -250,6 +378,7 @@ func setup(time_taken: float):
 	
 	# Unlock next level
 	unlock_next_level()
+	action_buttons_ready = false
 	
 	var rank = calculate_rank(time_taken)
 	var rank_upper = rank.to_upper()
@@ -373,19 +502,66 @@ func setup(time_taken: float):
 		
 		# 6. Buttons appear last
 		tween.tween_property($Control/Panel/HBoxContainer, "modulate:a", 1.0, 0.3)
-	
+		tween.tween_callback(_on_victory_action_buttons_ready)
+
+func _on_victory_action_buttons_ready() -> void:
+	action_buttons_ready = true
+	_action_button_index = 0
+	_using_keyboard_nav = false
+	if restart_btn:
+		restart_btn.grab_focus()
+
+func _activate_action_button(index: int) -> void:
+	if index < 0 or index >= action_buttons.size():
+		return
+	match index:
+		0:
+			_on_restart_button_pressed()
+		1:
+			_on_leaderboard_button_pressed()
+		2:
+			_on_menu_button_pressed()
+
 func _input(event):
 	# Don't handle shortcuts while the player is typing their name
 	if made_leaderboard and not name_submitted:
 		return
 	
-	# Fallback: Allow pressing 'R' or 'Enter' or 'Space' to restart if button fails
 	if not get_tree().paused:
 		return
-		
-	if event is InputEventKey and event.pressed:
-		if event.keycode == KEY_R or event.keycode == KEY_ENTER or event.keycode == KEY_SPACE:
+	
+	if event is InputEventMouseMotion:
+		_using_keyboard_nav = false
+	
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		_using_keyboard_nav = false
+	
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_R:
 			_perform_restart()
+			var vp_r := get_viewport()
+			if vp_r != null:
+				vp_r.set_input_as_handled()
+			return
+		if action_buttons_ready and action_buttons.size() > 0:
+			var vp := get_viewport()
+			var n: int = action_buttons.size()
+			if event.keycode in [KEY_LEFT, KEY_A]:
+				_using_keyboard_nav = true
+				_action_button_index = (_action_button_index - 1 + n) % n
+				action_buttons[_action_button_index].grab_focus()
+				if vp != null:
+					vp.set_input_as_handled()
+			elif event.keycode in [KEY_RIGHT, KEY_D]:
+				_using_keyboard_nav = true
+				_action_button_index = (_action_button_index + 1) % n
+				action_buttons[_action_button_index].grab_focus()
+				if vp != null:
+					vp.set_input_as_handled()
+			elif event.keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE]:
+				_activate_action_button(_action_button_index)
+				if vp != null:
+					vp.set_input_as_handled()
 
 func apply_ui_shake(intensity: float, duration: float):
 	current_shake_intensity = intensity
@@ -536,11 +712,7 @@ func _animate_post_submission():
 	
 	# Show buttons
 	tween.tween_property($Control/Panel/HBoxContainer, "modulate:a", 1.0, 0.3)
-	
-	# Grab focus on restart button
-	tween.tween_callback(func():
-		$Control/Panel/HBoxContainer/RestartButton.grab_focus()
-	)
+	tween.tween_callback(_on_victory_action_buttons_ready)
 
 func _show_name_exists_message():
 	"""Show a message that the name already exists with a better time, then transition."""
