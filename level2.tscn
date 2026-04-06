@@ -1,4 +1,4 @@
-[gd_scene load_steps=36 format=3 uid="uid://co3ys7ojrgbkb"]
+[gd_scene load_steps=37 format=3 uid="uid://co3ys7ojrgbkb"]
 
 [ext_resource type="Script" uid="uid://b4i78xyv03saw" path="res://level_manager.gd" id="1_qfdq4"]
 [ext_resource type="Texture2D" uid="uid://cftqvbphtaci0" path="res://Sprites/Bd.png" id="2_h0v3f"]
@@ -26,6 +26,7 @@
 [ext_resource type="PackedScene" path="res://NeonStripe.tscn" id="33_neon"]
 [ext_resource type="PackedScene" path="res://PosterizedLight.tscn" id="34_poster"]
 [ext_resource type="PackedScene" path="res://HangingLight.tscn" id="35_hang"]
+[ext_resource type="PackedScene" path="res://cage.tscn" id="36_cage"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_tutorial_longK"]
 size = Vector2(407.625, 218.25)
@@ -104,6 +105,7 @@ light_radius = 1200.0
 max_brightness = 0.9
 
 [node name="Player" parent="." instance=ExtResource("5_oaku3")]
+collision_mask = 9
 position = Vector2(-924, 987)
 max_speed = 1200.0
 ground_acceleration = 5000.0
@@ -432,6 +434,9 @@ position = Vector2(4500, 650)
 
 [node name="HangingLight" parent="." instance=ExtResource("35_hang")]
 position = Vector2(2000, 200)
+
+[node name="Cage" parent="." instance=ExtResource("36_cage")]
+position = Vector2(-924, 900)
 
 [editable path="Player"]
 [editable path="KickableObjects/Window1"]
