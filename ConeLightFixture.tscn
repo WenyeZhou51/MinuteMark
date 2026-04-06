@@ -1,0 +1,42 @@
+[gd_scene load_steps=6 format=3 uid="uid://c6k9m3cone01"]
+
+[ext_resource type="Script" path="res://cone_light_fixture.gd" id="1_cone_script"]
+[ext_resource type="Shader" path="res://shaders/cone_light.gdshader" id="2_cone_shader"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_cone_fix"]
+shader = ExtResource("2_cone_shader")
+shader_parameter/light_color = Color(1, 0.95, 0.8, 0.35)
+shader_parameter/edge_softness = 0.15
+shader_parameter/top_fade = 0.08
+shader_parameter/posterize_levels = 5.0
+shader_parameter/pulse_speed = 1.0
+shader_parameter/pulse_amount = 0.04
+
+[sub_resource type="Gradient" id="Gradient_cone_smooth"]
+offsets = PackedFloat32Array(0, 0.5, 0.8, 1)
+colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 0.5, 1, 1, 1, 0.1, 1, 1, 1, 0)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_cone"]
+gradient = SubResource("Gradient_cone_smooth")
+fill = 1
+fill_from = Vector2(0.5, 0.5)
+
+[node name="ConeLightFixture" type="Node2D"]
+script = ExtResource("1_cone_script")
+
+[node name="FixtureBody" type="Polygon2D" parent="."]
+color = Color(0.3, 0.28, 0.25, 1)
+polygon = PackedVector2Array(-14, -6, 14, -6, 10, 6, -10, 6)
+
+[node name="PointLight2D" type="PointLight2D" parent="."]
+color = Color(1, 0.95, 0.8, 1)
+energy = 2.0
+texture = SubResource("GradientTexture2D_cone")
+texture_scale = 10.0
+
+[node name="ConeVisual" type="Polygon2D" parent="."]
+z_index = -1
+material = SubResource("ShaderMaterial_cone_fix")
+color = Color(1, 1, 1, 1)
+polygon = PackedVector2Array(-140, 0, 140, 0, 140, 250, -140, 250)
+uv = PackedVector2Array(0, 0, 1, 0, 1, 1, 0, 1)

@@ -1,7 +1,7 @@
-[gd_scene load_steps=36 format=3 uid="uid://co3ys7ojrgbkb"]
+[gd_scene load_steps=37 format=3 uid="uid://co3ys7ojrgbkb"]
 
-[ext_resource type="Script" uid="uid://b4i78xyv03saw" path="res://level_manager.gd" id="1_qfdq4"]
-[ext_resource type="Texture2D" uid="uid://cftqvbphtaci0" path="res://Sprites/Bd.png" id="2_h0v3f"]
+[ext_resource type="Script" path="res://level_manager.gd" id="1_qfdq4"]
+[ext_resource type="Texture2D" uid="uid://d2g7jojkre5ug" path="res://Sprites/Bd.png" id="2_h0v3f"]
 [ext_resource type="PackedScene" uid="uid://dmp8rksh3a5yl" path="res://TimerUI.tscn" id="3_4lt8e"]
 [ext_resource type="TileSet" uid="uid://cu555li7p074q" path="res://Sprites/tileset.tres" id="4_1piu2"]
 [ext_resource type="PackedScene" uid="uid://vv3m4nx6g3jo" path="res://player.tscn" id="5_oaku3"]
@@ -9,23 +9,24 @@
 [ext_resource type="PackedScene" path="res://ParryTutorialEnemy.tscn" id="7_jbc00"]
 [ext_resource type="PackedScene" uid="uid://c4k3l8m5n2qar" path="res://kickable_object.tscn" id="8_p357e"]
 [ext_resource type="PackedScene" uid="uid://dyetqoxdfluq0" path="res://window.tscn" id="9_1o16i"]
-[ext_resource type="FontFile" uid="uid://2yvkrcbwikbm" path="res://Fonts/Funkrocker.otf" id="10_twh21"]
+[ext_resource type="FontFile" uid="uid://baaiikv2041fb" path="res://Fonts/Funkrocker.otf" id="10_twh21"]
 [ext_resource type="PackedScene" uid="uid://b7q8n5ck2wh0e" path="res://pause_menu.tscn" id="11_g8kww"]
-[ext_resource type="Script" uid="uid://b1y4vx8ub8uv5" path="res://tutorial_trigger.gd" id="14_u0pwo"]
-[ext_resource type="Script" uid="uid://b16888vofurtu" path="res://pendulum_trigger.gd" id="15_v7t8s"]
-[ext_resource type="Script" uid="uid://r2n5pymd3a5y" path="res://minor_anim_system.gd" id="16_ymtcc"]
+[ext_resource type="Script" path="res://tutorial_trigger.gd" id="14_u0pwo"]
+[ext_resource type="Script" path="res://pendulum_trigger.gd" id="15_v7t8s"]
+[ext_resource type="Script" path="res://minor_anim_system.gd" id="16_ymtcc"]
 [ext_resource type="PackedScene" uid="uid://6624qfeempan" path="res://LevelFinishTrigger.tscn" id="17_tk3jw"]
 [ext_resource type="PackedScene" uid="uid://c85yqfkymilcl" path="res://elevator.tscn" id="18_vtdfc"]
-[ext_resource type="Script" uid="uid://bwb7gicnbx5rs" path="res://tutorial_block.gd" id="19_4amks"]
-[ext_resource type="Texture2D" uid="uid://ccivour0134us" path="res://Sprites/level_backgrounds/IMG_4463.JPG" id="20_20kcu"]
-[ext_resource type="Texture2D" uid="uid://cej4gd8e0ymcr" path="res://Sprites/level_backgrounds/IMG_4518.jpg" id="21_e5e3i"]
+[ext_resource type="Script" path="res://tutorial_block.gd" id="19_4amks"]
+[ext_resource type="Texture2D" uid="uid://iqnxi42u7eex" path="res://Sprites/level_backgrounds/IMG_4463.JPG" id="20_20kcu"]
+[ext_resource type="Texture2D" uid="uid://b5v5ch6lmmej" path="res://Sprites/level_backgrounds/IMG_4518.jpg" id="21_e5e3i"]
 [ext_resource type="PackedScene" uid="uid://d1x6m5n7qaqr3" path="res://Lamp.tscn" id="22_5wfc4"]
 [ext_resource type="PackedScene" uid="uid://v2lfhu5ocdg3" path="res://pixel_fire_simulation.tscn" id="30_pxfire"]
 [ext_resource type="PackedScene" uid="uid://c8k3m5n7qaqr2" path="res://FireBottle.tscn" id="31_fbottle"]
 [ext_resource type="PackedScene" path="res://Sprinkler.tscn" id="32_sprinkler"]
-[ext_resource type="PackedScene" path="res://NeonStripe.tscn" id="33_neon"]
-[ext_resource type="PackedScene" path="res://PosterizedLight.tscn" id="34_poster"]
-[ext_resource type="PackedScene" path="res://HangingLight.tscn" id="35_hang"]
+[ext_resource type="PackedScene" uid="uid://c3n8k5m7neon1" path="res://NeonStripe.tscn" id="33_neon"]
+[ext_resource type="PackedScene" uid="uid://c4p8k5m7post1" path="res://PosterizedLight.tscn" id="34_poster"]
+[ext_resource type="PackedScene" uid="uid://c5h8k5m7hang1" path="res://HangingLight.tscn" id="35_hang"]
+[ext_resource type="PackedScene" uid="uid://ce758owt0bx55" path="res://ConeLightFixture.tscn" id="36_cone"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_tutorial_longK"]
 size = Vector2(407.625, 218.25)
@@ -424,14 +425,32 @@ texture = ExtResource("21_e5e3i")
 position = Vector2(2771, 320)
 
 [node name="NeonStripe" parent="." instance=ExtResource("33_neon")]
-position = Vector2(500, 820)
+position = Vector2(-958, 855)
 stripe_length = 250.0
 
 [node name="PosterizedLight" parent="." instance=ExtResource("34_poster")]
-position = Vector2(4500, 650)
+position = Vector2(-352, 525)
+light_color = Color(0.136624, 0.647148, 0.932294, 1)
+posterize_levels = 7.0
 
 [node name="HangingLight" parent="." instance=ExtResource("35_hang")]
-position = Vector2(2000, 200)
+position = Vector2(336, 608)
+rope_length = 500.0
+gravity = 10000.0
+damping = 0.9
+impulse_strength = 2.0
+cone_angle_deg = 20.0
+light_energy = 6.0
+rope_segments = 12
+
+[node name="ConeLightFixture" parent="." instance=ExtResource("36_cone")]
+position = Vector2(798, 293)
+
+[node name="ConeLightFixture2" parent="." instance=ExtResource("36_cone")]
+position = Vector2(-52, 841)
+
+[node name="ConeLightFixture3" parent="." instance=ExtResource("36_cone")]
+position = Vector2(676, 341)
 
 [editable path="Player"]
 [editable path="KickableObjects/Window1"]

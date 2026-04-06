@@ -7,6 +7,7 @@ extends Node2D
 @export var cone_angle_deg: float = 40.0
 @export var light_energy: float = 2.0
 @export var rope_segments: int = 6
+@export var posterize_levels: float = 5.0
 
 @onready var string_line: Line2D = $StringLine
 @onready var bulb_pivot: Node2D = $BulbPivot
@@ -27,6 +28,11 @@ func _ready() -> void:
 	_init_rope()
 	_build_cone_polygon()
 
+	if cone_visual:
+		var mat := cone_visual.material as ShaderMaterial
+		if mat:
+			mat.set_shader_parameter("posterize_levels", posterize_levels)
+
 	if player_detector:
 		player_detector.body_entered.connect(_on_player_entered)
 
@@ -41,13 +47,16 @@ func _init_rope() -> void:
 func _build_cone_polygon() -> void:
 	if not cone_visual:
 		return
-	var half_spread = tan(deg_to_rad(cone_angle_deg / 2.0)) * rope_length * 1.5
-	var cone_height = rope_length * 1.5
+	var cone_h = rope_length * 1.5
+	var half_w = tan(deg_to_rad(cone_angle_deg / 2.0)) * cone_h * 1.15
 	cone_visual.polygon = PackedVector2Array([
-		Vector2(-6, 0),
-		Vector2(6, 0),
-		Vector2(half_spread, cone_height),
-		Vector2(-half_spread, cone_height),
+		Vector2(-half_w, 0),
+		Vector2(half_w, 0),
+		Vector2(half_w, cone_h),
+		Vector2(-half_w, cone_h),
+	])
+	cone_visual.uv = PackedVector2Array([
+		Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1),
 	])
 
 func _physics_process(delta: float) -> void:

@@ -14,11 +14,11 @@ fill_from = Vector2(0.5, 0.5)
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_posterize"]
 shader = ExtResource("2_post_shader")
+shader_parameter/light_color = Color(1, 0.3, 0.6, 0.5)
 shader_parameter/posterize_levels = 5.0
-shader_parameter/radius = 0.45
-shader_parameter/edge_softness = 0.08
-shader_parameter/tint_color = Color(1, 0.3, 0.6, 1)
-shader_parameter/tint_strength = 0.25
+shader_parameter/outer_radius = 0.48
+shader_parameter/pulse_speed = 1.5
+shader_parameter/pulse_amount = 0.08
 
 [node name="PosterizedLight" type="Node2D"]
 script = ExtResource("1_post_script")
@@ -29,13 +29,9 @@ energy = 1.8
 texture = SubResource("GradientTexture2D_stepped")
 texture_scale = 10.0
 
-[node name="BackBufferCopy" type="BackBufferCopy" parent="."]
-copy_mode = 1
-rect = Rect2(-300, -300, 600, 600)
-
-[node name="PosterizeOverlay" type="ColorRect" parent="BackBufferCopy"]
+[node name="PosterizeOverlay" type="Polygon2D" parent="."]
+z_index = 1
 material = SubResource("ShaderMaterial_posterize")
-offset_left = -300.0
-offset_top = -300.0
-offset_right = 300.0
-offset_bottom = 300.0
+color = Color(1, 1, 1, 1)
+polygon = PackedVector2Array(-300, -300, 300, -300, 300, 300, -300, 300)
+uv = PackedVector2Array(0, 0, 1, 0, 1, 1, 0, 1)
