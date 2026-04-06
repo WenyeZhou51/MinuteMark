@@ -1,20 +1,23 @@
-[gd_scene load_steps=7 format=3 uid="uid://c5h8k5m7hang1"]
+[gd_scene load_steps=6 format=3 uid="uid://c5h8k5m7hang1"]
 
 [ext_resource type="Script" path="res://hanging_light.gd" id="1_hang_script"]
 [ext_resource type="Shader" path="res://shaders/cone_light.gdshader" id="2_cone_shader"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_cone"]
 shader = ExtResource("2_cone_shader")
-shader_parameter/light_color = Color(1, 0.95, 0.8, 0.3)
+shader_parameter/light_color = Color(1, 0.95, 0.8, 0.35)
 shader_parameter/edge_softness = 0.15
 shader_parameter/top_fade = 0.1
+shader_parameter/posterize_levels = 5.0
+shader_parameter/pulse_speed = 1.0
+shader_parameter/pulse_amount = 0.04
 
-[sub_resource type="Gradient" id="Gradient_hang"]
-offsets = PackedFloat32Array(0, 0.5, 0.8, 1)
-colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 0.5, 1, 1, 1, 0.1, 1, 1, 1, 0)
+[sub_resource type="Gradient" id="Gradient_hang_stepped"]
+offsets = PackedFloat32Array(0, 0.15, 0.151, 0.35, 0.351, 0.55, 0.551, 0.75, 0.751, 1.0)
+colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 1, 0.75, 0.75, 0.75, 0.75, 0.75, 0.75, 0.75, 0.75, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0, 0, 0, 0, 0, 0, 0, 0)
 
 [sub_resource type="GradientTexture2D" id="GradientTexture2D_hang"]
-gradient = SubResource("Gradient_hang")
+gradient = SubResource("Gradient_hang_stepped")
 fill = 1
 fill_from = Vector2(0.5, 0.5)
 
@@ -49,8 +52,9 @@ texture_scale = 8.0
 [node name="ConeVisual" type="Polygon2D" parent="BulbPivot"]
 z_index = -1
 material = SubResource("ShaderMaterial_cone")
-color = Color(1, 0.95, 0.8, 0.3)
+color = Color(1, 0.95, 0.8, 0.35)
 polygon = PackedVector2Array(-6, 0, 6, 0, 80, 180, -80, 180)
+uv = PackedVector2Array(0.47, 0, 0.53, 0, 1, 1, 0, 1)
 
 [node name="PlayerDetector" type="Area2D" parent="."]
 position = Vector2(0, 160)

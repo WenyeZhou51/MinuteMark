@@ -228,7 +228,23 @@ func _draw_water_accents() -> void:
 	var glow_tint := droplet_glow_color
 	var core_tint := droplet_core_color
 
-	# Fine mist droplets near the head to complement shader body.
+	# --- Resolve player impact position (first player in spray) ---
+	var has_impact := false
+	var impact_pos := Vector2.ZERO   # local space
+	var player_hw  := 20.0           # half-width of player hitbox for deflection
+	var player_hh  := 52.0           # distance from origin to top of head
+	for pl in _players_in_water:
+		if pl and is_instance_valid(pl):
+			impact_pos = to_local(pl.global_position)
+			# Only block stream if player is within the spray volume
+			if impact_pos.y > 10.0 and impact_pos.y < height:
+				has_impact = true
+			break
+	# Flow-t at which a droplet would reach the player's top (head)
+	var impact_top_y  := impact_pos.y - player_hh
+	var impact_flow_t := clampf((impact_top_y - 10.0) / maxf(height - 8.0, 1.0), 0.0, 0.92)
+
+	# --- Head mist (not affected by player) ---
 	for i in range(maxi(0, head_mist_drop_count)):
 		var seed := float(i) * 5.731
 		var x := lerpf(left_x * 0.22, right_x * 0.22, _hash01(seed + 1.3))
@@ -240,23 +256,68 @@ func _draw_water_accents() -> void:
 		draw_circle(p, core * 2.2, Color(glow_tint.r, glow_tint.g, glow_tint.b, 0.16 * _spray_intensity * droplet_glow_boost))
 		draw_circle(p, core, Color(core_tint.r, core_tint.g, core_tint.b, 0.38 * _spray_intensity * droplet_core_boost))
 
-	# Fast droplets with stronger downward fall and sideways spread.
+	# --- Falling droplets: player-aware ---
 	var drops := maxi(0, int(droplet_count * _spray_intensity))
 	for i in range(drops):
 		var seed := float(i) * 13.173
-		var lane := _hash01(seed + 1.7)
-		var flow := fposmod(_anim_time * (1.7 + _hash01(seed + 4.0) * 1.8) + _hash01(seed + 9.0), 1.0)
+		var lane  := _hash01(seed + 1.7)
+		var flow  := fposmod(_anim_time * (1.7 + _hash01(seed + 4.0) * 1.8) + _hash01(seed + 9.0), 1.0)
 		var drift := sin(_anim_time * 7.1 + seed) * (spray_width * 0.08 * (0.3 + flow * 0.8))
 		var spread := lerpf(0.25, cone_spread_multiplier * 1.2, pow(flow, 1.2))
 		var x := lerpf(left_x * spread, right_x * spread, lane) + drift
 		var y := 10.0 + flow * (height - 8.0)
-		var size := lerpf(droplet_size_max, droplet_size_min, flow)
-		var alpha := (0.78 + flow * 0.18) * _spray_intensity
-		var p := Vector2(x, y)
-		draw_circle(p, size * 2.25, Color(glow_tint.r, glow_tint.g, glow_tint.b, alpha * 0.20 * droplet_glow_boost))
-		draw_circle(p, size, Color(core_tint.r, core_tint.g, core_tint.b, alpha * 0.72 * droplet_core_boost))
-	
-	# Keep only a very subtle near-floor mist, so it doesn't look like a poured slab.
+
+		# Check whether this droplet lane intersects the player at impact height
+		var lane_hits_player := false
+		var x_at_impact := 0.0
+		if has_impact:
+			var imp_spread := lerpf(0.25, cone_spread_multiplier * 1.2, pow(impact_flow_t, 1.2))
+			var imp_drift  := sin(_anim_time * 7.1 + seed) * (spray_width * 0.08 * (0.3 + impact_flow_t * 0.8))
+			x_at_impact    = lerpf(left_x * imp_spread, right_x * imp_spread, lane) + imp_drift
+			lane_hits_player = absf(x_at_impact - impact_pos.x) < player_hw
+
+		if has_impact and lane_hits_player and flow > impact_flow_t:
+			# Droplet has reached the player — deflect it outward.
+			var deflect_phase := minf((flow - impact_flow_t) / 0.38, 1.0)
+			# Side: outward from player centre. Ties go random direction.
+			var side := signf(x_at_impact - impact_pos.x)
+			if absf(x_at_impact - impact_pos.x) < 3.0:
+				side = 1.0 if _hash01(seed * 3.1 + 7.0) > 0.5 else -1.0
+			var sx := x_at_impact + side * deflect_phase * 38.0
+			# Parabolic arc: rises briefly then falls (real splash physics).
+			var sy := impact_top_y - deflect_phase * 14.0 + deflect_phase * deflect_phase * 28.0
+			var size := lerpf(droplet_size_max, droplet_size_min, flow) * (1.0 - deflect_phase * 0.55)
+			var alpha := (1.0 - deflect_phase) * _spray_intensity * 0.88
+			var sp := Vector2(sx, sy)
+			draw_circle(sp, size * 2.2, Color(glow_tint.r, glow_tint.g, glow_tint.b, alpha * 0.22 * droplet_glow_boost))
+			draw_circle(sp, size, Color(core_tint.r, core_tint.g, core_tint.b, alpha * 0.80 * droplet_core_boost))
+		else:
+			# Normal downward droplet.
+			# When hitting player lane but still above, draw only down to player top.
+			var draw_y := y
+			if has_impact and lane_hits_player:
+				draw_y = minf(y, impact_top_y)
+			var size  := lerpf(droplet_size_max, droplet_size_min, flow)
+			var alpha := (0.78 + flow * 0.18) * _spray_intensity
+			var p := Vector2(x, draw_y)
+			draw_circle(p, size * 2.25, Color(glow_tint.r, glow_tint.g, glow_tint.b, alpha * 0.20 * droplet_glow_boost))
+			draw_circle(p, size, Color(core_tint.r, core_tint.g, core_tint.b, alpha * 0.72 * droplet_core_boost))
+
+	# --- Floor splashes (only draw if no player blocking the floor lane) ---
+	for i in range(maxi(0, floor_splash_drop_count)):
+		var seed := float(i) * 17.91
+		var lane  := _hash01(seed + 2.1)
+		var x     := lerpf(left_x * 1.55, right_x * 1.55, lane)
+		# Skip floor droplets that are directly below the player (blocked).
+		if has_impact and absf(x - impact_pos.x) < player_hw * 1.4:
+			continue
+		var bounce := absf(sin(_anim_time * 12.0 + seed))
+		var y      := height - 2.0 - bounce * 7.0
+		var r      := lerpf(1.1, 2.8, _hash01(seed + 7.4))
+		draw_circle(Vector2(x, y), r * 2.1, Color(glow_tint.r, glow_tint.g, glow_tint.b, 0.18 * _spray_intensity * droplet_glow_boost))
+		draw_circle(Vector2(x, y), r, Color(core_tint.r, core_tint.g, core_tint.b, 0.46 * _spray_intensity * droplet_core_boost))
+
+	# Subtle near-floor mist.
 	var haze_alpha := 0.055 * _spray_intensity
 	draw_colored_polygon(
 		PackedVector2Array([
@@ -267,36 +328,12 @@ func _draw_water_accents() -> void:
 		]),
 		Color(water_color.r, water_color.g, water_color.b, haze_alpha)
 	)
-	
-	# Ground splash droplets close to floor to avoid laser ending.
-	for i in range(maxi(0, floor_splash_drop_count)):
-		var seed := float(i) * 17.91
-		var lane := _hash01(seed + 2.1)
-		var x := lerpf(left_x * 1.55, right_x * 1.55, lane)
-		var bounce := absf(sin(_anim_time * 12.0 + seed))
-		var y := height - 2.0 - bounce * 7.0
-		var r := lerpf(1.1, 2.8, _hash01(seed + 7.4))
-		draw_circle(
-			Vector2(x, y),
-			r * 2.1,
-			Color(glow_tint.r, glow_tint.g, glow_tint.b, 0.18 * _spray_intensity * droplet_glow_boost)
-		)
-		draw_circle(
-			Vector2(x, y),
-			r,
-			Color(core_tint.r, core_tint.g, core_tint.b, 0.46 * _spray_intensity * droplet_core_boost)
-		)
-	
-	# Keep floor indicator subtle and broken up by droplets.
 	var splash_alpha := 0.08 * _spray_intensity
 	draw_line(
-		Vector2(left_x * 1.4, height),
-		Vector2(right_x * 1.4, height),
-		Color(water_color.r, water_color.g, water_color.b, splash_alpha),
-		1.4,
-		true
+		Vector2(left_x * 1.4, height), Vector2(right_x * 1.4, height),
+		Color(water_color.r, water_color.g, water_color.b, splash_alpha), 1.4, true
 	)
-	
+
 	_draw_player_in_water_feedback()
 
 
@@ -333,28 +370,81 @@ func _update_shader_params() -> void:
 func _draw_player_in_water_feedback() -> void:
 	if _players_in_water.is_empty() or _spray_intensity <= 0.001:
 		return
-	
-	var pulse := 0.6 + 0.4 * sin(_anim_time * 10.0)
-	var highlight_color := Color(0.9, 1.0, 1.0, 0.42 * _spray_intensity * pulse)
-	var foam_color := Color(1.0, 1.0, 1.0, 0.55 * _spray_intensity * pulse)
-	
+
+	var drop_col := droplet_glow_color
+	var core_col := droplet_core_color
+	var foam_col := Color(0.88, 1.0, 1.0, 1.0)
+
 	for i in range(_players_in_water.size() - 1, -1, -1):
 		var player = _players_in_water[i]
 		if not player or not is_instance_valid(player):
 			_players_in_water.remove_at(i)
 			continue
-		
-		var p_local := to_local(player.global_position)
-		var head_pos := Vector2(p_local.x, p_local.y - 20.0)
-		var body_pos := Vector2(p_local.x, p_local.y - 2.0)
-		
-		# Bright halo ring and body ring make it obvious player is soaked.
-		draw_arc(head_pos, 20.0, 0.0, TAU, 28, highlight_color, 2.4, true)
-		draw_arc(body_pos, 16.0, 0.0, TAU, 24, highlight_color * Color(1, 1, 1, 0.8), 1.8, true)
-		
-		# Small foam streaks around the player's head area.
-		draw_line(head_pos + Vector2(-16, -6), head_pos + Vector2(16, -6), foam_color, 1.8, true)
-		draw_line(head_pos + Vector2(-12, 0), head_pos + Vector2(12, 0), foam_color * Color(1, 1, 1, 0.8), 1.4, true)
+
+		var p_local  := to_local(player.global_position)
+		# origin is ~knee-level; shift down to reach actual ground/feet
+		var feet_y   := p_local.y + 24.0
+		var head_y   := p_local.y - 64.0
+		var cx       := p_local.x
+		var hw       := 18.0   # visual half-width
+
+		# ── 1. Continuous shoulder/head impact spray ──────────────────────
+		# Water hits the top of the player and fans outward left and right.
+		var impact_count := 10
+		for s in range(impact_count):
+			var seed  := float(s) * 6.17 + 200.0
+			var phase := fposmod(_anim_time * (2.4 + _hash01(seed) * 1.2) + _hash01(seed + 1.0), 1.0)
+			# Left half → goes left; right half → goes right.
+			var side  := -1.0 if s < impact_count / 2 else 1.0
+			var angle := side * lerpf(0.05, 0.55, _hash01(seed + 2.0)) * PI
+			var spd   := lerpf(20.0, 45.0, _hash01(seed + 3.0))
+			var dx    := cos(angle - PI * 0.5) * spd * phase + side * phase * 8.0
+			# Parabolic: initial upward kick then falls with gravity.
+			var dy    := sin(angle - PI * 0.5) * spd * phase + 72.0 * phase * phase
+			var drop  := Vector2(cx + dx, head_y + dy)
+			var r     := lerpf(2.2, 0.9, phase)
+			var alpha := (1.0 - phase) * _spray_intensity * 0.92
+			draw_circle(drop, r * 2.4, Color(drop_col.r, drop_col.g, drop_col.b, alpha * 0.28 * droplet_glow_boost))
+			draw_circle(drop, r,       Color(core_col.r, core_col.g, core_col.b, alpha * droplet_core_boost))
+
+		# ── 2. Side-body drip streams ─────────────────────────────────────
+		# Water runs down the sides of the player and drips off.
+		var drip_count := 6
+		for d in range(drip_count):
+			var seed  := float(d) * 9.43 + 300.0
+			var phase := fposmod(_anim_time * (1.8 + _hash01(seed) * 0.9) + _hash01(seed + 4.0), 1.0)
+			var side  := -1.0 if d < drip_count / 2 else 1.0
+			var sx    := cx + side * (hw + _hash01(seed + 6.0) * 8.0)
+			# Drips travel downward along the body from head to feet.
+			var sy    := lerpf(head_y + 8.0, feet_y, phase)
+			var r     := lerpf(1.6, 0.7, phase)
+			var alpha := _spray_intensity * 0.65 * (1.0 - absf(phase - 0.5) * 0.6)
+			draw_circle(Vector2(sx, sy), r * 2.0, Color(drop_col.r, drop_col.g, drop_col.b, alpha * 0.22 * droplet_glow_boost))
+			draw_circle(Vector2(sx, sy), r,        Color(core_col.r, core_col.g, core_col.b, alpha * droplet_core_boost))
+
+		# ── 3. Floor splash puddle at feet ────────────────────────────────
+		# Water that runs off the player hits the ground and fans outward.
+		var puddle_count := 8
+		for p_i in range(puddle_count):
+			var seed  := float(p_i) * 11.29 + 400.0
+			var phase := fposmod(_anim_time * (2.1 + _hash01(seed) * 1.3) + _hash01(seed + 2.0), 1.0)
+			var side  := -1.0 if p_i < puddle_count / 2 else 1.0
+			var px    := cx + side * lerpf(4.0, hw * 2.2, phase)
+			var py    := feet_y - lerpf(0.0, 6.0, phase) + phase * phase * 8.0
+			var r     := lerpf(2.0, 0.7, phase)
+			var alpha := (1.0 - phase) * _spray_intensity * 0.78
+			draw_circle(Vector2(px, py), r * 2.1, Color(drop_col.r, drop_col.g, drop_col.b, alpha * 0.24 * droplet_glow_boost))
+			draw_circle(Vector2(px, py), r,        Color(core_col.r, core_col.g, core_col.b, alpha * droplet_core_boost))
+
+		# Expanding foam ring on the floor.
+		for f in range(2):
+			var phase := fposmod(_anim_time * 1.6 + f * 0.5, 1.0)
+			var fw    := lerpf(hw * 0.5, hw * 2.8, phase)
+			var alpha := (1.0 - phase) * _spray_intensity * 0.44
+			draw_line(
+				Vector2(cx - fw, feet_y - 1.0), Vector2(cx + fw, feet_y - 1.0),
+				Color(foam_col.r, foam_col.g, foam_col.b, alpha), 2.0, true
+			)
 
 
 func _intersect_floor_ray(from: Vector2, to: Vector2) -> Dictionary:

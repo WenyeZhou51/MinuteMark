@@ -20,19 +20,14 @@ const PROGRESS_RESET_MARKER_PATH = "user://level_progress_reset_v1.marker"
 
 var level_blocks: Array[Control] = []
 var hovered_block_index: int = -1
-var detected_hover_index: int = -1  # What we detect this frame
-var stable_hover_index: int = -1   # What we've detected consistently
-var hover_stability_time: float = 0.0
-var outside_stability_time: float = 0.0  # Time cursor has been outside any block (avoids boundary flicker)
-const HOVER_STABILITY_DELAY: float = 0.03  # Time before hover is considered stable (reduced for better responsiveness)
-const OUTSIDE_TO_KEYBOARD_DELAY: float = 0.25  # Time outside before we show keyboard focus (avoids level 1 flicker at boundary)
-var last_hovered_before_clear: int = -1  # When we clear stable due to "outside", keep showing this until truly left or new block
 var block_original_scales: Array[Vector2] = []
 var block_original_colors: Array[Color] = []
 var level_unlocked_states: Array[bool] = []
-# Keyboard navigation: which level is focused (used when mouse is not over any block)
+# Keyboard navigation index; also kept in sync with mouse hover when not using keyboard priority.
 var keyboard_focus_index: int = 0
 var last_effective_highlight: int = -1
+# When true (after arrow keys), highlight follows keyboard even if the cursor sits on another block.
+var _using_keyboard_nav: bool = false
 
 func _ready():
 	# Stop background music, heartbeat, and occasional noise
@@ -72,8 +67,7 @@ func _ready():
 	# Setup audio
 	setup_audio_players()
 	
-	# Hide mouse cursor in level select; keyboard only
-	Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 func clear_saved_level_progress():
 	"""Delete stored level progress so stale unlock data cannot leak into this run."""
@@ -381,24 +375,40 @@ func _position_and_scale_lock_icon(lock_icon: Node, center: Vector2):
 
 func _input(event):
 	"""Handle input for level blocks"""
-	# Handle ESC key to quit game
 	if event is InputEventKey and event.pressed:
 		if event.keycode == KEY_ESCAPE:
 			get_tree().quit()
 			return
-		# Keyboard navigation: A/Left = previous, D/Right = next (wraps: last→first, first→last)
 		if not event.echo and level_blocks.size() > 0:
 			var n = level_blocks.size()
 			if event.keycode in [KEY_LEFT, KEY_A]:
+				_using_keyboard_nav = true
 				keyboard_focus_index = (keyboard_focus_index - 1 + n) % n
 			elif event.keycode in [KEY_RIGHT, KEY_D]:
+				_using_keyboard_nav = true
 				keyboard_focus_index = (keyboard_focus_index + 1) % n
 			elif event.keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE]:
+				_using_keyboard_nav = true
 				_on_level_block_clicked(keyboard_focus_index)
 
-	# Ignore all mouse button input in this scene (keyboard only)
-	if event is InputEventMouseButton:
-		return
+	if event is InputEventMouseMotion:
+		_using_keyboard_nav = false
+
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		_using_keyboard_nav = false
+		var idx := _get_block_index_at_global_pos(event.position)
+		if idx >= 0:
+			_on_level_block_clicked(idx)
+			var vp := get_viewport()
+			if vp != null:
+				vp.set_input_as_handled()
+
+
+func _get_block_index_at_global_pos(global_point: Vector2) -> int:
+	for i in range(level_blocks.size()):
+		if _is_point_in_block(global_point, level_blocks[i]):
+			return i
+	return -1
 
 func _is_point_in_block(point: Vector2, block: Control) -> bool:
 	"""Check if a point is inside the paper scrap polygon"""
@@ -526,12 +536,22 @@ func setup_audio_players():
 		menu_select_player.stream = load("res://audio/menu_select.ogg")
 
 func _process(_delta):
-	"""Highlight level blocks using keyboard focus only (no mouse input)."""
-	# Always use keyboard_focus_index as the effective highlight
-	var effective_highlight: int = keyboard_focus_index
+	"""Highlight from mouse hover, or keyboard when arrow keys have priority over the cursor."""
+	var mouse_pos := get_viewport().get_mouse_position()
+	var mouse_hover_idx := _get_block_index_at_global_pos(mouse_pos)
+
+	if not _using_keyboard_nav and mouse_hover_idx >= 0:
+		keyboard_focus_index = mouse_hover_idx
+
+	var effective_highlight: int
+	if _using_keyboard_nav:
+		effective_highlight = keyboard_focus_index
+	else:
+		effective_highlight = mouse_hover_idx if mouse_hover_idx >= 0 else keyboard_focus_index
+
 	if effective_highlight >= level_blocks.size():
 		effective_highlight = 0
-	
+
 	# Apply/remove hover so exactly one block is highlighted
 	if effective_highlight != last_effective_highlight:
 		if last_effective_highlight >= 0 and last_effective_highlight < level_blocks.size():
