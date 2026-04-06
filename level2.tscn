@@ -1,4 +1,4 @@
-[gd_scene load_steps=37 format=3 uid="uid://co3ys7ojrgbkb"]
+[gd_scene load_steps=36 format=3 uid="uid://co3ys7ojrgbkb"]
 
 [ext_resource type="Script" path="res://level_manager.gd" id="1_qfdq4"]
 [ext_resource type="Texture2D" uid="uid://d2g7jojkre5ug" path="res://Sprites/Bd.png" id="2_h0v3f"]
@@ -26,7 +26,6 @@
 [ext_resource type="PackedScene" uid="uid://c3n8k5m7neon1" path="res://NeonStripe.tscn" id="33_neon"]
 [ext_resource type="PackedScene" uid="uid://c4p8k5m7post1" path="res://PosterizedLight.tscn" id="34_poster"]
 [ext_resource type="PackedScene" uid="uid://c5h8k5m7hang1" path="res://HangingLight.tscn" id="35_hang"]
-[ext_resource type="PackedScene" uid="uid://ce758owt0bx55" path="res://ConeLightFixture.tscn" id="36_cone"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_tutorial_longK"]
 size = Vector2(407.625, 218.25)
@@ -442,15 +441,7 @@ impulse_strength = 2.0
 cone_angle_deg = 20.0
 light_energy = 6.0
 rope_segments = 12
-
-[node name="ConeLightFixture" parent="." instance=ExtResource("36_cone")]
-position = Vector2(798, 293)
-
-[node name="ConeLightFixture2" parent="." instance=ExtResource("36_cone")]
-position = Vector2(-52, 841)
-
-[node name="ConeLightFixture3" parent="." instance=ExtResource("36_cone")]
-position = Vector2(676, 341)
+posterize_radius = null
 
 [editable path="Player"]
 [editable path="KickableObjects/Window1"]

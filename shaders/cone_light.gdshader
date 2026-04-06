@@ -10,16 +10,19 @@ uniform float pulse_amount : hint_range(0.0, 0.15) = 0.04;
 void fragment() {
 	float center_dist = abs(UV.x - 0.5) * 2.0;
 	float cone_width = mix(top_fade, 1.0, UV.y);
+	float edge = edge_softness * max(UV.y, 0.05);
+	float h_mask = 1.0 - smoothstep(cone_width - edge, cone_width, center_dist);
 
-	float cone_relative = center_dist / max(cone_width, 0.001);
-	float cone_intensity = clamp(1.0 - cone_relative, 0.0, 1.0);
-	float banded = floor(cone_intensity * posterize_levels + 0.5) / posterize_levels;
-
-	float h_mask = 1.0 - smoothstep(cone_width - edge_softness, cone_width, center_dist);
 	float v_fade = smoothstep(0.0, 0.15, UV.y) * (1.0 - smoothstep(0.85, 1.0, UV.y));
+
+	float cone_dist = center_dist / max(cone_width, 0.001);
+	float raw_intensity = (1.0 - cone_dist) * (1.0 - UV.y * 0.7);
+	raw_intensity = clamp(raw_intensity, 0.0, 1.0);
+
+	float banded = floor(raw_intensity * posterize_levels + 0.5) / posterize_levels;
 
 	float pulse = pulse_amount * (0.5 + 0.5 * sin(TIME * pulse_speed));
 
-	float alpha = light_color.a * banded * h_mask * v_fade + pulse * h_mask * v_fade;
-	COLOR = vec4(light_color.rgb, clamp(alpha, 0.0, light_color.a));
+	float alpha = h_mask * v_fade * (banded + pulse) * light_color.a;
+	COLOR = vec4(light_color.rgb, alpha);
 }

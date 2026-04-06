@@ -47,16 +47,19 @@ func _init_rope() -> void:
 func _build_cone_polygon() -> void:
 	if not cone_visual:
 		return
-	var cone_h = rope_length * 1.5
-	var half_w = tan(deg_to_rad(cone_angle_deg / 2.0)) * cone_h * 1.15
+	var half_spread = tan(deg_to_rad(cone_angle_deg / 2.0)) * rope_length * 1.5
+	var cone_height = rope_length * 1.5
 	cone_visual.polygon = PackedVector2Array([
-		Vector2(-half_w, 0),
-		Vector2(half_w, 0),
-		Vector2(half_w, cone_h),
-		Vector2(-half_w, cone_h),
+		Vector2(-6, 0),
+		Vector2(6, 0),
+		Vector2(half_spread, cone_height),
+		Vector2(-half_spread, cone_height),
 	])
 	cone_visual.uv = PackedVector2Array([
-		Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1),
+		Vector2(0.47, 0),
+		Vector2(0.53, 0),
+		Vector2(1, 1),
+		Vector2(0, 1),
 	])
 
 func _physics_process(delta: float) -> void:

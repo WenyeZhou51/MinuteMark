@@ -14,12 +14,12 @@ shader_parameter/pulse_min = 0.7
 shader_parameter/flicker_intensity = 0.1
 shader_parameter/end_cap_fade = 0.05
 
-[sub_resource type="Gradient" id="Gradient_neon_smooth"]
-offsets = PackedFloat32Array(0, 0.4, 0.7, 1)
-colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 0.6, 1, 1, 1, 0.15, 1, 1, 1, 0)
+[sub_resource type="Gradient" id="Gradient_neon_stepped"]
+offsets = PackedFloat32Array(0, 0.15, 0.151, 0.35, 0.351, 0.55, 0.551, 0.75, 0.751, 1.0)
+colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 1, 0.75, 0.75, 0.75, 0.75, 0.75, 0.75, 0.75, 0.75, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0, 0, 0, 0, 0, 0, 0, 0)
 
 [sub_resource type="GradientTexture2D" id="GradientTexture2D_neon"]
-gradient = SubResource("Gradient_neon_smooth")
+gradient = SubResource("Gradient_neon_stepped")
 fill = 1
 fill_from = Vector2(0.5, 0.5)
 
