@@ -94,6 +94,14 @@ func _on_delay_timer_timeout() -> void:
 	delay_timer = null
 
 func _trigger_tutorial() -> void:
+	# Don't trigger if player is currently rewinding - prevents softlock
+	var _p = get_tree().get_first_node_in_group("player")
+	if _p and (
+		("is_rewind_holding" in _p and _p.is_rewind_holding) or
+		("is_rewind_tracing" in _p and _p.is_rewind_tracing)
+	):
+		return
+
 	triggered = true
 	
 	if pre_freeze_slow_mo_time > 0:
