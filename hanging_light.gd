@@ -6,6 +6,7 @@ extends Node2D
 @export var impulse_strength: float = 3.0
 @export var cone_angle_deg: float = 40.0
 @export var light_energy: float = 2.0
+@export var light_radius: float = 8.0
 @export var rope_segments: int = 6
 @export var posterize_levels: float = 5.0
 
@@ -24,6 +25,7 @@ var rope_velocities: PackedVector2Array
 func _ready() -> void:
 	if light:
 		light.energy = light_energy
+		light.texture_scale = light_radius
 
 	_init_rope()
 	_build_cone_polygon()
