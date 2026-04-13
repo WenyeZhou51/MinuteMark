@@ -1,0 +1,38 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://flammable_object.gd" id="1_flammable"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_table"]
+size = Vector2(240, 120)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_table_block"]
+size = Vector2(240, 120)
+
+[node name="FlammableTable" type="Area2D" groups=["flammable_objects"]]
+script = ExtResource("1_flammable")
+object_size = Vector2(240, 120)
+object_color = Color(0.45, 0.28, 0.14, 1)
+kickable = false
+fragment_count = 10
+burn_time_begin = 1.0
+burn_time_bright = 3.0
+burn_time_dying = 2.0
+ignition_radius = 250.0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_table")
+
+[node name="Visual" type="Polygon2D" parent="."]
+color = Color(0.45, 0.28, 0.14, 1)
+polygon = PackedVector2Array(-120, -60, 120, -60, 120, -36, 102, -36, 102, 60, 78, 60, 78, -36, -78, -36, -78, 60, -102, 60, -102, -36, -120, -36)
+
+[node name="TopHighlight" type="Polygon2D" parent="Visual"]
+color = Color(0.52, 0.34, 0.18, 1)
+polygon = PackedVector2Array(-114, -57, 114, -57, 114, -42, -114, -42)
+
+[node name="BlockingBody" type="StaticBody2D" parent="."]
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="BlockingBody"]
+shape = SubResource("RectangleShape2D_table_block")

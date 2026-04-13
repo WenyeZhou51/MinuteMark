@@ -1,0 +1,43 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://flammable_object.gd" id="1_flammable"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_chair"]
+size = Vector2(96, 120)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_chair_block"]
+size = Vector2(96, 120)
+
+[node name="FlammableChair" type="Area2D" groups=["flammable_objects", "kickable_objects"]]
+script = ExtResource("1_flammable")
+object_size = Vector2(96, 120)
+object_color = Color(0.55, 0.35, 0.18, 1)
+kickable = true
+kick_speed = 1800.0
+fragment_count = 6
+burn_time_begin = 0.6
+burn_time_bright = 2.0
+burn_time_dying = 1.2
+ignition_radius = 200.0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_chair")
+
+[node name="Visual" type="Polygon2D" parent="."]
+color = Color(0.55, 0.35, 0.18, 1)
+polygon = PackedVector2Array(-48, -60, -18, -60, -18, -12, 48, -12, 48, 6, 30, 6, 30, 60, 12, 60, 12, 6, -30, 6, -30, 60, -48, 60)
+
+[node name="BackTop" type="Polygon2D" parent="Visual"]
+color = Color(0.45, 0.28, 0.14, 1)
+polygon = PackedVector2Array(-42, -54, -24, -54, -24, -18, -42, -18)
+
+[node name="Seat" type="Polygon2D" parent="Visual"]
+color = Color(0.48, 0.3, 0.15, 1)
+polygon = PackedVector2Array(-15, -9, 42, -9, 42, 3, -15, 3)
+
+[node name="BlockingBody" type="StaticBody2D" parent="."]
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="BlockingBody"]
+shape = SubResource("RectangleShape2D_chair_block")

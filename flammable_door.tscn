@@ -1,0 +1,52 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://flammable_object.gd" id="1_flammable"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_fdoor"]
+size = Vector2(60, 360)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_fdoor_block"]
+size = Vector2(60, 360)
+
+[node name="FlammableDoor" type="Area2D" groups=["flammable_objects", "kickable_objects"]]
+script = ExtResource("1_flammable")
+object_size = Vector2(60, 360)
+object_color = Color(0.5, 0.32, 0.16, 1)
+kickable = true
+kick_speed = 2000.0
+fragment_count = 8
+burn_time_begin = 0.8
+burn_time_bright = 2.5
+burn_time_dying = 1.5
+ignition_radius = 200.0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_fdoor")
+
+[node name="Visual" type="Polygon2D" parent="."]
+color = Color(0.5, 0.32, 0.16, 1)
+polygon = PackedVector2Array(-30, -180, 30, -180, 30, 180, -30, 180)
+
+[node name="TopPanel" type="Polygon2D" parent="Visual"]
+color = Color(0.42, 0.26, 0.12, 1)
+polygon = PackedVector2Array(-21, -165, 21, -165, 21, -45, -21, -45)
+
+[node name="BottomPanel" type="Polygon2D" parent="Visual"]
+color = Color(0.42, 0.26, 0.12, 1)
+polygon = PackedVector2Array(-21, -15, 21, -15, 21, 150, -21, 150)
+
+[node name="Knob" type="Polygon2D" parent="Visual"]
+color = Color(0.7, 0.55, 0.3, 1)
+polygon = PackedVector2Array(12, 24, 21, 30, 21, 42, 12, 48, 3, 42, 3, 30)
+
+[node name="Frame" type="Polygon2D" parent="Visual"]
+z_index = -1
+color = Color(0.38, 0.22, 0.1, 1)
+polygon = PackedVector2Array(-36, -186, 36, -186, 36, 180, -36, 180)
+
+[node name="BlockingBody" type="StaticBody2D" parent="."]
+collision_layer = 1
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="BlockingBody"]
+shape = SubResource("RectangleShape2D_fdoor_block")
