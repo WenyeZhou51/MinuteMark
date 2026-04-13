@@ -93,8 +93,9 @@ layer_0/tile_data = PackedInt32Array(1048598, 393219, 18, 1048599, 393219, 18, 1
 [node name="PixelFireSimulation" parent="." instance=ExtResource("30_pxfire")]
 position = Vector2(670, 9971)
 ignition_points = Array[Vector2]([Vector2(200, 988), Vector2(1500, 988), Vector2(3000, 988)])
+eternal_ignition_points = Array[Vector2]([Vector2(350, 9870), Vector2(500, 9870), Vector2(650, 9870)])
 cell_size = 5
-flame_particle_count = 10000
+flame_particle_count = 20000
 spread_interval = 0.01
 burn_heat_output = 4.0
 heat_conductivity = 3.0
