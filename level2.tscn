@@ -1,4 +1,4 @@
-[gd_scene load_steps=40 format=3 uid="uid://co3ys7ojrgbkb"]
+[gd_scene load_steps=41 format=3 uid="uid://co3ys7ojrgbkb"]
 
 [ext_resource type="Script" path="res://level_manager.gd" id="1_qfdq4"]
 [ext_resource type="Texture2D" uid="uid://d2g7jojkre5ug" path="res://Sprites/Bd.png" id="2_h0v3f"]
@@ -30,6 +30,7 @@
 [ext_resource type="PackedScene" path="res://flammable_chair.tscn" id="37_fchair"]
 [ext_resource type="PackedScene" path="res://flammable_table.tscn" id="38_ftable"]
 [ext_resource type="PackedScene" path="res://flammable_door.tscn" id="39_fdoor"]
+[ext_resource type="PackedScene" uid="uid://cqmsblkjjhgrp" path="res://FallingBlock.tscn" id="27_ggudo"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_tutorial_longK"]
 size = Vector2(407.625, 218.25)
