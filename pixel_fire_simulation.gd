@@ -5,6 +5,7 @@ extends Node2D
 ## Fire spreads along tilemap platform surfaces via heat conduction.
 
 @export var ignition_points: Array[Vector2] = []
+@export var eternal_ignition_points: Array[Vector2] = []  ## Fires that never burn out and don't spread — burn in-place forever
 @export var cell_size: int = 8
 @export var flame_particle_count: int = 300  ## Max rising fire particles
 @export var spread_interval: float = 0.05
@@ -30,6 +31,8 @@ var surface_temp: Dictionary = {}
 var burning_set: Dictionary = {}  # Vector2i -> true (only burning cells)
 # Track cells with non-zero temperature for targeted iteration
 var heated_set: Dictionary = {}  # Vector2i -> true
+# Cells that burn forever and don't spread heat — set up via eternal_ignition_points or ignite_eternal_at()
+var eternal_cells: Dictionary = {}  # Vector2i -> true
 
 # ===== PARTICLE POOL (flat arrays, no Dictionaries) =====
 # Each particle has 8 floats: pos_x, pos_y, vel_x, vel_y, life, max_life, heat, size
@@ -176,6 +179,8 @@ func _setup_tonemap() -> void:
 func _ignite_start_points() -> void:
 	for pt in ignition_points:
 		ignite_at(pt)
+	for pt in eternal_ignition_points:
+		ignite_eternal_at(pt)
 
 
 func ignite_at(world_pos: Vector2, radius: int = 3) -> void:
@@ -205,6 +210,34 @@ func ignite_at(world_pos: Vector2, radius: int = 3) -> void:
 				burning_set[key] = true
 				heated_set[key] = true
 				ignited += 1
+
+
+func ignite_eternal_at(world_pos: Vector2, radius: int = 3) -> void:
+	var cx := int(round(world_pos.x / cell_size))
+	var cy := int(round(world_pos.y / cell_size))
+
+	var best_key := Vector2i.ZERO
+	var best_dist := 99999.0
+	for key in surface_fuel:
+		var dx_f: float = key.x - cx
+		var dy_f: float = key.y - cy
+		var d := dx_f * dx_f + dy_f * dy_f
+		if d < best_dist:
+			best_dist = d
+			best_key = key
+
+	if best_dist > 40000:
+		return
+
+	for dy in range(-1, 2):
+		for ddx in range(-radius, radius + 1):
+			var key := Vector2i(best_key.x + ddx, best_key.y + dy)
+			if surface_fuel.has(key):
+				surface_fuel[key] = 1.0
+				surface_temp[key] = 1.0
+				burning_set[key] = true
+				heated_set[key] = true
+				eternal_cells[key] = true
 
 
 func _process(delta: float) -> void:
@@ -275,31 +308,35 @@ func _simulate_step(dt: float) -> void:
 	var new_heated: Array[Vector2i] = []
 
 	for key in burning_set:
-		# Consume fuel
-		surface_fuel[key] -= burn_rate * dt
-		if surface_fuel[key] <= 0.0:
-			surface_fuel[key] = 0.0
-			to_extinguish.append(key)
-			continue
+		var is_eternal: bool = eternal_cells.has(key)
+
+		# Consume fuel (eternal cells never lose fuel)
+		if not is_eternal:
+			surface_fuel[key] -= burn_rate * dt
+			if surface_fuel[key] <= 0.0:
+				surface_fuel[key] = 0.0
+				to_extinguish.append(key)
+				continue
 
 		# Keep burning cells hot
 		surface_temp[key] = maxf(surface_temp[key], 0.8)
 
-		# Conduct heat to neighbors
-		var heat_add: float = burn_heat_output * dt * heat_conductivity
-		var nx: int = key.x
-		var ny: int = key.y
-		var neighbor_keys: Array[Vector2i] = [
-			Vector2i(nx - 1, ny), Vector2i(nx + 1, ny),
-			Vector2i(nx - 1, ny - 1), Vector2i(nx + 1, ny - 1),
-			Vector2i(nx, ny - 1),
-			Vector2i(nx - 2, ny), Vector2i(nx + 2, ny),
-		]
-		for n in neighbor_keys:
-			if surface_temp.has(n):
-				surface_temp[n] += heat_add
-				if not heated_set.has(n):
-					new_heated.append(n)
+		# Conduct heat to neighbors (eternal cells don't spread)
+		if not is_eternal:
+			var heat_add: float = burn_heat_output * dt * heat_conductivity
+			var nx: int = key.x
+			var ny: int = key.y
+			var neighbor_keys: Array[Vector2i] = [
+				Vector2i(nx - 1, ny), Vector2i(nx + 1, ny),
+				Vector2i(nx - 1, ny - 1), Vector2i(nx + 1, ny - 1),
+				Vector2i(nx, ny - 1),
+				Vector2i(nx - 2, ny), Vector2i(nx + 2, ny),
+			]
+			for n in neighbor_keys:
+				if surface_temp.has(n):
+					surface_temp[n] += heat_add
+					if not heated_set.has(n):
+						new_heated.append(n)
 
 		# Spawn particles — scale probability by fuel so dim cells yield pool space
 		var spawn_chance: float = surface_fuel.get(key, 0.0)
