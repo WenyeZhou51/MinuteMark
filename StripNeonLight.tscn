@@ -10,7 +10,7 @@ shader_parameter/glow_color = Color(0.2, 0.6, 1, 1)
 shader_parameter/core_width = 0.03
 shader_parameter/glow_falloff = 0.4
 shader_parameter/core_brightness = 3.0
-shader_parameter/pulse_speed = 2.0
+shader_parameter/pulse_speed = 1.5
 shader_parameter/pulse_min = 0.8
 shader_parameter/end_fade = 0.05
 
