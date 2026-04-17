@@ -367,6 +367,9 @@ func _simulate_step(dt: float) -> void:
 	var to_ignite: Array[Vector2i] = []
 	var to_unheat: Array[Vector2i] = []
 
+	# Collect sprinkler spray polygons (world-space) once per tick
+	var sprinkler_polygons := _collect_sprinkler_polygons()
+
 	for key in heated_set:
 		if burning_set.has(key):
 			continue
@@ -375,11 +378,13 @@ func _simulate_step(dt: float) -> void:
 			continue
 
 		var temp: float = surface_temp.get(key, 0.0)
-		if temp >= ignition_temp:
+		var under_shower: bool = _is_cell_under_sprinkler(key, sprinkler_polygons)
+		if temp >= ignition_temp and not under_shower:
 			to_ignite.append(key)
 		else:
-			# Dissipate
-			surface_temp[key] = maxf(temp - heat_dissipation * dt, 0.0)
+			# Dissipate — faster under sprinkler so heat can't accumulate
+			var dissipation: float = heat_dissipation * (3.0 if under_shower else 1.0)
+			surface_temp[key] = maxf(temp - dissipation * dt, 0.0)
 			if surface_temp[key] <= 0.01:
 				to_unheat.append(key)
 
@@ -627,3 +632,39 @@ func _check_player_fire_proximity() -> void:
 						p.set_on_fire()
 					found = true
 					break
+
+
+func _collect_sprinkler_polygons() -> Array:
+	const FLOOR_MARGIN := 40.0  # Extend polygon below the spray-polygon's bottom edge
+								# so fire cells sitting on the floor just below it are covered.
+	var polygons: Array = []
+	for s in get_tree().get_nodes_in_group("sprinklers"):
+		var spray_poly = s.get("spray_polygon")
+		if spray_poly == null:
+			continue
+		var xform: Transform2D = spray_poly.global_transform
+		var world_poly: PackedVector2Array = PackedVector2Array()
+		var max_y: float = -INF
+		for pt: Vector2 in spray_poly.polygon:
+			var wp: Vector2 = xform * pt
+			world_poly.append(wp)
+			if wp.y > max_y:
+				max_y = wp.y
+		# Push bottom vertices (those at max_y) down by FLOOR_MARGIN
+		for i in range(world_poly.size()):
+			if absf(world_poly[i].y - max_y) < 0.5:
+				world_poly[i] = Vector2(world_poly[i].x, world_poly[i].y + FLOOR_MARGIN)
+		polygons.append(world_poly)
+	return polygons
+
+
+func _is_cell_under_sprinkler(cell: Vector2i, polygons: Array) -> bool:
+	if polygons.is_empty():
+		return false
+	var cell_pos := Vector2(
+		cell.x * cell_size + cell_size * 0.5,
+		cell.y * cell_size + cell_size * 0.5)
+	for poly in polygons:
+		if Geometry2D.is_point_in_polygon(cell_pos, poly):
+			return true
+	return false
