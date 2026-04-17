@@ -93,7 +93,7 @@ func _physics_process(delta: float) -> void:
 	if not is_triggered:
 		_try_trigger_from_player_fallback()
 	
-	if is_triggered and not is_falling:
+	if is_triggered and not is_falling and not has_landed:
 		fall_timer += delta
 		if fall_timer >= fall_delay:
 			_start_fall()
@@ -291,6 +291,8 @@ func _fall_with_collision(delta: float) -> void:
 	platform_body.global_position.y = hit_pos.y - half_height - LANDING_MARGIN
 	is_falling = false
 	has_landed = true
+	if trigger_area:
+		trigger_area.monitoring = false
 	
 	var collider = collision.collider
 	if _is_ground_collider(collider):

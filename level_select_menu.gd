@@ -522,7 +522,7 @@ func _on_level_block_clicked(level_index: int):
 	# Load the level scene
 	var scene_path = level_data.get("scene_path", "")
 	if scene_path != "" and ResourceLoader.exists(scene_path):
-		get_tree().change_scene_to_file(scene_path)
+		LoadingIndicator.change_scene(scene_path)
 	else:
 		push_error("LevelSelectMenu: Scene path not found: " + scene_path)
 

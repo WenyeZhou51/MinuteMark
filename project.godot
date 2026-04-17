@@ -23,6 +23,7 @@ DialogueStats="*res://dialogue/DialogueStats.gd"
 TutorialManager="*res://tutorial_manager.gd"
 TutorialBlockManager="*res://tutorial_block_manager.gd"
 LeaderboardManager="*res://leaderboard_manager.gd"
+LoadingIndicator="*res://loading_indicator.tscn"
 
 [display]
 

@@ -3,7 +3,7 @@
 [ext_resource type="Script" uid="uid://c4rha5uh0y65o" path="res://lever_trigger.gd" id="1_script"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_lever_trigger"]
-size = Vector2(120, 120)
+size = Vector2(360, 280)
 
 [node name="LeverTrigger" type="Area2D"]
 script = ExtResource("1_script")

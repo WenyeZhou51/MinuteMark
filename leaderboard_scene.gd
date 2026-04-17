@@ -160,7 +160,7 @@ func _on_global_leaderboard_updated():
 func _on_back_button_pressed():
 	# Go back to level select menu
 	if ResourceLoader.exists("res://level_select_menu.tscn"):
-		get_tree().change_scene_to_file("res://level_select_menu.tscn")
+		LoadingIndicator.change_scene("res://level_select_menu.tscn")
 	else:
 		push_error("LeaderboardScene: level_select_menu.tscn not found!")
 

@@ -118,7 +118,7 @@ func _trigger_background_reload():
 	get_tree().paused = false
 	
 	# Use full scene reload to ensure everything resets correctly
-	get_tree().reload_current_scene()
+	LoadingIndicator.reload_scene()
 
 func _input(event):
 	if not input_allowed:

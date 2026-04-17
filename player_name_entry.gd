@@ -46,4 +46,4 @@ func _submit_name() -> void:
 	LeaderboardManager.set_player_name(player_name)
 	
 	# Go to level selection menu
-	get_tree().change_scene_to_file("res://level_select_menu.tscn")
+	LoadingIndicator.change_scene("res://level_select_menu.tscn")
