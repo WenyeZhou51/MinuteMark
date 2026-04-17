@@ -77,6 +77,7 @@ var _water_sfx_player: AudioStreamPlayer2D
 
 
 func _ready() -> void:
+	add_to_group("sprinklers")
 	_setup_droplet_render_material()
 	_setup_audio_player()
 	_setup_water_light()
