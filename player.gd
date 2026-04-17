@@ -392,6 +392,15 @@ var is_slide_jump_available: bool = false  # Can player perform empowered jump f
 var is_invulnerable: bool = false  # Is player currently invulnerable (during dashes)
 var run_input_just_pressed: bool = false  # Track if run input was just pressed this frame
 
+# WALL EMBED DISPLACEMENT
+const EMBED_INSET: float = 3.0
+const DISPLACEMENT_STEP: float = 4.0
+const MAX_DISPLACEMENT: float = 128.0
+const EMBED_PLATFORM_DISABLE_TIME: float = 0.5
+var _embed_stuck_frames: int = 0
+var _embed_free_frames: int = 0
+var _embed_disabled_platforms: Array = []
+
 # CAMERA SHAKE
 var camera_shake_intensity: float = 0.0
 var camera_shake_timer: float = 0.0
@@ -938,6 +947,14 @@ func _physics_process(delta: float) -> void:
 	# Skip all processing if dying (scene is being reloaded)
 	if is_dying:
 		return
+	
+	# Tick disabled platform collision restore timers
+	_tick_embed_disabled_platforms(delta)
+	
+	# Resolve wall embed at the START of physics to catch pushes from the previous frame
+	# (platform _physics_process may run after player, pushing us between frames)
+	if not is_rewind_tracing and not is_ledge_climbing:
+		_resolve_wall_embed()
 	
 	# Initialize rewind buffer on first frame (after position is set by level)
 	if rewind_enabled and not rewind_buffer_initialized:
@@ -3712,6 +3729,158 @@ func _check_position_validity() -> bool:
 	return true
 
 
+func _is_embedded_in_static_geometry(test_transform: Transform2D) -> bool:
+	"""Check if the player overlaps static geometry (walls/tilemaps) at the given transform.
+	Ignores dynamic platforms (falling blocks, moving platforms) so the search
+	only escapes from immovable solids."""
+	var col_shape = $CollisionShape2D
+	if not col_shape or not col_shape.shape:
+		return false
+	var shape = col_shape.shape as RectangleShape2D
+	if not shape:
+		return false
+	var space_state = get_world_2d().direct_space_state
+	if not space_state:
+		return false
+
+	var inset_shape = RectangleShape2D.new()
+	inset_shape.size = Vector2(
+		max(shape.size.x - EMBED_INSET * 2, 1.0),
+		max(shape.size.y - EMBED_INSET * 2, 1.0)
+	)
+
+	var query = PhysicsShapeQueryParameters2D.new()
+	query.shape = inset_shape
+	query.transform = test_transform
+	query.collision_mask = original_collision_mask if collision_mask == 0 else collision_mask
+	query.exclude = [self.get_rid()]
+
+	var results = space_state.intersect_shape(query, 16)
+	for result in results:
+		var collider = result.get("collider")
+		if collider and collider.is_in_group("platforms"):
+			continue
+		return true
+	return false
+
+
+func _disable_crushing_platforms(at_transform: Transform2D) -> void:
+	"""Find platform bodies overlapping the player at the given transform and disable
+	their collision_layer so move_and_slide() stops pushing the player back."""
+	var col_shape = $CollisionShape2D
+	if not col_shape or not col_shape.shape:
+		return
+	var shape = col_shape.shape as RectangleShape2D
+	if not shape:
+		return
+	var space_state = get_world_2d().direct_space_state
+	if not space_state:
+		return
+
+	var query = PhysicsShapeQueryParameters2D.new()
+	query.shape = shape
+	query.transform = at_transform
+	query.collision_mask = original_collision_mask if collision_mask == 0 else collision_mask
+	query.exclude = [self.get_rid()]
+
+	var results = space_state.intersect_shape(query, 16)
+	for result in results:
+		var collider = result.get("collider")
+		if not collider or not collider.is_in_group("platforms"):
+			continue
+		if not (collider is PhysicsBody2D):
+			continue
+		var already_disabled := false
+		for entry in _embed_disabled_platforms:
+			if entry.body == collider:
+				entry.timer = EMBED_PLATFORM_DISABLE_TIME
+				already_disabled = true
+				break
+		if not already_disabled:
+			collider.collision_layer = 0
+			_embed_disabled_platforms.append({body = collider, timer = EMBED_PLATFORM_DISABLE_TIME})
+			print("[EMBED] F%d | Disabled collision on platform: %s" % [
+				Engine.get_frames_drawn(), collider.get_parent().name if collider.get_parent() else collider.name])
+
+
+func _tick_embed_disabled_platforms(delta: float) -> void:
+	"""Tick timers on disabled platforms and restore their collision_layer when expired."""
+	var i := _embed_disabled_platforms.size() - 1
+	while i >= 0:
+		var entry = _embed_disabled_platforms[i]
+		entry.timer -= delta
+		if entry.timer <= 0.0:
+			if is_instance_valid(entry.body):
+				entry.body.collision_layer = 1
+				print("[EMBED] F%d | Restored collision on platform: %s" % [
+					Engine.get_frames_drawn(),
+					entry.body.get_parent().name if entry.body.get_parent() else entry.body.name])
+			_embed_disabled_platforms.remove_at(i)
+		i -= 1
+
+
+func _resolve_wall_embed() -> void:
+	"""If the player is embedded in static geometry, displace to the nearest open position.
+	Also disables collision on any platform body that is crushing the player so
+	move_and_slide() cannot push the player back into the wall."""
+	var col_shape = $CollisionShape2D
+	if not col_shape or not col_shape.shape:
+		return
+
+	var current_transform = col_shape.global_transform
+	if not _is_embedded_in_static_geometry(current_transform):
+		_embed_free_frames += 1
+		if _embed_free_frames > 10:
+			_embed_stuck_frames = 0
+		return
+
+	_embed_stuck_frames += 1
+	_embed_free_frames = 0
+	if _embed_stuck_frames <= 3:
+		print("[EMBED] F%d | EMBEDDED at pos=%s vel=%s stuck=%d" % [
+			Engine.get_frames_drawn(), global_position, velocity, _embed_stuck_frames])
+
+	var directions: Array[Vector2] = [
+		Vector2.UP,
+		Vector2.LEFT,
+		Vector2.RIGHT,
+		Vector2(-1, -1).normalized(),
+		Vector2(1, -1).normalized(),
+		Vector2.DOWN,
+	]
+
+	var best_offset := Vector2.ZERO
+	var best_dist := MAX_DISPLACEMENT + 1.0
+
+	for dir in directions:
+		var step_count := int(MAX_DISPLACEMENT / DISPLACEMENT_STEP)
+		for i in range(1, step_count + 1):
+			var offset = dir * DISPLACEMENT_STEP * i
+			var test_xform = current_transform
+			test_xform.origin += offset
+			if not _is_embedded_in_static_geometry(test_xform):
+				var dist = offset.length()
+				if dist < best_dist:
+					best_dist = dist
+					best_offset = offset
+				break
+
+	if best_offset != Vector2.ZERO:
+		var old_pos = global_position
+		global_position += best_offset
+		if best_offset.y != 0.0:
+			velocity.y = 0.0
+		if best_offset.x != 0.0:
+			velocity.x = 0.0
+		_disable_crushing_platforms(current_transform)
+		print("[EMBED] F%d | DISPLACED %s -> %s (offset=%s, dist=%.1f)" % [
+			Engine.get_frames_drawn(), old_pos, global_position, best_offset, best_dist])
+	else:
+		_disable_crushing_platforms(current_transform)
+		print("[EMBED] F%d | FAILED to find free position, disabled platforms. pos=%s" % [
+			Engine.get_frames_drawn(), global_position])
+
+
 func _end_ground_slide() -> void:
 	"""End the ground slide and restore collision shape."""
 	if not is_ground_sliding:
@@ -4046,6 +4215,10 @@ func _end_slam_freeze() -> void:
 
 func _post_movement_updates(space_state: PhysicsDirectSpaceState2D) -> void:
 	"""Handle any post-movement state updates."""
+	# 0. Resolve wall embed (player pushed into geometry by AnimatableBody2D)
+	if not is_dying and not is_rewind_tracing and not is_ledge_climbing:
+		_resolve_wall_embed()
+	
 	# 1. Check for wall run activation AFTER move_and_slide() to ensure actual collision
 	_check_wall_run_activation()
 	

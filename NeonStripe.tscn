@@ -35,4 +35,4 @@ uv = PackedVector2Array(0, 0, 1, 0, 1, 1, 0, 1)
 color = Color(0.2, 0.6, 1, 1)
 energy = 1.5
 texture = SubResource("GradientTexture2D_neon")
-texture_scale = 8.0
+texture_scale = 6.25
