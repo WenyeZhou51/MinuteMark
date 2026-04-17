@@ -7,10 +7,17 @@ extends Node2D
 @export var push_speed: float = 195.0   ## Horizontal push speed in px/sec
 @export var fall_speed: float = 800.0   ## Gravity when not grounded
 
+@export_group("Fade After Escape")
+@export var linger_time: float = 3.0
+@export var fade_duration: float = 0.5
+
 @onready var cage_body: AnimatableBody2D = $CageBody
 
 var player: CharacterBody2D = null
 var _fall_velocity := 0.0
+var _player_was_inside: bool = false
+var _fading: bool = false
+var _fade_timer: float = 0.0
 
 
 func _ready() -> void:
@@ -22,12 +29,18 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if _fading:
+		_process_fade(delta)
+		return
+
 	_apply_gravity(delta)
 
 	if not player or not is_instance_valid(player):
 		player = get_tree().get_first_node_in_group("player")
 		if not player:
 			return
+
+	_check_player_escape()
 
 	var push_dir := _get_push_direction()
 	if push_dir == 0:
@@ -100,6 +113,43 @@ func _get_max_move_distance(dir: int, desired: float) -> float:
 			min_dist = minf(min_dist, maxf(hit_dist - 1.0, 0.0))
 
 	return min_dist
+
+
+func _check_player_escape() -> void:
+	if not player or not is_instance_valid(player):
+		return
+	var inside := _is_inside_cage(player.global_position)
+	if _player_was_inside and not inside:
+		_start_fade()
+	_player_was_inside = inside
+
+
+func _is_inside_cage(pos: Vector2) -> bool:
+	var cp := cage_body.global_position
+	var hw := cage_width / 2.0
+	var hh := cage_height / 2.0
+	return pos.x > cp.x - hw and pos.x < cp.x + hw and pos.y > cp.y - hh and pos.y < cp.y + hh
+
+
+func _start_fade() -> void:
+	_fading = true
+	_fade_timer = 0.0
+
+
+func _process_fade(delta: float) -> void:
+	_fade_timer += delta
+
+	var fade_start := linger_time - fade_duration
+	if _fade_timer >= fade_start:
+		var t := clampf((_fade_timer - fade_start) / fade_duration, 0.0, 1.0)
+		cage_body.modulate.a = 1.0 - t
+
+	if _fade_timer >= linger_time:
+		cage_body.collision_layer = 0
+		for child in cage_body.get_children():
+			if child is CollisionShape2D:
+				child.set_deferred("disabled", true)
+		queue_free()
 
 
 func _setup_sprites() -> void:

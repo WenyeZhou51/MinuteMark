@@ -8,6 +8,7 @@ extends Node2D
 @export var burn_duration: float = 1.0
 @export var ignition_ramp: float = 0.2
 @export var dying_ramp: float = 0.25
+@export var spread_delay: float = 0.2
 @export var check_interval: int = 5
 @export var particle_interval: float = 0.08
 @export var custom_data_layer: String = "is_burnable"
@@ -40,6 +41,7 @@ class BurningTileData:
 	var world_pos: Vector2
 	var source_id: int
 	var atlas_coords: Vector2i
+	var has_spread: bool = false
 
 
 func _ready() -> void:
@@ -127,16 +129,24 @@ func _process(delta: float) -> void:
 		_check_ignition_sources()
 
 	var to_remove: Array[Vector2i] = []
+	var to_spread: Array[Vector2i] = []
 	for cell in burning_tiles:
 		var data: BurningTileData = burning_tiles[cell]
 		data.timer += delta
 		data.particle_timer += delta
+
+		if not data.has_spread and data.timer >= spread_delay:
+			data.has_spread = true
+			to_spread.append(cell)
 
 		if data.timer >= burn_duration:
 			to_remove.append(cell)
 			continue
 
 		_update_burning_tile(data)
+
+	for cell in to_spread:
+		_spread_to_neighbors(cell)
 
 	for cell in to_remove:
 		_finish_burn(cell)
@@ -149,6 +159,8 @@ func _process_rewind(delta: float) -> void:
 	for cell in burning_tiles:
 		var data: BurningTileData = burning_tiles[cell]
 		data.timer -= delta
+		if data.has_spread and data.timer < spread_delay:
+			data.has_spread = false
 		if data.timer <= 0.0:
 			to_restore.append(cell)
 			continue
@@ -227,6 +239,16 @@ func _fire_sim_overlaps_tile(cell: Vector2i) -> bool:
 			if fire_sim.burning_set.has(Vector2i(fx, fy)):
 				return true
 	return false
+
+
+func _spread_to_neighbors(cell: Vector2i) -> void:
+	for dy in range(-1, 2):
+		for dx in range(-1, 2):
+			if dx == 0 and dy == 0:
+				continue
+			var adj := Vector2i(cell.x + dx, cell.y + dy)
+			if burnable_cells.has(adj) and not burning_tiles.has(adj):
+				_ignite_tile(adj)
 
 
 func ignite_at_world_pos(world_pos: Vector2) -> void:
