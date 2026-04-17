@@ -18,6 +18,20 @@ const PROGRESS_RESET_MARKER_PATH = "user://level_progress_reset_v1.marker"
 @export var use_scene_lock_icon_transform: bool = true  # If true, LockIcon Sprite2D position/scale from scene are preserved.
 @export var lock_overlay_outset: float = 4.0  # Expand overlay slightly outside paper shape.
 
+@export_group("Focus Outline")
+## Pink ↔ warm yellow pulse on the focused card outline.
+@export var focus_edge_color_a: Color = Color(0.95, 0.45, 0.62, 1)
+@export var focus_edge_color_b: Color = Color(1.0, 0.88, 0.42, 1)
+## TornEdge width is in local pixels; scale-aware clamp keeps levels even; raise min/max for a bolder frame.
+@export var focus_edge_world_width_mul: float = 1.68
+@export var focus_edge_world_width_min: float = 13.0
+@export var focus_edge_world_width_max: float = 22.0
+@export var focus_edge_width_pulse: float = 0.14
+@export var unfocused_edge_width_mul: float = 0.82
+@export var unfocused_edge_color_mul: float = 0.52
+@export var focus_block_modulate: Color = Color(1, 1, 1, 1)
+@export var unfocused_block_modulate: Color = Color(0.58, 0.58, 0.62, 1.0)
+
 var level_blocks: Array[Control] = []
 var hovered_block_index: int = -1
 var block_original_scales: Array[Vector2] = []
@@ -28,6 +42,10 @@ var keyboard_focus_index: int = 0
 var last_effective_highlight: int = -1
 # When true (after arrow keys), highlight follows keyboard even if the cursor sits on another block.
 var _using_keyboard_nav: bool = false
+
+var block_torn_edge_colors: Array[Color] = []
+var block_torn_edge_widths: Array[float] = []
+var _outline_flash_phase: float = 0.0
 
 func _ready():
 	# Stop background music, heartbeat, and occasional noise
@@ -59,9 +77,10 @@ func _ready():
 	# Apply loaded/default state to visuals
 	_apply_level_states_to_blocks()
 	_cache_block_original_colors()
+	_cache_torn_edge_defaults()
 	if level_blocks.size() > 0:
 		keyboard_focus_index = clampi(keyboard_focus_index, 0, level_blocks.size() - 1)
-	# After layout, ensure overlay/icon fill each block and locked state is applied (fixes Level 5 and position mismatch)
+	# After layout, ensure overlay/icon fill each block and locked state is applied.
 	call_deferred("_refresh_lock_overlays")
 	
 	# Setup audio
@@ -168,6 +187,53 @@ func _cache_block_original_colors():
 			block_original_colors.append(polygon.color)
 		else:
 			block_original_colors.append(Color.WHITE)
+
+func _cache_torn_edge_defaults() -> void:
+	block_torn_edge_colors.clear()
+	block_torn_edge_widths.clear()
+	for block in level_blocks:
+		var line: Line2D = block.get_node_or_null("TornEdge") as Line2D
+		if line:
+			block_torn_edge_colors.append(line.default_color)
+			block_torn_edge_widths.append(line.width)
+		else:
+			block_torn_edge_colors.append(Color(0.3, 0.25, 0.2, 1))
+			block_torn_edge_widths.append(6.0)
+
+func _sync_focus_outline(focused_index: int) -> void:
+	if level_blocks.is_empty():
+		return
+	focused_index = clampi(focused_index, 0, level_blocks.size() - 1)
+	var pulse := 0.5 + 0.5 * sin(_outline_flash_phase * TAU * 1.15)
+	var focus_col := focus_edge_color_a.lerp(focus_edge_color_b, pulse)
+	var width_breathe := 1.0 + focus_edge_width_pulse * sin(_outline_flash_phase * TAU * 2.3)
+	for i in range(level_blocks.size()):
+		var block: Control = level_blocks[i]
+		var line: Line2D = block.get_node_or_null("TornEdge") as Line2D
+		if line == null or i >= block_torn_edge_widths.size():
+			continue
+		var s: float = maxf(maxf(absf(line.scale.x), absf(line.scale.y)), 0.001)
+		var base_local: float = block_torn_edge_widths[i]
+		if i == focused_index:
+			block.modulate = focus_block_modulate
+			line.default_color = focus_col
+			var world_base: float = base_local * s
+			var world_focus: float = clampf(
+				world_base * focus_edge_world_width_mul * width_breathe,
+				focus_edge_world_width_min,
+				focus_edge_world_width_max
+			)
+			line.width = world_focus / s
+		else:
+			if _is_level_unlocked(i):
+				block.modulate = unfocused_block_modulate
+			else:
+				block.modulate = Color(0.74, 0.74, 0.78, 1.0)
+			if i < block_torn_edge_colors.size():
+				var base: Color = block_torn_edge_colors[i]
+				var m := unfocused_edge_color_mul
+				line.default_color = Color(base.r * m, base.g * m, base.b * m, minf(base.a * 1.05, 1.0))
+			line.width = base_local * unfocused_edge_width_mul
 
 func _is_level_unlocked(level_index: int) -> bool:
 	if level_index < 0 or level_index >= level_unlocked_states.size():
@@ -535,8 +601,9 @@ func setup_audio_players():
 	elif ResourceLoader.exists("res://audio/menu_select.ogg"):
 		menu_select_player.stream = load("res://audio/menu_select.ogg")
 
-func _process(_delta):
+func _process(_delta: float):
 	"""Highlight from mouse hover, or keyboard when arrow keys have priority over the cursor."""
+	_outline_flash_phase += _delta
 	var mouse_pos := get_viewport().get_mouse_position()
 	var mouse_hover_idx := _get_block_index_at_global_pos(mouse_pos)
 
@@ -564,6 +631,8 @@ func _process(_delta):
 		last_effective_highlight = effective_highlight
 	
 	hovered_block_index = effective_highlight
+	if level_blocks.size() > 0:
+		_sync_focus_outline(effective_highlight)
 
 func _apply_hover_effect(block_index: int, is_hovering: bool):
 	"""Apply hover effect to a level block"""
