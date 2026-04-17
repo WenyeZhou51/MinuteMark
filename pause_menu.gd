@@ -394,7 +394,7 @@ func _on_restart_pressed():
 	_set_other_ui_visible(true)
 	
 	# 4. Use full scene reload to ensure everything resets correctly (same as Victory UI)
-	get_tree().reload_current_scene()
+	LoadingIndicator.reload_scene()
 
 
 func _cancel_player_rewind():
@@ -686,7 +686,7 @@ func _on_menu_pressed():
 	get_tree().paused = false
 	_set_other_ui_visible(true)
 	if ResourceLoader.exists("res://level_select_menu.tscn"):
-		get_tree().change_scene_to_file("res://level_select_menu.tscn")
+		LoadingIndicator.change_scene("res://level_select_menu.tscn")
 	else:
 		push_error("PauseMenu: level_select_menu.tscn not found!")
 

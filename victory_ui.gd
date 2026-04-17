@@ -742,7 +742,7 @@ func _perform_restart():
 	
 	# 2. Trigger reload
 	get_tree().paused = false
-	get_tree().reload_current_scene()
+	LoadingIndicator.reload_scene()
 	
 	# 3. Do NOT remove UI immediately. 
 	# It will be removed by player.gd in the new scene's _ready().
@@ -760,7 +760,7 @@ func _on_leaderboard_button_pressed():
 	
 	# Change scene to leaderboard
 	if ResourceLoader.exists("res://leaderboard_scene.tscn"):
-		get_tree().change_scene_to_file("res://leaderboard_scene.tscn")
+		LoadingIndicator.change_scene("res://leaderboard_scene.tscn")
 	else:
 		push_error("VictoryUI: leaderboard_scene.tscn not found!")
 	
@@ -779,7 +779,7 @@ func _on_menu_button_pressed():
 	
 	# Change scene to level select menu
 	if ResourceLoader.exists("res://level_select_menu.tscn"):
-		get_tree().change_scene_to_file("res://level_select_menu.tscn")
+		LoadingIndicator.change_scene("res://level_select_menu.tscn")
 	else:
 		push_error("VictoryUI: level_select_menu.tscn not found!")
 	

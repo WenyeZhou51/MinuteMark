@@ -5675,8 +5675,8 @@ func _input(event: InputEvent) -> void:
 		
 		# Reset mouse mode to default (Visible) for fresh start feel
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-			
-		get_tree().reload_current_scene()
+
+		LoadingIndicator.reload_scene()
 
 func _toggle_keybinds() -> void:
 	"""Toggle between default and alternate keybind layouts."""
