@@ -7,17 +7,20 @@ const ARC_SWEEP_DEG := 270.0
 const ROTATION_SPEED_RAD := 6.0
 const COLOR_FG := Color(1, 0.9, 0, 1)
 const COLOR_TRACK := Color(1, 1, 1, 0.15)
+const OVERLAY_DIM := Color(0, 0, 0, 0.65)
 
 var _loading := false
 var _load_path := ""
 var _rotation_rad := 0.0
 @onready var _spinner: Node2D = $Spinner
+@onready var _overlay: ColorRect = $Overlay
 
 
 func _ready() -> void:
 	process_mode = PROCESS_MODE_ALWAYS
 	layer = 200
 	hide()
+	_overlay.color = OVERLAY_DIM
 	_spinner.draw.connect(_on_spinner_draw)
 
 
@@ -54,7 +57,10 @@ func _begin_load(path: String) -> void:
 		return
 	_load_path = path
 	_loading = true
+	_overlay.color = OVERLAY_DIM
+	_spinner.visible = true
 	show()
+	get_tree().paused = true
 	_spinner.queue_redraw()
 
 
@@ -64,19 +70,28 @@ func _poll_load() -> void:
 	match status:
 		ResourceLoader.THREAD_LOAD_LOADED:
 			var packed := ResourceLoader.load_threaded_get(_load_path) as PackedScene
-			_finish_load()
+			_loading = false
+			_load_path = ""
 			if packed:
-				get_tree().change_scene_to_packed(packed)
+				_commit_scene_change(packed)
 			else:
 				push_error("LoadingIndicator: loaded resource is not a PackedScene")
+				_abort_load()
 		ResourceLoader.THREAD_LOAD_FAILED, ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
 			push_error("LoadingIndicator: threaded load failed for " + _load_path)
-			_finish_load()
+			_loading = false
+			_load_path = ""
+			_abort_load()
 
 
-func _finish_load() -> void:
-	_loading = false
-	_load_path = ""
+func _commit_scene_change(packed: PackedScene) -> void:
+	get_tree().change_scene_to_packed(packed)
+	get_tree().paused = false
+	hide()
+
+
+func _abort_load() -> void:
+	get_tree().paused = false
 	hide()
 
 
