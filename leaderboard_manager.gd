@@ -9,6 +9,7 @@ signal global_leaderboard_updated
 # Local leaderboard is per-level: Dictionary mapping level_index (int) -> Array of score dicts
 var all_local_leaderboard_data: Dictionary = {}  # {level_index: [{time, date, ...}, ...]}
 var global_leaderboard_data: Array[Dictionary] = []
+var global_leaderboard_level: int = -1  # Which level index global_leaderboard_data belongs to (-1 = none)
 
 const MAX_ENTRIES: int = 100  # Keep top 100 scores locally
 const MAX_GLOBAL_PER_LEVEL: int = 20  # Keep top 20 scores per level on Supabase
@@ -195,6 +196,10 @@ func add_score(time_taken: float) -> bool:
 
 func would_make_leaderboard(time_taken: float) -> bool:
 	"""Check if a time would qualify for the top 20 global leaderboard."""
+	var current_level = get_current_level_index()
+	# If cached data is from a different level, assume qualification (safe default)
+	if global_leaderboard_level != current_level:
+		return true
 	# If we have fewer than MAX_GLOBAL_PER_LEVEL entries, it always qualifies
 	if global_leaderboard_data.size() < MAX_GLOBAL_PER_LEVEL:
 		return true
@@ -286,12 +291,15 @@ func _update_score_on_api(new_time: float):
 		remove_meta("is_updating_entry")
 
 func get_current_level_index() -> int:
-	"""Determine the current level index from the scene path."""
+	"""Determine the current level index from the scene path.
+	Order must match level_select_menu.tscn block ordering."""
 	var level_paths = [
-		"res://level.tscn",      # Level 0 - The First Minute (Tutorial)
-		"res://level1.3.tscn",   # Level 1 - Neon Countdown
-		"res://level1.1.tscn",   # Level 2 - Neon Countdown Alternative
-		"res://level1.tscn",     # Level 3
+		"res://level.tscn",      # 0 - The First Minute (Tutorial)
+		"res://level1.tscn",     # 1 - The Escape
+		"res://level2.tscn",     # 2 - Burning Bright
+		"res://level1.1.tscn",   # 3
+		"res://level1.2.tscn",   # 4
+		"res://level1.3.tscn",   # 5 - Neon Countdown
 	]
 	
 	var tree = get_tree()
@@ -421,6 +429,7 @@ func fetch_global_leaderboard(level: int = -1):
 		level = last_submitted_level
 	
 	is_fetching = true
+	set_meta("_pending_fetch_level", level)
 	# Fetch top 20 scores for the level, ordered by time_taken ascending
 	var url = SUPABASE_URL + "/rest/v1/" + SUPABASE_TABLE + "?select=*&level=eq.%d&order=time_taken.asc&limit=%d" % [level, MAX_GLOBAL_PER_LEVEL]
 	
@@ -433,10 +442,14 @@ func fetch_global_leaderboard(level: int = -1):
 	if error != OK:
 		push_error("LeaderboardManager: HTTP request failed to initiate. Error code: %d" % error)
 		is_fetching = false
+		remove_meta("_pending_fetch_level")
 
 func _on_fetch_request_completed(_result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray):
 	"""Handle fetch request completion (uses dedicated http_request_fetch)."""
 	var response_text = body.get_string_from_utf8()
+	var fetched_level: int = get_meta("_pending_fetch_level", -1) as int
+	if has_meta("_pending_fetch_level"):
+		remove_meta("_pending_fetch_level")
 	is_fetching = false
 	if response_code == 200:
 		var json = JSON.new()
@@ -457,7 +470,12 @@ func _on_fetch_request_completed(_result: int, response_code: int, _headers: Pac
 						})
 			if new_scores.size() > 0:
 				global_leaderboard_data = new_scores
+				global_leaderboard_level = fetched_level
 				global_leaderboard_data.sort_custom(func(a, b): return a["time"] < b["time"])
+				global_leaderboard_updated.emit()
+			elif parsed_data is Array and parsed_data.size() == 0:
+				global_leaderboard_data.clear()
+				global_leaderboard_level = fetched_level
 				global_leaderboard_updated.emit()
 	else:
 		push_error("LeaderboardManager: Fetch failed. Response code: %d, Error: %s" % [response_code, response_text])

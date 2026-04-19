@@ -168,11 +168,11 @@ func _shatter_and_ignite() -> void:
 	else:
 		print("[FIREBOTTLE] WARNING: No PixelFireSimulation found in scene!")
 
-	# Ignite burnable tiles at impact point + neighbors
+	# Ignite burnable tiles within 5-tile radius of impact
 	var managers := get_tree().get_nodes_in_group("burnable_tile_manager")
 	for mgr in managers:
 		if mgr.has_method("ignite_at_world_pos"):
-			mgr.ignite_at_world_pos(global_position)
+			mgr.ignite_at_world_pos(global_position, 5)
 
 	# Spawn glass fragments
 	_spawn_glass_fragments()

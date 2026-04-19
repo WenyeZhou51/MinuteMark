@@ -1,4 +1,4 @@
-[gd_scene load_steps=29 format=3 uid="uid://clfclx5p38xkv"]
+[gd_scene load_steps=28 format=3 uid="uid://clfclx5p38xkv"]
 
 [ext_resource type="Script" path="res://level_manager.gd" id="1_manager"]
 [ext_resource type="PackedScene" uid="uid://vv3m4nx6g3jo" path="res://player.tscn" id="1_qj3g4"]
@@ -7,7 +7,6 @@
 [ext_resource type="Texture2D" uid="uid://d2g7jojkre5ug" path="res://Sprites/Bd.png" id="3_bg_texture"]
 [ext_resource type="PackedScene" uid="uid://dmp8rksh3a5yl" path="res://TimerUI.tscn" id="3_oar3b"]
 [ext_resource type="TileSet" uid="uid://cu555li7p074q" path="res://Sprites/tileset.tres" id="4_4gcmt"]
-[ext_resource type="PackedScene" uid="uid://c4k3l8m5n2qar" path="res://kickable_object.tscn" id="4_kickable"]
 [ext_resource type="PackedScene" uid="uid://b7q8n5ck2wh0e" path="res://pause_menu.tscn" id="8_b0gwe"]
 [ext_resource type="Script" path="res://tutorial_trigger.gd" id="10_o05kg"]
 [ext_resource type="PackedScene" uid="uid://dyetqoxdfluq0" path="res://window.tscn" id="10_window"]
@@ -183,10 +182,6 @@ position = Vector2(8740, 3803)
 
 [node name="KickableObjects" type="Node2D" parent="."]
 
-[node name="KickableObject5" parent="KickableObjects" instance=ExtResource("4_kickable")]
-position = Vector2(3079, 813)
-fragment_count = 3
-
 [node name="Window1" parent="KickableObjects" instance=ExtResource("10_window")]
 position = Vector2(5717, -239)
 scale = Vector2(1, 0.519995)
@@ -291,8 +286,9 @@ theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 12
 theme_override_fonts/font = ExtResource("12_font")
 theme_override_font_sizes/font_size = 72
-text = "K to Kick a block 
-or an enemy"
+text = "K to Kick Enemy or object
+
+"
 horizontal_alignment = 1
 
 [node name="MoveADLabel" type="Label" parent="."]
@@ -331,6 +327,7 @@ scale = Vector2(-3.74387, 1.78526)
 [node name="Elevator" parent="." instance=ExtResource("20_elevator")]
 z_index = -1
 position = Vector2(7197, 566)
+drop_delay = 1.5
 
 [node name="elevatorR" type="Area2D" parent="."]
 position = Vector2(7172, 6446)

@@ -251,19 +251,18 @@ func _spread_to_neighbors(cell: Vector2i) -> void:
 				_ignite_tile(adj)
 
 
-func ignite_at_world_pos(world_pos: Vector2) -> void:
+func ignite_at_world_pos(world_pos: Vector2, radius_tiles: int = 1) -> void:
 	if not tilemap:
 		return
 	var local_pos := tilemap.to_local(world_pos)
 	var hit_cell := tilemap.local_to_map(local_pos)
 
 	var cells_to_ignite: Array[Vector2i] = []
-	if burnable_cells.has(hit_cell) and not burning_tiles.has(hit_cell):
-		cells_to_ignite.append(hit_cell)
+	var r_sq := radius_tiles * radius_tiles
 
-	for dy in range(-1, 2):
-		for dx in range(-1, 2):
-			if dx == 0 and dy == 0:
+	for dy in range(-radius_tiles, radius_tiles + 1):
+		for dx in range(-radius_tiles, radius_tiles + 1):
+			if dx * dx + dy * dy > r_sq:
 				continue
 			var adj := Vector2i(hit_cell.x + dx, hit_cell.y + dy)
 			if burnable_cells.has(adj) and not burning_tiles.has(adj):

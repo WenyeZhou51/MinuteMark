@@ -7,6 +7,8 @@ extends Node2D
 @onready var timer: Timer = $Timer
 @onready var smoke_particles: CPUParticles2D = $SmokeParticles
 
+@export var drop_delay: float = 3.0
+
 var player_inside: bool = false
 var has_dropped: bool = false
 var impact_triggered: bool = false
@@ -116,7 +118,7 @@ func _start_elevator_sequence() -> void:
 	tween.tween_property(door, "position:y", DOOR_CLOSED_Y, 0.8).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	
 	# Start 3 second delay
-	timer.start(3.0)
+	timer.start(drop_delay)
 	
 	# Play riding sound (while waiting for drop)
 	if ride_sfx:
