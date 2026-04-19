@@ -25,6 +25,7 @@ extends AnimatableBody2D
 @export var break_camera_shake: float = 18.0
 @export var break_camera_shake_duration: float = 0.15
 @export var break_hitstop_seconds: float = 0.04
+@export var fracture_volume_boost_db: float = 6.0
 
 @export_group("Fade After Escape")
 @export var linger_time: float = 3.0
@@ -45,7 +46,8 @@ var _broken: bool = false
 var _shake_tween: Tween
 
 var sfx_player: AudioStreamPlayer
-var shatter_sfx: AudioStream
+var crack_sfx: AudioStream
+var fracture_sfx: AudioStream
 
 
 func _ready() -> void:
@@ -64,12 +66,10 @@ func _setup_audio() -> void:
 	else:
 		sfx_player.bus = "Master"
 	add_child(sfx_player)
-	if ResourceLoader.exists("res://audio/brokenWindow.ogg"):
-		shatter_sfx = load("res://audio/brokenWindow.ogg")
-	elif ResourceLoader.exists("res://audio/glassBroken.ogg"):
-		shatter_sfx = load("res://audio/glassBroken.ogg")
-	elif ResourceLoader.exists("res://audio/glassBroken.mp3"):
-		shatter_sfx = load("res://audio/glassBroken.mp3")
+	if ResourceLoader.exists("res://audio/cracking.wav"):
+		crack_sfx = load("res://audio/cracking.wav")
+	if ResourceLoader.exists("res://audio/fracture.wav"):
+		fracture_sfx = load("res://audio/fracture.wav")
 
 
 func get_kick_range_override() -> float:
@@ -83,7 +83,12 @@ func kick(direction: Vector2, _speed: float = 0.0) -> void:
 	_play_kick_shake()
 	if kick_count >= kicks_to_break:
 		_break_from_kicks(direction)
-	elif kick_count % kicks_between_crack_stages == 0:
+		return
+	if crack_sfx and sfx_player:
+		sfx_player.stream = crack_sfx
+		sfx_player.pitch_scale = randf_range(0.95, 1.05)
+		sfx_player.play()
+	if kick_count % kicks_between_crack_stages == 0:
 		_add_accumulated_crack_batch()
 
 
@@ -283,12 +288,39 @@ func _break_from_kicks(direction: Vector2) -> void:
 	var pl := get_tree().get_first_node_in_group("player")
 	if pl and pl.has_method("extend_dash_duration"):
 		pl.extend_dash_duration()
-	if shatter_sfx and sfx_player:
-		sfx_player.stream = shatter_sfx
-		sfx_player.pitch_scale = randf_range(0.9, 1.1)
-		sfx_player.play()
+	if fracture_sfx:
+		_play_break_one_shot(fracture_sfx, randf_range(0.9, 1.1))
 	_apply_door_style_cage_break_vfx(direction)
 	queue_free()
+
+
+func _play_break_one_shot(stream: AudioStream, pitch: float = 1.0) -> void:
+	"""Play break audio on a temporary player that survives cage queue_free()."""
+	if stream == null:
+		return
+	var host := get_parent()
+	if host == null:
+		# Fallback if no parent: try local player.
+		if sfx_player:
+			sfx_player.stream = stream
+			sfx_player.volume_db = fracture_volume_boost_db
+			sfx_player.pitch_scale = pitch
+			sfx_player.play()
+		return
+	var one_shot := AudioStreamPlayer.new()
+	if AudioServer.get_bus_index("Game") != -1:
+		one_shot.bus = "Game"
+	else:
+		one_shot.bus = "Master"
+	one_shot.stream = stream
+	one_shot.volume_db = fracture_volume_boost_db
+	one_shot.pitch_scale = pitch
+	host.add_child(one_shot)
+	one_shot.play()
+	one_shot.finished.connect(func():
+		if is_instance_valid(one_shot):
+			one_shot.queue_free()
+	)
 
 
 func _shatter_cage(kick_direction: Vector2) -> void:

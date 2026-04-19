@@ -22,10 +22,18 @@ extends CanvasLayer
 var restart_btn: Button
 var leaderboard_btn: Button
 var menu_btn: Button
+var next_btn: Button
 var action_buttons: Array[Button] = []
 var action_buttons_ready: bool = false
 var _action_button_index: int = 0
 var _using_keyboard_nav: bool = false
+var _next_level_path: String = ""
+
+const LEVEL_ORDER: Array[String] = [
+	"res://level.tscn",
+	"res://level1.tscn",
+	"res://level2.tscn"
+]
 
 # Victory action row: loud keyboard/mouse selection styling (theme default focus is too subtle).
 var _vab_style_idle: StyleBoxFlat
@@ -106,21 +114,26 @@ func _ready():
 	restart_btn = $Control/Panel/HBoxContainer/RestartButton
 	leaderboard_btn = $Control/Panel/HBoxContainer/LeaderboardButton
 	menu_btn = $Control/Panel/HBoxContainer/MenuButton
-	action_buttons = [restart_btn, leaderboard_btn, menu_btn]
+	next_btn = $Control/Panel/HBoxContainer/NextButton
+	_refresh_next_level_button()
+	_rebuild_action_buttons()
 	
 	restart_btn.process_mode = Node.PROCESS_MODE_ALWAYS
 	leaderboard_btn.process_mode = Node.PROCESS_MODE_ALWAYS
 	menu_btn.process_mode = Node.PROCESS_MODE_ALWAYS
+	next_btn.process_mode = Node.PROCESS_MODE_ALWAYS
 	
 	# Explicitly set focus mode to allow interaction
 	restart_btn.focus_mode = Control.FOCUS_ALL
 	leaderboard_btn.focus_mode = Control.FOCUS_ALL
 	menu_btn.focus_mode = Control.FOCUS_ALL
+	next_btn.focus_mode = Control.FOCUS_ALL
 	
 	# Ensure buttons are on top and not blocked
 	restart_btn.mouse_filter = Control.MOUSE_FILTER_STOP
 	leaderboard_btn.mouse_filter = Control.MOUSE_FILTER_STOP
 	menu_btn.mouse_filter = Control.MOUSE_FILTER_STOP
+	next_btn.mouse_filter = Control.MOUSE_FILTER_STOP
 	
 	# Grab focus on restart button for gamepad/keyboard support
 	restart_btn.grab_focus()
@@ -139,6 +152,8 @@ func _ready():
 		leaderboard_btn.pressed.connect(_on_leaderboard_button_pressed)
 	if not menu_btn.pressed.is_connected(_on_menu_button_pressed):
 		menu_btn.pressed.connect(_on_menu_button_pressed)
+	if not next_btn.pressed.is_connected(_on_next_button_pressed):
+		next_btn.pressed.connect(_on_next_button_pressed)
 		
 	# Setup audio
 	sfx_player = AudioStreamPlayer.new()
@@ -506,6 +521,7 @@ func setup(time_taken: float):
 
 func _on_victory_action_buttons_ready() -> void:
 	action_buttons_ready = true
+	_rebuild_action_buttons()
 	_action_button_index = 0
 	_using_keyboard_nav = false
 	if restart_btn:
@@ -514,13 +530,15 @@ func _on_victory_action_buttons_ready() -> void:
 func _activate_action_button(index: int) -> void:
 	if index < 0 or index >= action_buttons.size():
 		return
-	match index:
-		0:
-			_on_restart_button_pressed()
-		1:
-			_on_leaderboard_button_pressed()
-		2:
-			_on_menu_button_pressed()
+	var target := action_buttons[index]
+	if target == restart_btn:
+		_on_restart_button_pressed()
+	elif target == leaderboard_btn:
+		_on_leaderboard_button_pressed()
+	elif target == menu_btn:
+		_on_menu_button_pressed()
+	elif target == next_btn:
+		_on_next_button_pressed()
 
 func _input(event):
 	# Don't handle shortcuts while the player is typing their name
@@ -776,6 +794,7 @@ func _on_menu_button_pressed():
 	
 	# Hide Victory UI
 	visible = false
+	_set_level_select_target_for_victory_menu()
 	
 	# Change scene to level select menu
 	if ResourceLoader.exists("res://level_select_menu.tscn"):
@@ -786,39 +805,30 @@ func _on_menu_button_pressed():
 	# Clean up
 	queue_free()
 
+
+func _on_next_button_pressed():
+	if _next_level_path == "" or not ResourceLoader.exists(_next_level_path):
+		push_warning("VictoryUI: next level not available from current scene.")
+		return
+	
+	# Block input
+	$Control.mouse_filter = Control.MOUSE_FILTER_STOP
+	
+	# Unpause and go to next level
+	get_tree().paused = false
+	visible = false
+	LoadingIndicator.change_scene(_next_level_path)
+	queue_free()
+
 func unlock_next_level():
 	"""Unlock the next level after completing the current one"""
 	const SAVE_FILE_PATH = "user://level_progress.cfg"
-	
-	# Keep this in sync with `level_select_menu.tscn` metadata order.
-	var ordered_levels = [
-		"res://level.tscn",      # Level 1 - The First Minute
-		"res://level1.tscn",     # Level 2 - The Escape
-		"res://level2.tscn",     # Level 3 - Burning Bright
-		"res://level1.1.tscn",   # Level 4
-		"res://level1.2.tscn",   # Level 5
-		"res://level1.3.tscn"    # Level 6
-	]
-	# Accept alternate/legacy scene paths that should map to the same level index.
-	var level_path_alias_to_index := {
-		"res://level.tscn": 0,
-		"res://level1.tscn": 1,
-		"res://level2.tscn": 2,
-		"res://level1.1.tscn": 3,
-		"res://level1.2.tscn": 4,
-		"res://level1.3.tscn": 5
-	}
 	
 	# Get current scene path
 	var current_scene_path = get_tree().current_scene.scene_file_path
 	
 	# Find current level index
-	var current_level_index: int = int(level_path_alias_to_index.get(current_scene_path, -1))
-	if current_level_index == -1:
-		for i in range(ordered_levels.size()):
-			if ordered_levels[i] == current_scene_path:
-				current_level_index = i
-				break
+	var current_level_index := LEVEL_ORDER.find(current_scene_path)
 	
 	if current_level_index == -1:
 		push_warning("VictoryUI: unlock_next_level skipped, unknown scene path: " + str(current_scene_path))
@@ -826,7 +836,7 @@ func unlock_next_level():
 	
 	# Calculate next level index
 	var next_level_index = current_level_index + 1
-	if next_level_index >= ordered_levels.size():
+	if next_level_index >= LEVEL_ORDER.size():
 		return
 
 	# Load existing progress
@@ -846,3 +856,37 @@ func unlock_next_level():
 		push_error("VictoryUI: Failed to save level progress: " + str(error))
 	else:
 		pass
+
+
+func _refresh_next_level_button() -> void:
+	var current_scene_path := get_tree().current_scene.scene_file_path
+	var current_idx := LEVEL_ORDER.find(current_scene_path)
+	_next_level_path = ""
+	if current_idx >= 0 and current_idx < LEVEL_ORDER.size() - 1:
+		_next_level_path = LEVEL_ORDER[current_idx + 1]
+	
+	if next_btn:
+		var has_next := _next_level_path != ""
+		next_btn.visible = has_next
+		next_btn.disabled = not has_next
+		next_btn.focus_mode = Control.FOCUS_ALL if has_next else Control.FOCUS_NONE
+		next_btn.mouse_filter = Control.MOUSE_FILTER_STOP if has_next else Control.MOUSE_FILTER_IGNORE
+
+
+func _rebuild_action_buttons() -> void:
+	action_buttons = [restart_btn, leaderboard_btn, menu_btn]
+	if next_btn and next_btn.visible and not next_btn.disabled:
+		action_buttons.append(next_btn)
+
+
+func _set_level_select_target_for_victory_menu() -> void:
+	"""When leaving victory to menu, highlight the next level card if available."""
+	var root := get_tree().root
+	if root == null:
+		return
+	var current_scene_path := get_tree().current_scene.scene_file_path
+	var current_idx := LEVEL_ORDER.find(current_scene_path)
+	if current_idx == -1:
+		return
+	var target_idx := mini(current_idx + 1, LEVEL_ORDER.size() - 1)
+	root.set_meta("level_select_target_scene_path", LEVEL_ORDER[target_idx])
