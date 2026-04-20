@@ -23,6 +23,9 @@ extends Area2D
 @export var indicator_bob_speed: float = 3.0
 @export var indicator_bob_height: float = 6.0
 @export var indicator_color: Color = Color(1.0, 0.7, 0.2, 0.9)
+@export var indicator_text_size: int = 18
+@export var indicator_text_outline_color: Color = Color(0.0, 0.0, 0.0, 0.95)
+@export var indicator_text_outline_px: float = 2.0
 
 var is_kicked: bool = false
 var kick_velocity: Vector2 = Vector2.ZERO
@@ -360,7 +363,14 @@ func _draw() -> void:
 		draw_colored_polygon(arrow_points, indicator_color)
 
 		# "KICK" text indicator
-		draw_string(ThemeDB.fallback_font, Vector2(-14, arrow_y - 12), "KICK", HORIZONTAL_ALIGNMENT_CENTER, -1, 10, indicator_color)
+		var text_pos := Vector2(-24, arrow_y - 12)
+		var outline := indicator_text_outline_px
+		# Draw a quick 4-direction outline to make the prompt pop.
+		draw_string(ThemeDB.fallback_font, text_pos + Vector2(-outline, 0), "KICK", HORIZONTAL_ALIGNMENT_LEFT, -1, indicator_text_size, indicator_text_outline_color)
+		draw_string(ThemeDB.fallback_font, text_pos + Vector2(outline, 0), "KICK", HORIZONTAL_ALIGNMENT_LEFT, -1, indicator_text_size, indicator_text_outline_color)
+		draw_string(ThemeDB.fallback_font, text_pos + Vector2(0, -outline), "KICK", HORIZONTAL_ALIGNMENT_LEFT, -1, indicator_text_size, indicator_text_outline_color)
+		draw_string(ThemeDB.fallback_font, text_pos + Vector2(0, outline), "KICK", HORIZONTAL_ALIGNMENT_LEFT, -1, indicator_text_size, indicator_text_outline_color)
+		draw_string(ThemeDB.fallback_font, text_pos, "KICK", HORIZONTAL_ALIGNMENT_LEFT, -1, indicator_text_size, indicator_color)
 
 	# === MOLOTOV COCKTAIL BODY ===
 	# Bottle body (dark brown/amber glass for a beer bottle look)
