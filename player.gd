@@ -226,6 +226,7 @@ var sfx_player: AudioStreamPlayer
 var fire_loop_player: AudioStreamPlayer
 var fire_loop_sfx: AudioStream
 @export var fire_loop_volume_db: float = 4.0
+@export var fire_survival_seconds: float = 5.0  ## Time on fire before immolation death
 
 
 # BULLET PARRY CONFIGURATION
@@ -6438,7 +6439,7 @@ func set_on_fire() -> void:
 	ground_slide_slowdown_rate = 400.0
 
 	# Fire countdown label + border flames
-	fire_countdown = 5.0
+	fire_countdown = fire_survival_seconds
 	if not fire_label_layer:
 		fire_label_layer = CanvasLayer.new()
 		fire_label_layer.layer = 99
@@ -6723,7 +6724,7 @@ func _handle_fire_trail(delta: float) -> void:
 
 	# Intensify border flames as countdown gets lower
 	if fire_border_rects.size() > 0:
-		var urgency: float = 1.0 - (fire_countdown / 5.0)
+		var urgency: float = 1.0 - (fire_countdown / maxf(fire_survival_seconds, 0.001))
 		var flicker: float = 0.85 + sin(game_time * 12.0) * 0.1 + sin(game_time * 19.0) * 0.05
 		var base_size: float = 120.0 + urgency * 150.0
 		for i in fire_border_rects.size():
