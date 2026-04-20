@@ -1036,8 +1036,8 @@ posterize_levels = 10.0
 position = Vector2(238, 9858)
 
 [node name="UntitledArtwork2" type="Sprite2D" parent="."]
-position = Vector2(567, 9680)
-scale = Vector2(0.398773, 0.398773)
+position = Vector2(527, 9685)
+scale = Vector2(0.57055324, 0.57055324)
 texture = ExtResource("31_sl2u6")
 
 [editable path="Player"]
