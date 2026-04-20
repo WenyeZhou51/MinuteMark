@@ -1,4 +1,4 @@
-[gd_resource type="TileSet" load_steps=23 format=3 uid="uid://cu555li7p074q"]
+[gd_resource type="TileSet" load_steps=25 format=3 uid="uid://cu555li7p074q"]
 
 [ext_resource type="Texture2D" uid="uid://bptx5q5lpvi73" path="res://Sprites/tile test.png" id="1_x38ow"]
 [ext_resource type="Texture2D" uid="uid://bb838k3f7kra0" path="res://Sprites/Testtile2.png" id="2_testtile2"]
@@ -8,6 +8,7 @@
 [ext_resource type="Texture2D" uid="uid://6faeljsrs1fp" path="res://Sprites/level2Tileset.png" id="4_wpdgq"]
 [ext_resource type="Texture2D" uid="uid://cy7pti332xqyu" path="res://Sprites/2d tiles.png" id="5_2d_tiles"]
 [ext_resource type="Texture2D" uid="uid://bhafedw86sck2" path="res://Sprites/level2Tileset-floor.png" id="5_wtedo"]
+[ext_resource type="Texture2D" uid="uid://bvlgywvre716q" path="res://Screenshot 2026-04-20 at 15.42.59.png" id="6_130mp"]
 [ext_resource type="Texture2D" uid="uid://c68xwsojkgchj" path="res://Sprites/level1 tileset1.png" id="6_level1_tileset1"]
 [ext_resource type="Texture2D" uid="uid://bqvydfij8md82" path="res://Sprites/level_backgrounds/kitchen_background.png" id="10_0xg8l"]
 [ext_resource type="Texture2D" uid="uid://brw2oh13w07gl" path="res://Sprites/discoball.png" id="11_s3qf0"]
@@ -4497,6 +4498,35 @@ texture_region_size = Vector2i(128, 128)
 12:2/0 = 0
 13:2/0 = 0
 14:2/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_n4bw2"]
+texture = ExtResource("6_130mp")
+texture_region_size = Vector2i(128, 128)
+0:0/0 = 0
+1:0/0 = 0
+2:0/0 = 0
+3:0/0 = 0
+4:0/0 = 0
+0:1/0 = 0
+1:1/0 = 0
+2:1/0 = 0
+3:1/0 = 0
+4:1/0 = 0
+0:2/0 = 0
+1:2/0 = 0
+2:2/0 = 0
+3:2/0 = 0
+4:2/0 = 0
+0:3/0 = 0
+1:3/0 = 0
+2:3/0 = 0
+3:3/0 = 0
+4:3/0 = 0
+0:4/0 = 0
+1:4/0 = 0
+2:4/0 = 0
+3:4/0 = 0
+4:4/0 = 0
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_wtedo"]
 texture = ExtResource("4_wpdgq")
@@ -13484,3 +13514,4 @@ sources/16 = SubResource("TileSetAtlasSource_wtedo")
 sources/18 = SubResource("TileSetAtlasSource_0xg8l")
 sources/10 = SubResource("TileSetAtlasSource_s3qf0")
 sources/12 = SubResource("TileSetAtlasSource_130mp")
+sources/13 = SubResource("TileSetAtlasSource_n4bw2")
