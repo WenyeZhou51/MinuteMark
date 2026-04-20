@@ -191,6 +191,8 @@ func ignite_at(world_pos: Vector2, radius: int = 3, replenish_fuel: bool = false
 	var best_key := Vector2i.ZERO
 	var best_dist := 99999.0
 	for key in surface_fuel:
+		if not _is_surface_key_supported(key):
+			continue
 		var dx_f: float = key.x - cx
 		var dy_f: float = key.y - cy
 		var d := dx_f * dx_f + dy_f * dy_f  # squared distance (cheaper)
@@ -202,13 +204,37 @@ func ignite_at(world_pos: Vector2, radius: int = 3, replenish_fuel: bool = false
 		return
 
 	if replenish_fuel:
-		# Reset a broad local strip to a pristine state so a repeated bottle throw
-		# behaves like the first throw at that location.
-		var reset_radius := 220
+		# Reset only the contiguous local surface segment around impact, so repeated
+		# throws behave like first-time burns without jumping across floor gaps.
+		var max_scan := 220
 		for rdy in range(-3, 4):
-			for rdx in range(-reset_radius, reset_radius + 1):
-				var reset_key := Vector2i(best_key.x + rdx, best_key.y + rdy)
-				if not surface_fuel.has(reset_key):
+			var row_y := best_key.y + rdy
+			var row_center := Vector2i(best_key.x, row_y)
+			if not surface_fuel.has(row_center) or not _is_surface_key_supported(row_center):
+				continue
+
+			var left_x := best_key.x
+			var right_x := best_key.x
+
+			var scan := 0
+			while scan < max_scan:
+				var next_left := Vector2i(left_x - 1, row_y)
+				if not surface_fuel.has(next_left) or not _is_surface_key_supported(next_left):
+					break
+				left_x -= 1
+				scan += 1
+
+			scan = 0
+			while scan < max_scan:
+				var next_right := Vector2i(right_x + 1, row_y)
+				if not surface_fuel.has(next_right) or not _is_surface_key_supported(next_right):
+					break
+				right_x += 1
+				scan += 1
+
+			for sx in range(left_x, right_x + 1):
+				var reset_key := Vector2i(sx, row_y)
+				if not _is_surface_key_supported(reset_key):
 					continue
 				surface_fuel[reset_key] = 1.0
 				surface_temp[reset_key] = 0.0
@@ -220,7 +246,7 @@ func ignite_at(world_pos: Vector2, radius: int = 3, replenish_fuel: bool = false
 	for dy in range(-1, 2):
 		for ddx in range(-radius, radius + 1):
 			var key := Vector2i(best_key.x + ddx, best_key.y + dy)
-			if not surface_fuel.has(key):
+			if not surface_fuel.has(key) or not _is_surface_key_supported(key):
 				continue
 			if surface_fuel[key] > 0:
 				surface_temp[key] = 1.0
@@ -290,6 +316,7 @@ func _process(delta: float) -> void:
 	# Check if player is near burning fire (every 10 frames)
 	if frame_count % 10 == 0:
 		_check_player_fire_proximity()
+		_check_enemy_fire_proximity()
 
 	queue_redraw()
 
@@ -320,6 +347,8 @@ func _drain_injected_particles() -> void:
 
 
 func _simulate_step(dt: float) -> void:
+	_clear_unsupported_active_cells()
+
 	# Phase 1: Burning cells — consume fuel, emit heat, spawn particles
 	var to_extinguish: Array[Vector2i] = []
 	var new_heated: Array[Vector2i] = []
@@ -350,7 +379,7 @@ func _simulate_step(dt: float) -> void:
 				Vector2i(nx - 2, ny), Vector2i(nx + 2, ny),
 			]
 			for n in neighbor_keys:
-				if surface_temp.has(n):
+				if surface_temp.has(n) and _is_surface_key_supported(n):
 					surface_temp[n] += heat_add
 					if not heated_set.has(n):
 						new_heated.append(n)
@@ -390,6 +419,9 @@ func _simulate_step(dt: float) -> void:
 	for key in heated_set:
 		if burning_set.has(key):
 			continue
+		if not _is_surface_key_supported(key):
+			to_unheat.append(key)
+			continue
 		if not surface_fuel.has(key) or surface_fuel[key] <= 0:
 			to_unheat.append(key)
 			continue
@@ -416,6 +448,34 @@ func _simulate_step(dt: float) -> void:
 
 	for key in to_unheat:
 		heated_set.erase(key)
+
+
+func _clear_unsupported_active_cells() -> void:
+	var unsupported_burning: Array[Vector2i] = []
+	for key in burning_set:
+		if not _is_surface_key_supported(key):
+			unsupported_burning.append(key)
+	for key in unsupported_burning:
+		burning_set.erase(key)
+		surface_temp[key] = 0.0
+		heated_set.erase(key)
+
+	var unsupported_heated: Array[Vector2i] = []
+	for key in heated_set:
+		if not _is_surface_key_supported(key):
+			unsupported_heated.append(key)
+	for key in unsupported_heated:
+		heated_set.erase(key)
+		surface_temp[key] = 0.0
+
+
+func _is_surface_key_supported(key: Vector2i) -> bool:
+	if tilemap == null:
+		return false
+	var world_pos := Vector2(key.x * cell_size, key.y * cell_size)
+	var local_pos := tilemap.to_local(world_pos)
+	var cell := tilemap.local_to_map(local_pos)
+	return tilemap.get_cell_source_id(0, cell) != -1
 
 
 func _pool_spawn(px: float, py: float, vx: float, vy: float, life: float, max_life: float, heat: float, sz: float) -> void:
@@ -649,6 +709,49 @@ func _check_player_fire_proximity() -> void:
 						p.set_on_fire()
 					found = true
 					break
+
+
+func _check_enemy_fire_proximity() -> void:
+	if burning_set.is_empty():
+		return
+	var enemies = get_tree().get_nodes_in_group("enemies")
+	for e in enemies:
+		if not e or not is_instance_valid(e):
+			continue
+		if e.get("is_destroyed") == true:
+			continue
+
+		var pos: Vector2 = e.global_position
+		var px := pos.x
+		var py := pos.y
+		var detection_radius := 64.0
+		var cx_min := int(round((px - detection_radius) / cell_size))
+		var cx_max := int(round((px + detection_radius) / cell_size))
+		var cy_min := int(round((py - detection_radius) / cell_size))
+		var cy_max := int(round((py + detection_radius) / cell_size))
+
+		var ignited := false
+		var fire_pos := Vector2.ZERO
+		for bx in range(cx_min, cx_max + 1):
+			if ignited:
+				break
+			for by in range(cy_min, cy_max + 1):
+				var key := Vector2i(bx, by)
+				if burning_set.has(key):
+					fire_pos = Vector2(key.x * cell_size, key.y * cell_size)
+					ignited = true
+					break
+
+		if not ignited:
+			continue
+
+		var knock_dir := (pos - fire_pos).normalized()
+		if knock_dir.length_squared() < 0.001:
+			knock_dir = Vector2(1, 0)
+		if e.has_method("kick"):
+			e.kick(knock_dir, 1400.0)
+		elif e.has_method("destroy"):
+			e.destroy()
 
 
 func _collect_sprinkler_polygons() -> Array:
