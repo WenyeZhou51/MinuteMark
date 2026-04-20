@@ -1,4 +1,4 @@
-[gd_scene load_steps=41 format=3 uid="uid://co3ys7ojrgbkb"]
+[gd_scene load_steps=42 format=3 uid="uid://co3ys7ojrgbkb"]
 
 [ext_resource type="Script" uid="uid://daocmjnowrjfr" path="res://level_manager.gd" id="1_qfdq4"]
 [ext_resource type="Texture2D" uid="uid://cftqvbphtaci0" path="res://Sprites/Bd.png" id="2_h0v3f"]
@@ -23,6 +23,7 @@
 [ext_resource type="PackedScene" path="res://pixel_fire_simulation.tscn" id="30_pxfire"]
 [ext_resource type="PackedScene" path="res://FireBottle.tscn" id="31_fbottle"]
 [ext_resource type="Texture2D" uid="uid://biat8uj8me45o" path="res://Sprites/level_backgrounds/Untitled_Artwork 2.png" id="31_sl2u6"]
+[ext_resource type="Texture2D" uid="uid://c48gab6xqykom" path="res://Sprites/level_backgrounds/door.png" id="32_fug78"]
 [ext_resource type="PackedScene" path="res://Sprinkler.tscn" id="32_sprinkler"]
 [ext_resource type="PackedScene" path="res://PosterizedLight.tscn" id="34_poster"]
 [ext_resource type="PackedScene" path="res://HangingLight.tscn" id="35_hang"]
@@ -159,6 +160,12 @@ texture = ExtResource("41_wallbg")
 [node name="WallBackground16" type="Sprite2D" parent="."]
 z_index = -5
 position = Vector2(13998, 9714)
+scale = Vector2(1.1, 1.1)
+texture = ExtResource("41_wallbg")
+
+[node name="WallBackground19" type="Sprite2D" parent="."]
+z_index = -5
+position = Vector2(15479, 9721)
 scale = Vector2(1.1, 1.1)
 texture = ExtResource("41_wallbg")
 
@@ -646,7 +653,7 @@ position = Vector2(1, 2)
 shape = SubResource("CircleShape2D_minor_anim")
 
 [node name="LevelFinishTrigger" parent="." instance=ExtResource("17_tk3jw")]
-position = Vector2(15088, 9770)
+position = Vector2(14625, 9769)
 scale = Vector2(10, 5)
 
 [node name="Elevator" parent="." instance=ExtResource("18_vtdfc")]
@@ -1039,6 +1046,10 @@ position = Vector2(238, 9858)
 position = Vector2(527, 9685)
 scale = Vector2(0.57055324, 0.57055324)
 texture = ExtResource("31_sl2u6")
+
+[node name="Door" type="Sprite2D" parent="."]
+position = Vector2(14476, 9880)
+texture = ExtResource("32_fug78")
 
 [editable path="Player"]
 [editable path="KickableObjects/Window1"]
