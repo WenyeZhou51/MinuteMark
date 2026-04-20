@@ -183,7 +183,7 @@ func _ignite_start_points() -> void:
 		ignite_eternal_at(pt)
 
 
-func ignite_at(world_pos: Vector2, radius: int = 3) -> void:
+func ignite_at(world_pos: Vector2, radius: int = 3, replenish_fuel: bool = false) -> void:
 	var cx := int(round(world_pos.x / cell_size))
 	var cy := int(round(world_pos.y / cell_size))
 
@@ -201,11 +201,28 @@ func ignite_at(world_pos: Vector2, radius: int = 3) -> void:
 	if best_dist > 40000:  # 200^2
 		return
 
+	if replenish_fuel:
+		# Reset a broad local strip to a pristine state so a repeated bottle throw
+		# behaves like the first throw at that location.
+		var reset_radius := 220
+		for rdy in range(-3, 4):
+			for rdx in range(-reset_radius, reset_radius + 1):
+				var reset_key := Vector2i(best_key.x + rdx, best_key.y + rdy)
+				if not surface_fuel.has(reset_key):
+					continue
+				surface_fuel[reset_key] = 1.0
+				surface_temp[reset_key] = 0.0
+				heated_set.erase(reset_key)
+				if not eternal_cells.has(reset_key):
+					burning_set.erase(reset_key)
+
 	var ignited := 0
 	for dy in range(-1, 2):
 		for ddx in range(-radius, radius + 1):
 			var key := Vector2i(best_key.x + ddx, best_key.y + dy)
-			if surface_fuel.has(key) and surface_fuel[key] > 0:
+			if not surface_fuel.has(key):
+				continue
+			if surface_fuel[key] > 0:
 				surface_temp[key] = 1.0
 				burning_set[key] = true
 				heated_set[key] = true

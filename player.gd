@@ -3477,9 +3477,21 @@ func _end_stun() -> void:
 
 
 func _on_enemy_touched(enemy: Node2D = null) -> void:
-	"""Called when player touches an enemy - no hitstun from contact."""
-	# Player is not stunned by running into enemies; only bullets cause hitstun.
-	pass
+	"""Called when player touches an enemy."""
+	if not enemy or not is_instance_valid(enemy):
+		return
+
+	# Contact while burning immolates enemies on touch.
+	if is_on_fire and not enemy.get("is_destroyed"):
+		var knockback_dir := enemy.global_position - global_position
+		if knockback_dir.length_squared() < 0.001:
+			knockback_dir = Vector2(float(facing_direction), 0.0)
+		knockback_dir = knockback_dir.normalized()
+
+		if enemy.has_method("kick"):
+			enemy.kick(knockback_dir, maxf(attack_enemy_knockback_force, 1200.0))
+		elif enemy.has_method("destroy"):
+			enemy.destroy()
 
 
 func _on_enemy_destroyed(enemy: Node2D) -> void:

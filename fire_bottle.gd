@@ -125,8 +125,9 @@ func kick(direction: Vector2, speed: float = 0.0) -> void:
 		fire_sim_ref = _find_fire_sim()
 
 	if fire_sim_ref:
-		# Ignite the ground at the bottle's current position
-		fire_sim_ref.ignite_at(global_position, fire_spread_radius / 2)
+		# Ignite the ground at the bottle's current position.
+		# Replenish local fuel so repeated throws at the same spot still work.
+		fire_sim_ref.ignite_at(global_position, fire_spread_radius / 2, true)
 
 		# Spawn a burst of fire particles at kick point
 		_spawn_kick_burst(fire_sim_ref)
@@ -161,8 +162,8 @@ func _shatter_and_ignite() -> void:
 		fire_sim_ref = _find_fire_sim()
 
 	if fire_sim_ref:
-		# Ignite at impact point
-		fire_sim_ref.ignite_at(global_position, fire_spread_radius)
+		# Ignite at impact point and replenish fuel for re-ignition reliability.
+		fire_sim_ref.ignite_at(global_position, fire_spread_radius, true)
 
 		# Spawn a LOT of fire particles on collision
 		_spawn_collision_burst(fire_sim_ref)
