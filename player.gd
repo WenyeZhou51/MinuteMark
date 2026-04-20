@@ -3113,11 +3113,16 @@ func _start_kick_sequence() -> void:
 			current_kick_target_type = KickTargetType.ENEMY
 			current_kick_target_node = closest_enemy
 	
-	# If we have a target, ensure we're facing it
+	# If we have a target, ensure we're facing it -- unless we're INSIDE it (e.g. cage)
 	if current_kick_target_node:
-		var dir_to_target = (current_kick_target_node.global_position - global_position).normalized()
-		if dir_to_target.x != 0:
-			facing_direction = sign(dir_to_target.x)
+		var skip_facing_snap := false
+		if current_kick_target_node.has_method("_is_inside_cage"):
+			if current_kick_target_node._is_inside_cage(global_position):
+				skip_facing_snap = true
+		if not skip_facing_snap:
+			var dir_to_target = (current_kick_target_node.global_position - global_position).normalized()
+			if dir_to_target.x != 0:
+				facing_direction = sign(dir_to_target.x)
 	
 	# Play kick audio
 	if current_kick_target_type == KickTargetType.NONE:
