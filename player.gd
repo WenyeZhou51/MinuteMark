@@ -223,6 +223,9 @@ var action_lines_instance: CanvasLayer = null
 @export var dash_volume_db: float = -18.0 ## Volume for dash sounds (both air and land)
 
 var sfx_player: AudioStreamPlayer
+var fire_loop_player: AudioStreamPlayer
+var fire_loop_sfx: AudioStream
+@export var fire_loop_volume_db: float = 4.0
 
 
 # BULLET PARRY CONFIGURATION
@@ -655,6 +658,9 @@ func _ready() -> void:
 	else:
 		sfx_player.bus = "Master"
 	add_child(sfx_player)
+
+	# Dedicated looping fire sound (plays only while player is burning)
+	_ensure_fire_loop_audio_ready()
 	
 	# Try to load default kick sounds if not assigned
 	if not kick_object_sfx:
@@ -5762,6 +5768,7 @@ func die(custom_message: String = "") -> void:
 	# Set dying flag to prevent further processing in _physics_process
 	is_dying = true
 	is_speed_capped = false # Reset cap on death
+	_stop_fire_loop_sound()
 	
 	# Clean up rewind state if dying during rewind
 	if is_in_rewind_slowmo:
@@ -5831,6 +5838,61 @@ func die(custom_message: String = "") -> void:
 	# We don't need to do anything else here except maybe stop this script from doing more.
 	set_physics_process(false)
 	set_process(false)
+
+
+func _start_fire_loop_sound() -> void:
+	_ensure_fire_loop_audio_ready()
+	if not fire_loop_player or not fire_loop_sfx:
+		return
+	if fire_loop_player.stream != fire_loop_sfx:
+		fire_loop_player.stream = fire_loop_sfx
+	fire_loop_player.volume_db = fire_loop_volume_db
+	_configure_stream_loop_disabled(fire_loop_player.stream)
+	if not fire_loop_player.playing:
+		fire_loop_player.play()
+
+
+func _stop_fire_loop_sound() -> void:
+	if fire_loop_player and fire_loop_player.playing:
+		fire_loop_player.stop()
+
+
+func _configure_stream_loop_disabled(stream: AudioStream) -> void:
+	if stream == null:
+		return
+	if stream is AudioStreamWAV:
+		var wav_stream := stream as AudioStreamWAV
+		wav_stream.loop_mode = AudioStreamWAV.LOOP_DISABLED
+	elif stream is AudioStreamOggVorbis:
+		var ogg_stream := stream as AudioStreamOggVorbis
+		ogg_stream.loop = false
+	elif stream is AudioStreamMP3:
+		var mp3_stream := stream as AudioStreamMP3
+		mp3_stream.loop = false
+
+
+func _ensure_fire_loop_audio_ready() -> void:
+	if not fire_loop_player:
+		fire_loop_player = AudioStreamPlayer.new()
+		fire_loop_player.name = "FireLoopPlayer"
+		if AudioServer.get_bus_index("Game") != -1:
+			fire_loop_player.bus = "Game"
+		else:
+			fire_loop_player.bus = "Master"
+		fire_loop_player.volume_db = fire_loop_volume_db
+		add_child(fire_loop_player)
+		if not fire_loop_player.finished.is_connected(_on_fire_loop_finished):
+			fire_loop_player.finished.connect(_on_fire_loop_finished)
+	if not fire_loop_sfx and ResourceLoader.exists("res://audio/fire.wav"):
+		fire_loop_sfx = load("res://audio/fire.wav")
+		_configure_stream_loop_disabled(fire_loop_sfx)
+	if fire_loop_player and fire_loop_sfx and fire_loop_player.stream != fire_loop_sfx:
+		fire_loop_player.stream = fire_loop_sfx
+
+
+func _on_fire_loop_finished() -> void:
+	if is_on_fire and fire_loop_player and fire_loop_player.stream:
+		fire_loop_player.play()
 
 
 func _die_with_message(msg: String) -> void:
@@ -6335,6 +6397,7 @@ func set_on_fire() -> void:
 	if is_on_fire or is_water_protected:
 		return
 	is_on_fire = true
+	_start_fire_loop_sound()
 
 	# Shader effect
 	var shader = load("res://shaders/player_fire.gdshader")
@@ -6579,6 +6642,7 @@ func extinguish_fire() -> void:
 	if not is_on_fire:
 		return
 	is_on_fire = false
+	_stop_fire_loop_sound()
 
 	# Remove shader
 	if animated_sprite:

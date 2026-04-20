@@ -41,6 +41,8 @@ func _ready() -> void:
 	music_player.bus = "Master"
 	music_player.volume_db = bgm_volume_db
 	add_child(music_player)
+	if not music_player.finished.is_connected(_on_music_finished):
+		music_player.finished.connect(_on_music_finished)
 	
 	# Create heartbeat player
 	_heartbeat_player = AudioStreamPlayer.new()
@@ -148,6 +150,7 @@ func _setup_and_play():
 	var stream = load(_current_music_path)
 	
 	if stream:
+		_prepare_stream_for_manual_loop(stream)
 		music_player.stream = stream
 		
 		# CRITICAL: Wait 2 frames for Godot to register the large WAV resource
@@ -173,6 +176,9 @@ func _retry_play(stream):
 	new_player.bus = "Master"
 	new_player.volume_db = bgm_volume_db
 	add_child(new_player)
+	if not new_player.finished.is_connected(_on_music_finished):
+		new_player.finished.connect(_on_music_finished)
+	_prepare_stream_for_manual_loop(stream)
 	new_player.stream = stream
 	await get_tree().process_frame
 	
@@ -210,6 +216,7 @@ func play_music(new_stream: AudioStream):
 	_is_stopped = false
 	if music_player:
 		music_player.stop()
+		_prepare_stream_for_manual_loop(new_stream)
 		music_player.stream = new_stream
 		music_player.play()
 
@@ -224,6 +231,7 @@ func restart_music() -> void:
 		# Check if the music stream needs to change (level-specific music)
 		var expected_stream = load(_current_music_path)
 		if expected_stream and music_player.stream != expected_stream:
+			_prepare_stream_for_manual_loop(expected_stream)
 			music_player.stream = expected_stream
 			
 		# Reset pitch and other properties
@@ -244,6 +252,32 @@ func set_level_music(music_path: String) -> void:
 func reset_to_default_music() -> void:
 	"""Reset music back to the default track."""
 	_current_music_path = DEFAULT_MUSIC_PATH
+
+
+func _prepare_stream_for_manual_loop(stream: AudioStream) -> void:
+	"""Disable built-in looping so we can consistently restart on finished."""
+	if stream == null:
+		return
+	if stream is AudioStreamWAV:
+		var wav_stream := stream as AudioStreamWAV
+		wav_stream.loop_mode = AudioStreamWAV.LOOP_DISABLED
+	elif stream is AudioStreamOggVorbis:
+		var ogg_stream := stream as AudioStreamOggVorbis
+		ogg_stream.loop = false
+	elif stream is AudioStreamMP3:
+		var mp3_stream := stream as AudioStreamMP3
+		mp3_stream.loop = false
+
+
+func _on_music_finished() -> void:
+	"""Loop level BGM by replaying whenever it naturally reaches the end."""
+	if _is_stopped or not music_player:
+		return
+	if music_player.stream_paused:
+		return
+	if music_player.stream == null:
+		return
+	music_player.play(0.0)
 
 # ---- Heartbeat System ----
 

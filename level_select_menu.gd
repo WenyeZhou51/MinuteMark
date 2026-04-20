@@ -6,6 +6,7 @@ extends CanvasLayer
 
 const SAVE_FILE_PATH = "user://level_progress.cfg"
 const PROGRESS_RESET_MARKER_PATH = "user://level_progress_reset_v1.marker"
+const LEVEL_SELECT_TARGET_SCENE_PATH_META := "level_select_target_scene_path"
 
 @export_group("Lock Overlay")
 @export var locked_overlay_node_name: NodePath = NodePath("LockedOverlay")  # Child of each level block; only visible when locked (add in scene or leave name to auto-create)
@@ -46,6 +47,7 @@ var _using_keyboard_nav: bool = false
 var block_torn_edge_colors: Array[Color] = []
 var block_torn_edge_widths: Array[float] = []
 var _outline_flash_phase: float = 0.0
+var _is_changing_scene: bool = false
 
 func _ready():
 	# Stop background music, heartbeat, and occasional noise
@@ -76,6 +78,7 @@ func _ready():
 		save_level_progress()
 	# Apply loaded/default state to visuals
 	_apply_level_states_to_blocks()
+	_apply_entry_focus_target()
 	_cache_block_original_colors()
 	_cache_torn_edge_defaults()
 	if level_blocks.size() > 0:
@@ -87,6 +90,26 @@ func _ready():
 	setup_audio_players()
 	
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+func _apply_entry_focus_target() -> void:
+	"""Choose which level card is initially highlighted when entering level select."""
+	if level_blocks.is_empty():
+		return
+	var target_index := 0
+	var root := get_tree().root
+	if root and root.has_meta(LEVEL_SELECT_TARGET_SCENE_PATH_META):
+		var target_scene_path := str(root.get_meta(LEVEL_SELECT_TARGET_SCENE_PATH_META))
+		root.remove_meta(LEVEL_SELECT_TARGET_SCENE_PATH_META)
+		if not target_scene_path.is_empty():
+			for i in range(levels.size()):
+				var scene_path := str(levels[i].get("scene_path", ""))
+				if scene_path == target_scene_path:
+					target_index = i
+					break
+	keyboard_focus_index = clampi(target_index, 0, level_blocks.size() - 1)
+	# Keep highlight anchored to the requested card until the player moves the mouse.
+	_using_keyboard_nav = true
 
 func clear_saved_level_progress():
 	"""Delete stored level progress so stale unlock data cannot leak into this run."""
@@ -447,10 +470,10 @@ func _input(event):
 			return
 		if not event.echo and level_blocks.size() > 0:
 			var n = level_blocks.size()
-			if event.keycode in [KEY_LEFT, KEY_A]:
+			if event.keycode in [KEY_LEFT, KEY_A, KEY_UP, KEY_W]:
 				_using_keyboard_nav = true
 				keyboard_focus_index = (keyboard_focus_index - 1 + n) % n
-			elif event.keycode in [KEY_RIGHT, KEY_D]:
+			elif event.keycode in [KEY_RIGHT, KEY_D, KEY_DOWN, KEY_S]:
 				_using_keyboard_nav = true
 				keyboard_focus_index = (keyboard_focus_index + 1) % n
 			elif event.keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_SPACE]:
@@ -506,6 +529,8 @@ func _is_point_in_block(point: Vector2, block: Control) -> bool:
 
 func _on_level_block_clicked(level_index: int):
 	"""Handle level block click / Enter key. Locked levels can be focused but not entered."""
+	if _is_changing_scene:
+		return
 	if level_index >= levels.size():
 		return
 		
@@ -513,17 +538,23 @@ func _on_level_block_clicked(level_index: int):
 	
 	# Locked: allow hover/focus with keyboard but do not open level on Enter
 	if not _is_level_unlocked(level_index):
-		play_menu_select_sound()
+		play_select_denied_sound()
 		return
 	
-	# Play transition sound
-	play_menu_transition_sound()
+	# Play accepted click feedback for unlocked levels.
+	play_select_accepted_sound()
 	
 	# Load the level scene
 	var scene_path = level_data.get("scene_path", "")
 	if scene_path != "" and ResourceLoader.exists(scene_path):
+		_is_changing_scene = true
+		# Let accepted SFX become audible before LoadingIndicator pauses the tree.
+		await get_tree().create_timer(0.15, true, false, true).timeout
+		if level_select_music_player:
+			level_select_music_player.stop()
 		LoadingIndicator.change_scene(scene_path)
 	else:
+		_is_changing_scene = false
 		push_error("LevelSelectMenu: Scene path not found: " + scene_path)
 
 func unlock_level(level_index: int):
@@ -577,6 +608,10 @@ func load_level_progress():
 # Audio setup
 var menu_transition_player: AudioStreamPlayer
 var menu_select_player: AudioStreamPlayer
+var level_select_music_player: AudioStreamPlayer
+var select_result_player: AudioStreamPlayer
+var select_accepted_sfx: AudioStream
+var select_denied_sfx: AudioStream
 
 func setup_audio_players():
 	"""Create audio players for menu sounds"""
@@ -589,6 +624,11 @@ func setup_audio_players():
 	menu_select_player.name = "MenuSelectPlayer"
 	menu_select_player.bus = "Master"
 	add_child(menu_select_player)
+
+	select_result_player = AudioStreamPlayer.new()
+	select_result_player.name = "SelectResultPlayer"
+	select_result_player.bus = "Master"
+	add_child(select_result_player)
 	
 	# Load audio files
 	if ResourceLoader.exists("res://audio/Menu transition.ogg"):
@@ -600,6 +640,61 @@ func setup_audio_players():
 		menu_select_player.stream = load("res://audio/menu select.ogg")
 	elif ResourceLoader.exists("res://audio/menu_select.ogg"):
 		menu_select_player.stream = load("res://audio/menu_select.ogg")
+
+	if ResourceLoader.exists("res://audio/select_accepted.wav"):
+		select_accepted_sfx = load("res://audio/select_accepted.wav")
+	if ResourceLoader.exists("res://audio/select_denied.wav"):
+		select_denied_sfx = load("res://audio/select_denied.wav")
+	
+	# Create and start level-select background music
+	level_select_music_player = AudioStreamPlayer.new()
+	level_select_music_player.name = "LevelSelectMusicPlayer"
+	level_select_music_player.bus = "Master"
+	level_select_music_player.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(level_select_music_player)
+	if not level_select_music_player.finished.is_connected(_on_level_select_music_finished):
+		level_select_music_player.finished.connect(_on_level_select_music_finished)
+	
+	if ResourceLoader.exists("res://audio/Pause menu music.wav"):
+		level_select_music_player.stream = load("res://audio/Pause menu music.wav")
+	
+	_set_level_select_music_loop_disabled()
+	if level_select_music_player.stream:
+		level_select_music_player.play()
+
+
+func _set_level_select_music_loop_disabled():
+	"""Disable embedded loop settings so finished-signal restarts are reliable."""
+	if not level_select_music_player or not level_select_music_player.stream:
+		return
+	var stream = level_select_music_player.stream
+	if stream is AudioStreamWAV:
+		var wav_stream := stream as AudioStreamWAV
+		wav_stream.loop_mode = AudioStreamWAV.LOOP_DISABLED
+	elif stream is AudioStreamOggVorbis:
+		var ogg_stream := stream as AudioStreamOggVorbis
+		ogg_stream.loop = false
+	elif stream is AudioStreamMP3:
+		var mp3_stream := stream as AudioStreamMP3
+		mp3_stream.loop = false
+
+
+func _on_level_select_music_finished():
+	"""Keep level-select BGM running while this scene is active."""
+	if level_select_music_player and level_select_music_player.stream:
+		level_select_music_player.play()
+
+
+func play_select_accepted_sound():
+	if select_result_player and select_accepted_sfx:
+		select_result_player.stream = select_accepted_sfx
+		select_result_player.play()
+
+
+func play_select_denied_sound():
+	if select_result_player and select_denied_sfx:
+		select_result_player.stream = select_denied_sfx
+		select_result_player.play()
 
 func _process(_delta: float):
 	"""Highlight from mouse hover, or keyboard when arrow keys have priority over the cursor."""

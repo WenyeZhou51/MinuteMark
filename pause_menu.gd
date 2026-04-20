@@ -244,6 +244,18 @@ func _inject_restart_button():
 		btn.focus_neighbor_bottom = next.get_path()
 
 func _input(event):
+	if visible and current_inner_menu == null and event is InputEventKey and event.pressed and not event.echo and not is_transitioning and not is_animating_in:
+		# Requested remap for pause menu navigation:
+		# Right behaves like Down (next item), Up behaves like Left (previous item).
+		if event.keycode in [KEY_RIGHT, KEY_D, KEY_S]:
+			if _move_main_menu_focus(1):
+				get_viewport().set_input_as_handled()
+				return
+		elif event.keycode in [KEY_UP, KEY_LEFT, KEY_W, KEY_A]:
+			if _move_main_menu_focus(-1):
+				get_viewport().set_input_as_handled()
+				return
+
 	if event.is_action_pressed("ui_cancel") and not is_transitioning and not is_animating_in:  # ESC key by default
 		# Don't toggle pause if we're in an inner menu
 		if current_inner_menu != null:
@@ -264,6 +276,30 @@ func _input(event):
 			return
 			
 		toggle_pause()
+
+
+func _move_main_menu_focus(step: int) -> bool:
+	"""Move focus across main pause menu buttons."""
+	if step == 0 or not has_node("MenuContainer"):
+		return false
+	var buttons: Array[Control] = []
+	for child in $MenuContainer.get_children():
+		if child is Button and child.focus_mode != Control.FOCUS_NONE and child.visible and not child.disabled:
+			buttons.append(child)
+	if buttons.is_empty():
+		return false
+	buttons.sort_custom(func(a: Control, b: Control) -> bool:
+		return a.global_position.y < b.global_position.y
+	)
+	var focused := get_viewport().gui_get_focus_owner()
+	var current_index := 0
+	for i in range(buttons.size()):
+		if buttons[i] == focused:
+			current_index = i
+			break
+	var next_index := (current_index + step + buttons.size()) % buttons.size()
+	buttons[next_index].grab_focus()
+	return true
 
 
 func _process(_delta):
@@ -685,6 +721,9 @@ func _on_menu_pressed():
 		pause_music_player.stop()
 	get_tree().paused = false
 	_set_other_ui_visible(true)
+	var current_scene = get_tree().current_scene
+	if current_scene and current_scene.scene_file_path != "":
+		get_tree().root.set_meta("level_select_target_scene_path", current_scene.scene_file_path)
 	if ResourceLoader.exists("res://level_select_menu.tscn"):
 		LoadingIndicator.change_scene("res://level_select_menu.tscn")
 	else:
@@ -734,9 +773,34 @@ func setup_audio_players():
 	pause_music_player.bus = "Master"
 	pause_music_player.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(pause_music_player)
+	if not pause_music_player.finished.is_connected(_on_pause_music_finished):
+		pause_music_player.finished.connect(_on_pause_music_finished)
 	
 	if ResourceLoader.exists("res://audio/Pause menu music.wav"):
 		pause_music_player.stream = load("res://audio/Pause menu music.wav")
+	_set_pause_music_loop_disabled()
+
+
+func _set_pause_music_loop_disabled():
+	"""Disable embedded loop settings so finished-signal restarts are reliable."""
+	if not pause_music_player or not pause_music_player.stream:
+		return
+	var stream = pause_music_player.stream
+	if stream is AudioStreamWAV:
+		var wav_stream := stream as AudioStreamWAV
+		wav_stream.loop_mode = AudioStreamWAV.LOOP_DISABLED
+	elif stream is AudioStreamOggVorbis:
+		var ogg_stream := stream as AudioStreamOggVorbis
+		ogg_stream.loop = false
+	elif stream is AudioStreamMP3:
+		var mp3_stream := stream as AudioStreamMP3
+		mp3_stream.loop = false
+
+
+func _on_pause_music_finished():
+	"""Keep pause menu BGM running while the menu stays open."""
+	if visible and pause_music_player and pause_music_player.stream:
+		pause_music_player.play()
 
 
 func setup_menu_button_hover():
