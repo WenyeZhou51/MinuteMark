@@ -80,7 +80,7 @@ texture = ExtResource("41_wallbg")
 
 [node name="WallBackground4" type="Sprite2D" parent="."]
 z_index = -5
-position = Vector2(5984, 9770)
+position = Vector2(5984, 9773)
 scale = Vector2(1.19929, 1)
 texture = ExtResource("41_wallbg")
 
