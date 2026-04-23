@@ -1,4 +1,4 @@
-# Steam Build Script for Minute
+# Steam Build Script for Minute (Windows + macOS)
 # Run from anywhere — all paths are absolute.
 #
 # Usage:
@@ -13,27 +13,49 @@ $ErrorActionPreference = "Stop"
 
 $GodotPath    = "E:\godot\Godot_v4.3-stable_win64.exe"
 $ProjectPath  = "E:\godotGames\minute"
-$BuildDir     = "E:\godotGames\Minute Mark Steam Build"
+$WinBuildDir  = "E:\godotGames\Minute Mark Steam Build"
+$MacBuildDir  = "E:\godotGames\Minute Mark Steam Build Mac"
+$MacZipPath   = "$MacBuildDir\minute.zip"
 $VdfPath      = "$ProjectPath\steam\app_build.vdf"
 $SteamCmdPath = "E:\STEAMCMD\steamcmd.exe"
-$PresetName   = "Windows Desktop"
-$ExeName      = "minute.exe"
 
-# 1. Ensure build output directory exists
-if (-not (Test-Path $BuildDir)) {
-    New-Item -ItemType Directory -Path $BuildDir -Force | Out-Null
+# 1. Clean and ensure build output directories exist
+foreach ($dir in @($WinBuildDir, $MacBuildDir)) {
+    if (Test-Path $dir) {
+        Remove-Item "$dir\*" -Recurse -Force
+    } else {
+        New-Item -ItemType Directory -Path $dir -Force | Out-Null
+    }
 }
 
-# 2. Export the game
+# 2. Export Windows build
 Write-Host "=== Exporting Minute as Windows Desktop release ===" -ForegroundColor Cyan
-& $GodotPath --headless --path $ProjectPath --export-release $PresetName "$BuildDir\$ExeName"
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "Export failed!" -ForegroundColor Red
+& $GodotPath --headless --path $ProjectPath --export-release "Windows Desktop" "$WinBuildDir\minute.exe"
+Write-Host "Windows export complete: $WinBuildDir\minute.exe" -ForegroundColor Green
+
+# 3. Export macOS build (Godot outputs a .zip containing the .app bundle on Windows)
+Write-Host ""
+Write-Host "=== Exporting Minute as macOS release ===" -ForegroundColor Cyan
+& $GodotPath --headless --path $ProjectPath --export-release "macOS" $MacZipPath
+
+if (-not (Test-Path $MacZipPath)) {
+    Write-Host "macOS export failed — zip not found at $MacZipPath" -ForegroundColor Red
     exit 1
 }
-Write-Host "Export complete: $BuildDir\$ExeName" -ForegroundColor Green
 
-# 3. Upload to Steam
+# 4. Extract the .app bundle from the zip for SteamCMD
+Write-Host "Extracting macOS .app from zip..." -ForegroundColor Cyan
+Expand-Archive -Path $MacZipPath -DestinationPath $MacBuildDir -Force
+Remove-Item $MacZipPath -Force
+
+$appBundle = Get-ChildItem $MacBuildDir -Filter "*.app" -Directory | Select-Object -First 1
+if (-not $appBundle) {
+    Write-Host "macOS export failed — no .app bundle found after extraction" -ForegroundColor Red
+    exit 1
+}
+Write-Host "macOS export complete: $($appBundle.FullName)" -ForegroundColor Green
+
+# 5. Upload both depots to Steam
 Write-Host ""
 Write-Host "=== Uploading to Steam via SteamCMD ===" -ForegroundColor Cyan
 Write-Host "You will be prompted for your Steam password and Steam Guard code." -ForegroundColor Yellow

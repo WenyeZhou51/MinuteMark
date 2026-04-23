@@ -3,14 +3,23 @@
     "AppID" "4387950"
     "Desc" "Minute build"
     "BuildOutput" "E:\godotGames\steam_build_output\"
-    "ContentRoot" "E:\godotGames\Minute Mark Steam Build\"
+    "ContentRoot" "E:\godotGames\"
     "Depots"
     {
         "4387951"
         {
             "FileMapping"
             {
-                "LocalPath" "*"
+                "LocalPath" "Minute Mark Steam Build\*"
+                "DepotPath" "."
+                "recursive" "1"
+            }
+        }
+        "4387952"
+        {
+            "FileMapping"
+            {
+                "LocalPath" "Minute Mark Steam Build Mac\*"
                 "DepotPath" "."
                 "recursive" "1"
             }

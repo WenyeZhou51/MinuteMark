@@ -16,7 +16,7 @@ signal story_finished
 @export_group("Physics")
 @export var gravity: float = 980.0
 @export var damping: float = 0.995 # Air resistance
-@export var drag_stiffness: float = 10.0 # How fast it follows mouse
+@export var drag_stiffness: float = 25.0 # How fast it follows mouse
 @export var keyboard_force: float = 8.0 # Force applied by keyboard controls
 
 # Variables
@@ -32,6 +32,10 @@ var is_transitioning: bool = false
 @export_range(0.0, 0.5, 0.01) var noise_softness: float = 0.05
 @export_range(0.0, 100.0, 0.1) var noise_seed: float = 1.0
 @export var reveal_center: Vector2 = Vector2(0.5, 0.5)
+
+@export_group("Story Frames")
+@export var frames_directory: String = "res://story frames/"
+@export var file_prefix: String = "P"
 
 @onready var pendulum = $Pendulum
 @onready var pivot_visual = $Pendulum/Pivot
@@ -57,6 +61,16 @@ var end_angle: float = 0.0  # Right side (pointing to bottom-right)
 var frame_border: Sprite2D
 var instruction_label: Label
 var instructions_faded: bool = false
+
+var idle_hint_label: Label
+var frame_idle_time: float = 0.0
+var idle_hint_visible: bool = false
+@export var idle_hint_delay: float = 5.0
+
+@export_range(0.0, 1.0, 0.01) var auto_complete_threshold: float = 0.5
+@export var auto_complete_angular_speed: float = 10.0
+var is_auto_completing: bool = false
+var awaiting_final_swing: bool = false
 
 func _ready():
 	# Get viewport size
@@ -222,11 +236,18 @@ func _ready():
 	
 
 func _process(delta):
-	# Don't update physics if we are in the middle of a transition pause
 	if is_transitioning:
 		return
 
-	# Physics simulation
+	if is_auto_completing:
+		var direction = sign(end_angle - start_angle)
+		current_angle += direction * auto_complete_angular_speed * delta
+		var min_a = min(start_angle, end_angle)
+		var max_a = max(start_angle, end_angle)
+		current_angle = clamp(current_angle, min_a, max_a)
+		update_pendulum()
+		return
+
 	if is_dragging:
 		# When dragging, we don't simulate full gravity, but we calculate velocity based on drag
 		# This makes it feel heavy when released
@@ -264,7 +285,7 @@ func _process(delta):
 			elif current_angle > max_angle:
 				current_angle = max_angle
 				angular_velocity = 0
-				
+		
 	else:
 		# Free swing with gravity
 		# Gravity torque = -g/L * sin(theta - PI/2)
@@ -305,14 +326,27 @@ func _process(delta):
 			current_angle = max_angle
 			angular_velocity *= -0.5
 
+	var swing_from_start_deg = rad_to_deg(abs(current_angle - start_angle))
+	var total_swing_range = max_swing_angle * 2.0
+	var swing_progress = swing_from_start_deg / total_swing_range if total_swing_range > 0 else 0.0
+	if swing_progress >= auto_complete_threshold and not is_auto_completing:
+		is_dragging = false
+		is_auto_completing = true
+
+	if not is_dragging and not is_auto_completing:
+		frame_idle_time += delta
+		if frame_idle_time >= idle_hint_delay and not idle_hint_visible:
+			show_idle_hint()
+
 	update_pendulum()
 
 func _input(event):
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			if event.pressed:
-				# Don't allow dragging if we've reached the end of the sequence
-				if current_story_index + 1 >= story_textures.size():
+				if is_auto_completing:
+					return
+				if current_story_index + 1 >= story_textures.size() and not awaiting_final_swing:
 					return
 					
 				# Check if clicking near the pendulum line or bob
@@ -323,8 +357,7 @@ func _input(event):
 				if distance < max(80.0, bob_radius):  # Click within 80px of line or within bob radius
 					is_dragging = true
 					angular_velocity = 0 # Reset velocity on grab
-					var current_deg = rad_to_deg(current_angle)
-					var start_deg = rad_to_deg(start_angle)
+					hide_idle_hint()
 			else:
 				is_dragging = false
 	
@@ -357,18 +390,15 @@ func update_pendulum():
 			fade_out_instructions()
 
 func update_mask():
-	# Paint splatter reveal that begins when pendulum swings reveal_start_angle_offset PAST vertical center
-	
 	var swing_from_start = rad_to_deg(abs(current_angle - start_angle))
 	var total_swing_range = max_swing_angle * 2.0
-	
-	# Calculate total swing progress (0.0 to 1.0)
 	var total_progress = swing_from_start / total_swing_range if total_swing_range > 0 else 0.0
 	
-	# AUTOMATIC TRANSITION: Trigger when swing threshold is reached
-	# No is_dragging or release check required anymore
 	if total_progress >= transition_threshold:
 		complete_transition()
+		return
+	
+	if awaiting_final_swing:
 		return
 	
 	var reveal_trigger_angle = max_swing_angle + reveal_start_angle_offset
@@ -413,30 +443,26 @@ func update_mask():
 		pass
 
 func load_story_textures():
-	var dir = DirAccess.open("res://story frames/")
-	if dir:
-		dir.list_dir_begin()
-		var file_name = dir.get_next()
-		var frame_files = []
-		while file_name != "":
-			if !dir.current_is_dir() and file_name.ends_with(".png") and file_name.begins_with("P"):
-				frame_files.append(file_name)
-			file_name = dir.get_next()
-		
-		# Sort files numerically (P1, P2, P3...)
-		frame_files.sort_custom(func(a, b):
-			var num_a = a.substr(1).to_int()
-			var num_b = b.substr(1).to_int()
-			return num_a < num_b
-		)
-		
-		for frame in frame_files:
-			var tex = load("res://story frames/" + frame)
-			if tex:
-				story_textures.append(tex)
-		
-	else:
-		pass
+	var image_extensions = ["png", "jpg", "jpeg", "webp"]
+	var max_probe = 50
+	for i in range(1, max_probe + 1):
+		var found = false
+		for ext in image_extensions:
+			var path = frames_directory.path_join(file_prefix + str(i) + "." + ext)
+			if ResourceLoader.exists(path):
+				var tex = load(path)
+				if tex:
+					story_textures.append(tex)
+					found = true
+					break
+		if not found and i > 1:
+			break
+
+func _extract_frame_number(filename: String) -> int:
+	var base = filename.get_basename()
+	if !file_prefix.is_empty() and base.begins_with(file_prefix):
+		base = base.substr(file_prefix.length())
+	return base.to_int()
 
 func setup_images():
 	# Use the viewport center instead of the ImageTransform guide
@@ -471,11 +497,12 @@ func setup_images():
 
 func update_bob_visuals():
 	# Load and set the sprite texture
-	bob.texture = load("res://Sprites/New bob.png")
+	bob.texture = load("res://Sprites/Final new bob.png")
 	if bob.texture:
 		bob.centered = true
+		bob.modulate = Color.WHITE
+		bob.self_modulate = Color.WHITE
 		var tex_size = bob.texture.get_size()
-		# Scale the bob based on bob_radius and the multiplier
 		var max_dim = max(tex_size.x, tex_size.y)
 		var scale_factor = (bob_radius * 2.0) / max_dim * bob_sprite_scale_multiplier
 		bob.scale = Vector2(scale_factor, scale_factor)
@@ -524,22 +551,71 @@ func fade_out_instructions():
 	tween.tween_property(instruction_label, "modulate:a", 0.0, 2.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 	tween.tween_callback(instruction_label.queue_free)
 
+func show_idle_hint():
+	if idle_hint_visible:
+		return
+	if current_story_index + 1 >= story_textures.size() and not awaiting_final_swing:
+		return
+	idle_hint_visible = true
+	
+	idle_hint_label = Label.new()
+	idle_hint_label.text = "Drag pendulum across to continue"
+	idle_hint_label.add_theme_font_size_override("font_size", 52)
+	idle_hint_label.add_theme_color_override("font_color", Color.WHITE)
+	idle_hint_label.add_theme_constant_override("outline_size", 10)
+	idle_hint_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	idle_hint_label.add_theme_constant_override("shadow_offset_x", 3)
+	idle_hint_label.add_theme_constant_override("shadow_offset_y", 3)
+	idle_hint_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.5))
+	
+	var font = load("res://Fonts/Funkrocker.otf")
+	if font:
+		idle_hint_label.add_theme_font_override("font", font)
+	
+	idle_hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	idle_hint_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	
+	var viewport_size = get_viewport_rect().size
+	idle_hint_label.size = Vector2(viewport_size.x, 100)
+	idle_hint_label.position = Vector2(0, viewport_size.y - 180)
+	idle_hint_label.z_index = 100
+	idle_hint_label.modulate.a = 0.0
+	add_child(idle_hint_label)
+	
+	var tween = create_tween()
+	tween.tween_property(idle_hint_label, "modulate:a", 1.0, 0.8).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+
+func hide_idle_hint():
+	if not idle_hint_visible:
+		return
+	idle_hint_visible = false
+	frame_idle_time = 0.0
+	if idle_hint_label and is_instance_valid(idle_hint_label):
+		var tween = create_tween()
+		tween.tween_property(idle_hint_label, "modulate:a", 0.0, 0.4).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+		tween.tween_callback(idle_hint_label.queue_free)
+		idle_hint_label = null
+
 func complete_transition():
-	# Check if we have more images before proceeding
+	if awaiting_final_swing:
+		awaiting_final_swing = false
+		is_transitioning = true
+		is_auto_completing = false
+		angular_velocity = 0.0
+		hide_idle_hint()
+		await get_tree().create_timer(0.5).timeout
+		story_finished.emit()
+		return
+	
 	if current_story_index + 1 >= story_textures.size():
 		return
-
 	
-	# Start transition pause
 	is_transitioning = true
-	# Stop momentum
+	is_auto_completing = false
 	angular_velocity = 0.0
 	
-	# Wait for a moment to let the user see the full image
 	await get_tree().create_timer(0.4).timeout
 	
-	
-	# Play transition sound if available
 	var transition_sound = load("res://audio/menu transition.ogg")
 	if transition_sound:
 		var audio_player = AudioStreamPlayer.new()
@@ -547,58 +623,45 @@ func complete_transition():
 		audio_player.bus = "Master"
 		add_child(audio_player)
 		audio_player.play()
-		# Auto-cleanup
 		audio_player.finished.connect(func(): audio_player.queue_free())
 	
 	current_story_index += 1
-	
-	# Update images for the next reveal
-	# Current top (which is now fully revealed) becomes the new bottom
 	image_bottom.texture = story_textures[current_story_index]
 	
-	# If there's a next image, load it into the top
 	if current_story_index + 1 < story_textures.size():
 		image_top.texture = story_textures[current_story_index + 1]
 		image_top.visible = true
 		
-		# Reset shader for the NEW top image
 		var shader_material = image_top.material as ShaderMaterial
 		if shader_material:
 			shader_material.set_shader_parameter("reveal_progress", 0.0)
-			smoothed_reveal_progress = 0.0 # Reset smoothing
+			smoothed_reveal_progress = 0.0
 			
 			if image_top.texture:
 				var tex_size = image_top.texture.get_size()
 				shader_material.set_shader_parameter("aspect_ratio", tex_size.x / tex_size.y)
 		
-		# SWAP SWING DIRECTION
-		# The end of the previous swing is the START of the next swing
-		var temp = start_angle
-		start_angle = end_angle
-		end_angle = temp
-		
-		is_swinging_right = !is_swinging_right
-		
-		# Force update current_angle to the new start so we don't trigger again immediately
-		current_angle = start_angle
-		angular_velocity = 0
-		
-		# Reset sound flag for the next swing
-		sound_played_this_swing = false
-		
-		# Update scaling for the new textures
+		_reset_swing_for_next_frame()
 		setup_images()
 		
 	else:
-		# Last image revealed, hide image_top or set it to fully visible
 		var shader_material = image_top.material as ShaderMaterial
 		if shader_material:
 			shader_material.set_shader_parameter("reveal_progress", 1.0)
-		is_dragging = false # Finished the whole thing
 		
-		# Emit finished signal after a short delay
-		await get_tree().create_timer(1.0).timeout
-		story_finished.emit()
+		awaiting_final_swing = true
+		_reset_swing_for_next_frame()
 	
-	# End transition pause
 	is_transitioning = false
+
+func _reset_swing_for_next_frame():
+	var temp = start_angle
+	start_angle = end_angle
+	end_angle = temp
+	is_swinging_right = !is_swinging_right
+	current_angle = start_angle
+	angular_velocity = 0
+	is_dragging = false
+	sound_played_this_swing = false
+	frame_idle_time = 0.0
+	hide_idle_hint()

@@ -4,6 +4,7 @@ extends CanvasLayer
 @export_group("Level Configuration")
 @export var levels: Array[Dictionary] = []
 
+const IntroStoryScene = preload("res://pendulum_story.tscn")
 const SAVE_FILE_PATH = "user://level_progress.cfg"
 const PROGRESS_RESET_MARKER_PATH = "user://level_progress_reset_v1.marker"
 const LEVEL_SELECT_TARGET_SCENE_PATH_META := "level_select_target_scene_path"
@@ -552,6 +553,10 @@ func _on_level_block_clicked(level_index: int):
 		await get_tree().create_timer(0.15, true, false, true).timeout
 		if level_select_music_player:
 			level_select_music_player.stop()
+		
+		if level_index == 0:
+			await _show_intro_story()
+		
 		LoadingIndicator.change_scene(scene_path)
 	else:
 		_is_changing_scene = false
@@ -604,6 +609,52 @@ func load_level_progress():
 	for i in range(2, levels.size()):
 		levels[i]["unlocked"] = false
 	
+
+func _show_intro_story():
+	var transition_layer = CanvasLayer.new()
+	transition_layer.layer = 128
+	add_child(transition_layer)
+	
+	var transition_rect = ColorRect.new()
+	transition_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+	transition_rect.color = Color.WHITE
+	transition_rect.modulate.a = 0.0
+	transition_layer.add_child(transition_rect)
+	
+	# Fade to white
+	var tween = create_tween()
+	tween.tween_property(transition_rect, "modulate:a", 1.0, 0.5)
+	await tween.finished
+	
+	# Instantiate pendulum story configured for intro frames
+	var pendulum_instance = IntroStoryScene.instantiate()
+	pendulum_instance.frames_directory = "res://Sprites/Intro story frames/"
+	pendulum_instance.file_prefix = ""
+	pendulum_instance.process_mode = Node.PROCESS_MODE_ALWAYS
+	
+	var canvas_layer = CanvasLayer.new()
+	canvas_layer.layer = 110
+	canvas_layer.add_child(pendulum_instance)
+	get_tree().root.add_child(canvas_layer)
+	
+	# Fade in the pendulum story
+	var tween_in = create_tween()
+	tween_in.tween_property(transition_rect, "modulate:a", 0.0, 0.5)
+	await tween_in.finished
+	transition_layer.visible = false
+	
+	# Wait for story to finish
+	await pendulum_instance.story_finished
+	
+	# Fade back to white
+	transition_layer.visible = true
+	var tween_out = create_tween()
+	tween_out.tween_property(transition_rect, "modulate:a", 1.0, 0.5)
+	await tween_out.finished
+	
+	canvas_layer.queue_free()
+	transition_layer.queue_free()
+
 
 # Audio setup
 var menu_transition_player: AudioStreamPlayer

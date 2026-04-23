@@ -8,6 +8,7 @@ pendulum_line_width = 12.0
 noise_detail = 5.0
 noise_roughness = 0.56
 noise_softness = 0.25
+auto_complete_drag_time = null
 
 [node name="ImageTransform" type="ColorRect" parent="."]
 offset_left = 451.0
