@@ -23,6 +23,12 @@ var shooter_enemy: Node2D = null  # Enemy that shot this bullet
 var can_be_parried: bool = true  # Can this bullet be parried
 var was_parried: bool = false  # Was this bullet parried
 
+# Short grace window so bullets that spawn next to/inside terrain (e.g. gunpoint
+# clipping a wall) aren't instantly destroyed by the swept terrain check.
+# Player hits are still detected during the grace period.
+const SPAWN_GRACE_DURATION: float = 0.08
+var spawn_grace_timer: float = 0.0
+
 # Particle trail reference
 var particle_trail: CPUParticles2D = null
 
@@ -66,18 +72,19 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	# Update lifetime
 	lifetime_timer += delta
+	spawn_grace_timer += delta
 	if lifetime_timer >= lifetime:
 		queue_free()
 		return
-	
+
 	# Continuous collision check along travel path to avoid tunneling and
 	# reduce false positives from overlap callbacks.
 	if _process_path_collision(delta):
 		return
-	
+
 	# Move bullet if path is clear
 	global_position += velocity * delta
-	
+
 	# Rotate to face direction of travel
 	rotation = velocity.angle()
 
@@ -109,13 +116,12 @@ func _on_area_entered(area: Area2D) -> void:
 			# Hit any enemy when parried (prioritize shooter but hit any)
 			var hit_direction = velocity.normalized()
 			area._hit_by_parried_bullet(hit_direction, speed)
-		
+
 		# Destroy bullet
 		queue_free()
 		return
-	
-	# Just destroy bullet on other area collisions
-	queue_free()
+
+	# Non-enemy areas (level finish trigger, tutorial blocks, etc) don't destroy the bullet.
 
 func parry(parry_direction: Vector2) -> void:
 	"""Called when player parries this bullet - reverse direction towards shooter."""
@@ -179,14 +185,22 @@ func _process_path_collision(delta: float) -> bool:
 	var result = get_world_2d().direct_space_state.intersect_ray(query)
 	if result.is_empty():
 		return false
-	
-	# Snap to impact point for consistent visuals.
-	global_position = result.get("position", end_pos)
+
 	var collider = result.get("collider", null)
-	if collider and collider is Node2D and collider.is_in_group("player"):
+	var is_player_hit = collider and collider is Node2D and collider.is_in_group("player")
+
+	if is_player_hit:
+		global_position = result.get("position", end_pos)
 		_hit_player(collider as Node2D)
-	else:
-		queue_free()
+		return true
+
+	# Terrain hit. If we just spawned, ignore it — the gunpoint may have been
+	# clipping a wall. Let the bullet keep moving until it's clear of spawn.
+	if spawn_grace_timer < SPAWN_GRACE_DURATION:
+		return false
+
+	global_position = result.get("position", end_pos)
+	queue_free()
 	return true
 
 func _hit_player(body: Node2D) -> void:

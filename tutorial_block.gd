@@ -7,9 +7,11 @@ extends Area2D
 @export_multiline var instruction_message: String = "Press and hold R to rewind"
 @export var allowed_action: String = "rewind"  # "rewind", "dash", "jump", "kick", "move", "slam"
 @export var require_minimum_rewind_hold: bool = false ## For rewind tutorials: require minimum 0.5s hold (prevents early release)
+@export var trigger_on_enemy_bullet: bool = false ## If true, trigger the first time any enemy projectile exists in the scene (i.e. the moment a guard actually fires at the player). Used for "kick the bullet!" prompts.
 @export_group("Slow Motion Entry")
 @export var pre_freeze_slow_mo_time: float = 0.0 ## Duration of slow motion before freezing (in real seconds)
 @export var pre_freeze_slow_mo_scale: float = 0.1 ## Time scale during the slow motion phase
+@export var time_scale_during_tutorial: float = 1.0 ## Time scale while the tutorial UI is active (1.0 = normal, <1.0 slows the world so the player can react)
 @export var forced_facing_direction: int = 0 ## If non-zero, forces the player to face this direction (1=Right, -1=Left)
 @export var next_tutorial_block_id: String = "" ## ID of the next tutorial block to chain to immediately
 @export var trigger_delay: float = 0.0 ## Delay in seconds before triggering after player enters (0 = immediate)
@@ -21,7 +23,7 @@ var delay_timer: Timer = null
 func _ready() -> void:
 	# Register with manager
 	TutorialBlockManager.register_block(block_id, self)
-	
+
 	body_entered.connect(_on_body_entered)
 	body_exited.connect(_on_body_exited)
 	# Set process mode so we can still detect when paused
@@ -30,23 +32,43 @@ func _ready() -> void:
 	if not TutorialBlockManager.tutorial_ended.is_connected(_on_tutorial_ended):
 		TutorialBlockManager.tutorial_ended.connect(_on_tutorial_ended)
 
+func _process(_delta: float) -> void:
+	# Bullet-triggered blocks fire the first time any enemy projectile exists
+	# in the scene (i.e. the moment the guard actually shoots at the player).
+	# Placement of this Area2D no longer matters for the trigger condition.
+	if not trigger_on_enemy_bullet or triggered:
+		return
+	if TutorialBlockManager.is_block_completed(block_id):
+		triggered = true
+		return
+	if prerequisite_block_id != "" and not TutorialBlockManager.is_block_completed(prerequisite_block_id):
+		return
+	if get_tree().get_nodes_in_group("enemy_projectiles").is_empty():
+		return
+	_trigger_tutorial()
+
 func _on_tutorial_ended(ended_block_id: String) -> void:
 	# If our block ended and we modified time scale, restore it
-	if ended_block_id == block_id and pre_freeze_slow_mo_time > 0:
+	if ended_block_id == block_id and (pre_freeze_slow_mo_time > 0 or time_scale_during_tutorial < 1.0):
 		Engine.time_scale = 1.0
 
 func _on_body_entered(body: Node2D) -> void:
 	if not body.is_in_group("player"):
 		return
-	
+
 	player_inside = true
-	
+
+	# Bullet-triggered blocks ignore player entry — the tutorial only starts
+	# when a guard actually fires a bullet at the player.
+	if trigger_on_enemy_bullet:
+		return
+
 	# Check if this block was already completed
 	if TutorialBlockManager.is_block_completed(block_id):
 		# Already completed, don't trigger again
 		triggered = true
 		return
-	
+
 	# Check if prerequisite is met
 	if prerequisite_block_id != "":
 		var prereq_completed = TutorialBlockManager.is_block_completed(prerequisite_block_id)
@@ -54,11 +76,11 @@ func _on_body_entered(body: Node2D) -> void:
 			# Prerequisite not met, ignore this trigger
 			# Don't set triggered = true here, so we can check again later (e.g., after rewind)
 			return
-	
+
 	# If already triggered and tutorial is active, don't trigger again
 	if triggered:
 		return
-	
+
 	# If there's a delay, start a timer
 	if trigger_delay > 0.0:
 		# Cancel any existing timer
@@ -78,9 +100,9 @@ func _on_body_entered(body: Node2D) -> void:
 func _on_body_exited(body: Node2D) -> void:
 	if not body.is_in_group("player"):
 		return
-	
+
 	player_inside = false
-	
+
 	# Cancel the delay timer if player leaves before delay completes
 	if delay_timer and delay_timer.time_left > 0:
 		delay_timer.queue_free()
@@ -127,11 +149,17 @@ func _trigger_tutorial() -> void:
 		get_tree().create_timer(pre_freeze_slow_mo_time, true, false, true).timeout.connect(func():
 			# Restore time scale before freezing/pausing
 			Engine.time_scale = 1.0
-			
+
 			TutorialBlockManager.start_tutorial(block_id, allowed_action, instruction_message, require_minimum_rewind_hold)
+			# Apply in-tutorial time scale (e.g. slow the world while the player reads the prompt and reacts)
+			if time_scale_during_tutorial < 1.0:
+				Engine.time_scale = time_scale_during_tutorial
 		)
 	else:
 		TutorialBlockManager.start_tutorial(block_id, allowed_action, instruction_message, require_minimum_rewind_hold)
+		# Apply in-tutorial time scale (e.g. slow the world while the player reads the prompt and reacts)
+		if time_scale_during_tutorial < 1.0:
+			Engine.time_scale = time_scale_during_tutorial
 
 func check_player_inside() -> void:
 	"""Check if player is currently inside this block. Used when rewind ends or during rewind."""
